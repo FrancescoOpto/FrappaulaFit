@@ -1,0 +1,14 @@
+# Decisioni app "Frappaula Fit" (aggiornato 27/10)
+- Nome: Frappaula Fit. 3 giorni/settimana, 60 min/seduta (meno serie per gruppi piccoli: braccia ecc.). Obiettivo: ipertrofia generale per entrambi; ordine blocchi: ipertrofia con forza → trasformazione → qualità.
+- Prima settimana = test (RM) come nell'app di riferimento; carichi derivano dai test, precompilati e modificabili; storico per serie ripreso la settimana dopo.
+- Due login separati, un solo DB gratuito; dati ciclo solo nell'account di lei; ciclo = suggerimento opzionale ("Applica / Lascia com'è"), indicazione dai libri non provata; non per contraccettivi ormonali/cicli irregolari.
+- Timer recupero per esercizio con beep + vibrazione in-app e notifica push programmata (da testare su iPhone: installare da Safari "Aggiungi a Home"; Android Chrome ok); piano B timer nativo.
+- Niente video: nome + icona stilizzata gruppo muscolare + tasto "Cerca su YouTube".
+- Fondamentali (primo esercizio del grande gruppo): panca piana, squat, military press, hip thrust (profilo lei). Dorso: NESSUN fondamentale; primo esercizio multiarticolare Target (trazioni zavorrate/rematore) con progressione da RM. Stacco da terra: CONFERMATO fondamentale (28/10 conferma utente); stacco rumeno complementare per lei.
+- Sostituzione esercizi: classi equivalenti; nuovo esercizio → test rapido o stima.
+- Da leggere ancora: libro glutei + libro allenamento femminile (arrivo materiale), altro materiale V Athlete.
+- Fonti ricerca web 27/10: Henselmans (composti vs isolamento; hip thrust vs squat, blog autore), RP volume landmarks, Stronger by Science (muscolo allungato).
+- Idea futura (utente): PDF unico del libro "Project Bodybuilding" con semiscansione delle foto per migliorarne la qualita'. Solo da tenere a mente per ora.
+- Libro letto: cap. 1-7 gia' in note; cap. 8-9 in cap8_9.md; cap. 10 in cap10.md (mancano pp. 362-365 Grow Bi-Split). Resta un libro/ebook al femminile (glutei) da ricevere.
+- Test (da utente): settimana test iniziale 4 sedute A-D con gli stessi esercizi delle fasi; fondamentali = massimale, Target = test ERM, complementari = peso inserito; alternative equivalenti (1-2 per esercizio) sostituibili in fase test; cambio esercizio in fasi avanzate senza ritest (si riusa peso dell'esercizio simile); nuova settimana di test prima di ogni blocco.
+- DECISIONE TEST (27/10 sera, delegata dall'utente): fondamentali = 3RM (1RM = carico/0,944); Target/complementari = 10 rip (multiarticolari) o 12 rip (macchine/isolamento/unilaterali) a cedimento tecnico, = rip di lavoro Fase 1 + 2; carico usato com'e' per tutto il blocco. Dettagli in MEMORIA_GENERALE.md.

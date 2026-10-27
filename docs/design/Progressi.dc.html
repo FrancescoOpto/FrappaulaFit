@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Progressi</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+body{margin:0;background:#0E0F11}
+a{text-decoration:none;color:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 900px; box-sizing: border-box; background: #0E0F11; color: #F3F4F6; font-family: 'Barlow', system-ui, sans-serif; padding: 20px 20px 40px; display: flex; flex-direction: column; gap: 22px;">
+
+<a href="Main.dc.html" style="height: 44px; display: flex; align-items: center; gap: 6px; font-size: 15px; color: #A9ADB5;">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Indietro</a>
+
+<div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 44px; line-height: 1;">Progressi</div>
+
+<div style="display: flex; gap: 8px; flex-wrap: wrap;">
+<button style="height: 44px; padding: 0 18px; border-radius: 999px; background: {{accent}}; border: 0; color: #FFFFFF; font-family: 'Barlow', sans-serif; font-weight: 600; font-size: 15px;">Panca piana</button>
+<button style="height: 44px; padding: 0 18px; border-radius: 999px; background: #17181B; border: 1px solid #2A2C31; color: #D5D8DE; font-family: 'Barlow', sans-serif; font-weight: 500; font-size: 15px;">Squat</button>
+<button style="height: 44px; padding: 0 18px; border-radius: 999px; background: #17181B; border: 1px solid #2A2C31; color: #D5D8DE; font-family: 'Barlow', sans-serif; font-weight: 500; font-size: 15px;">Stacco</button>
+<button style="height: 44px; padding: 0 18px; border-radius: 999px; background: #17181B; border: 1px solid #2A2C31; color: #D5D8DE; font-family: 'Barlow', sans-serif; font-weight: 500; font-size: 15px;">Military</button>
+</div>
+
+<div style="background: #17181B; border: 1px solid #2A2C31; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; justify-content: space-between; align-items: flex-end;">
+<div>
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.14em; color: #A9ADB5;">1RM STIMATO</div>
+<div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 56px; line-height: 1;">74,5 <span style="font-size: 24px; color: #A9ADB5;">kg</span></div>
+</div>
+<div style="font-size: 15px; font-weight: 600; color: #FF6B70; padding-bottom: 6px;">+4,5 kg dal test</div>
+</div>
+<svg width="100%" viewBox="0 0 350 205" role="img" aria-label="Grafico di esempio: massimale stimato della panca piana da 70 a 74,5 kg in sei settimane">
+<line x1="40" y1="20" x2="345" y2="20" stroke="#2A2C31"/>
+<line x1="40" y1="95" x2="345" y2="95" stroke="#2A2C31"/>
+<line x1="40" y1="170" x2="345" y2="170" stroke="#2A2C31"/>
+<text x="0" y="24" fill="#8A8E96" font-family="Barlow, sans-serif" font-size="12">76</text>
+<text x="0" y="99" fill="#8A8E96" font-family="Barlow, sans-serif" font-size="12">72</text>
+<text x="0" y="174" fill="#8A8E96" font-family="Barlow, sans-serif" font-size="12">68</text>
+<polyline points="55,132 112,104 169,86 226,67 283,57 340,48" fill="none" stroke="{{accent}}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="55" cy="132" r="5" fill="#17181B" stroke="{{accent}}" stroke-width="3"/>
+<circle cx="112" cy="104" r="5" fill="#17181B" stroke="{{accent}}" stroke-width="3"/>
+<circle cx="169" cy="86" r="5" fill="#17181B" stroke="{{accent}}" stroke-width="3"/>
+<circle cx="226" cy="67" r="5" fill="#17181B" stroke="{{accent}}" stroke-width="3"/>
+<circle cx="283" cy="57" r="5" fill="#17181B" stroke="{{accent}}" stroke-width="3"/>
+<circle cx="340" cy="48" r="7" fill="{{accent}}"/>
+<text x="55" y="198" text-anchor="middle" fill="#8A8E96" font-family="Barlow, sans-serif" font-size="12">S1</text>
+<text x="112" y="198" text-anchor="middle" fill="#8A8E96" font-family="Barlow, sans-serif" font-size="12">S2</text>
+<text x="169" y="198" text-anchor="middle" fill="#8A8E96" font-family="Barlow, sans-serif" font-size="12">S3</text>
+<text x="226" y="198" text-anchor="middle" fill="#8A8E96" font-family="Barlow, sans-serif" font-size="12">S4</text>
+<text x="283" y="198" text-anchor="middle" fill="#8A8E96" font-family="Barlow, sans-serif" font-size="12">S5</text>
+<text x="340" y="198" text-anchor="middle" fill="#8A8E96" font-family="Barlow, sans-serif" font-size="12">S6</text>
+</svg>
+<div style="font-size: 12px; color: #8A8E96;">Dati di esempio. Il grafico userà i tuoi test e i carichi che segni a ogni serie.</div>
+</div>
+
+<div style="display: flex; flex-direction: column;">
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.14em; color: #A9ADB5; padding-bottom: 6px;">ULTIME SEDUTE · PANCA PIANA</div>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-top: 1px solid #2A2C31;"><div><div style="font-size: 16px; font-weight: 500;">Lun 20 ott</div><div style="font-size: 13px; color: #8A8E96;">4 serie · 5 · 5 · 5 · 5</div></div><div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 24px;">60 kg</div></div>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-top: 1px solid #2A2C31;"><div><div style="font-size: 16px; font-weight: 500;">Lun 13 ott</div><div style="font-size: 13px; color: #8A8E96;">4 serie · 5 · 5 · 5 · 4</div></div><div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 24px;">57,5 kg</div></div>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-top: 1px solid #2A2C31;"><div><div style="font-size: 16px; font-weight: 500;">Lun 6 ott</div><div style="font-size: 13px; color: #8A8E96;">4 serie · 5 · 5 · 5 · 5</div></div><div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 24px;">55 kg</div></div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D92B33","options":["#D92B33","#E0482B","#C2185B","#2E7DD7"]},"$preview":{"width":390,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#D92B33' };
+  }
+}
+</script>
+</body>
+</html>

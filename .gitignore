@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dev-dist/
+.vite/
+*.log
+
+# Materiale originale (grande, con contenuti di terzi): non va nel repo pubblico
+materiale_zip/
+_da_eliminare/
+docs/testo_integrale/

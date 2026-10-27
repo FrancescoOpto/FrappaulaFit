@@ -1,0 +1,22 @@
+name: Keep-alive Supabase
+
+# I progetti gratuiti Supabase vengono messi in pausa dopo ~1 settimana senza richieste.
+# Richiede i segreti SUPABASE_URL e SUPABASE_ANON_KEY nel repository.
+
+on:
+  schedule:
+    - cron: '17 6 */5 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    if: ${{ vars.SUPABASE_KEEPALIVE != 'off' }}
+    steps:
+      - name: Interroga la vista keepalive
+        env:
+          URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then echo "Segreti non impostati: salto."; exit 0; fi
+          curl -sf "$URL/rest/v1/keepalive?select=adesso" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"

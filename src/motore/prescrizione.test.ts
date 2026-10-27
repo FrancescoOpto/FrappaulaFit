@@ -1,0 +1,128 @@
+import { describe, expect, it } from 'vitest';
+import { durataStimata, prescrizione, serieRip } from './prescrizione';
+import { RECUPERI_DEFAULT } from '../data/tabelle';
+import type { EsercizioSeduta, RisultatoTest } from '../tipi';
+
+const imp = { arrotondamento: 0.5 as const };
+const panca: EsercizioSeduta = { slot: 0, esercizio_id: 'panca_piana', ruolo: 'R1', gruppo: 'petto' };
+const pancaL: EsercizioSeduta = { slot: 0, esercizio_id: 'panca_piana', ruolo: 'L', gruppo: 'petto' };
+const squat: EsercizioSeduta = { slot: 0, esercizio_id: 'squat', ruolo: 'R1', gruppo: 'gambe' };
+const manubri: EsercizioSeduta = { slot: 1, esercizio_id: 'panca_manubri', ruolo: 'R2', gruppo: 'petto' };
+const spinteAlto: EsercizioSeduta = { slot: 2, esercizio_id: 'spinte_manubri_seduto', ruolo: 'R3', gruppo: 'spalle' };
+const crunch: EsercizioSeduta = { slot: 3, esercizio_id: 'crunch_cavo', ruolo: 'AB', gruppo: 'addome' };
+const croci: EsercizioSeduta = { slot: 4, esercizio_id: 'croci_manubri', ruolo: 'C', gruppo: 'petto', serie: 3, rip: 10 };
+
+const test: Record<string, RisultatoTest> = {
+  panca_piana: { esercizio_id: 'panca_piana', kg: 76.5, rip: 3, rm1: 81 },
+  squat: { esercizio_id: 'squat', kg: 74.5, rip: 3, rm1: 78.75 },
+  panca_manubri: { esercizio_id: 'panca_manubri', kg: 26, rip: 10 },
+  spinte_manubri_seduto: { esercizio_id: 'spinte_manubri_seduto', kg: 16, rip: 10 },
+  crunch_cavo: { esercizio_id: 'crunch_cavo', kg: 30, rip: 12 },
+  croci_manubri: { esercizio_id: 'croci_manubri', kg: 12, rip: 12 },
+};
+
+const p = (es: EsercizioSeduta, fase: 'fase1' | 'fase2' | 'fase3' | 'scarico', ciclo: number) =>
+  prescrizione(es, { fase, cicloFase: ciclo }, test, imp);
+
+const fmt = (es: EsercizioSeduta, fase: 'fase1' | 'fase2' | 'fase3' | 'scarico', ciclo: number) => {
+  const r = p(es, fase, ciclo);
+  return `${r.serie}x${r.rip}@${r.kg}`;
+};
+
+// Giorno A dell'app di riferimento (struttura_programma_vathlete.md), 1RM panca = 81.
+describe('Giorno A — panca piana R1', () => {
+  it('Fase 1: 4x5@63, 4x5@63, 4x6@63, 4x5@67.5, 4x5@67.5', () => {
+    expect([1, 2, 3, 4, 5].map((c) => fmt(panca, 'fase1', c))).toEqual(['4x5@63', '4x5@63', '4x6@63', '4x5@67.5', '4x5@67.5']);
+  });
+  it('Fase 2: 3x6@67.5, 3x6@67.5, 4x6@67.5, 4x6@67.5, 3x7@67.5', () => {
+    expect([1, 2, 3, 4, 5].map((c) => fmt(panca, 'fase2', c))).toEqual(['3x6@67.5', '3x6@67.5', '4x6@67.5', '4x6@67.5', '3x7@67.5']);
+  });
+  it('Scarico: 3x7@58.5', () => {
+    expect(fmt(panca, 'scarico', 1)).toBe('3x7@58.5');
+  });
+  it('Fase 3: 3x5@72, 3x5@72, 4x5@72, 4x5@72, 4x3@76.5', () => {
+    expect([1, 2, 3, 4, 5].map((c) => fmt(panca, 'fase3', c))).toEqual(['3x5@72', '3x5@72', '4x5@72', '4x5@72', '4x3@76.5']);
+  });
+});
+
+describe('Giorno B — squat R1 (1RM 78,75)', () => {
+  it('Fase 1: 61.5 → 65.5', () => {
+    expect([1, 3, 4].map((c) => fmt(squat, 'fase1', c))).toEqual(['4x5@61.5', '4x6@61.5', '4x5@65.5']);
+  });
+  it('Fase 3: 70 → 74.5', () => {
+    expect([2, 5].map((c) => fmt(squat, 'fase3', c))).toEqual(['3x5@70', '4x3@74.5']);
+  });
+  it('Scarico: 3x7@57', () => {
+    expect(fmt(squat, 'scarico', 1)).toBe('3x7@57');
+  });
+});
+
+describe('Panca in giorno C (fondamentale leggero L)', () => {
+  it('Fase 1 11RM 58.5, Fase 2 9RM 63, Fase 3 c3 7RM 67.5, Scarico 13RM 54', () => {
+    expect(fmt(pancaL, 'fase1', 3)).toBe('3x9@58.5');
+    expect(fmt(pancaL, 'fase1', 5)).toBe('3x10@58.5');
+    expect(fmt(pancaL, 'fase2', 1)).toBe('3x8@63');
+    expect(fmt(pancaL, 'fase3', 1)).toBe('3x10@63');
+    expect(fmt(pancaL, 'fase3', 3)).toBe('3x8@67.5');
+    expect(fmt(pancaL, 'scarico', 1)).toBe('3x10@54');
+  });
+});
+
+describe('Target R2/R3 a carico fisso', () => {
+  it('R2 spinte manubri: F1 3x8→4x8, F2 3x9→4x9, F3 3x7,4x7,3x8,4x8,3x6, scarico 3x9', () => {
+    expect([1, 2, 3, 4, 5].map((c) => fmt(manubri, 'fase1', c))).toEqual(['3x8@26', '3x8@26', '4x8@26', '4x8@26', '4x8@26']);
+    expect([1, 3, 5].map((c) => fmt(manubri, 'fase2', c))).toEqual(['3x9@26', '4x9@26', '4x9@26']);
+    expect([1, 2, 3, 4, 5].map((c) => fmt(manubri, 'fase3', c))).toEqual(['3x7@26', '4x7@26', '3x8@26', '4x8@26', '3x6@26']);
+    expect(fmt(manubri, 'scarico', 1)).toBe('3x9@26');
+  });
+  it('R3 spinte in alto: F1 +1 serie a ciclo 4; F2 3x9…3x10; F3 3x8,4x8,4x8,3x9,3x10; scarico 2x10', () => {
+    expect([1, 3, 4].map((c) => fmt(spinteAlto, 'fase1', c))).toEqual(['3x8@16', '3x8@16', '4x8@16']);
+    expect([1, 3, 5].map((c) => fmt(spinteAlto, 'fase2', c))).toEqual(['3x9@16', '4x9@16', '3x10@16']);
+    expect([1, 2, 3, 4, 5].map((c) => fmt(spinteAlto, 'fase3', c))).toEqual(['3x8@16', '4x8@16', '4x8@16', '3x9@16', '3x10@16']);
+    expect(fmt(spinteAlto, 'scarico', 1)).toBe('2x10@16');
+  });
+  it('AB crunch: 3x12 fisso in F1, 3x13→3x15 in F2, scarico 2x12', () => {
+    expect([1, 5].map((c) => fmt(crunch, 'fase1', c))).toEqual(['3x12@30', '3x12@30']);
+    expect([1, 3, 5].map((c) => fmt(crunch, 'fase2', c))).toEqual(['3x13@30', '3x14@30', '3x15@30']);
+    expect(fmt(crunch, 'scarico', 1)).toBe('2x12@30');
+  });
+  it('C: fisso in F1, rip+1 in F2, serie−1 in scarico', () => {
+    expect(fmt(croci, 'fase1', 1)).toBe('3x10@12');
+    expect(fmt(croci, 'fase2', 3)).toBe('3x11@12');
+    expect(fmt(croci, 'fase3', 5)).toBe('3x10@12');
+    expect(fmt(croci, 'scarico', 1)).toBe('2x10@12');
+    expect(serieRip('C', 'scarico', 1, { serie: 2, rip: 12 })).toEqual([2, 12]);
+  });
+});
+
+describe('Autocorrezione e casi limite', () => {
+  it('correzione −2,5% sul 1RM', () => {
+    const r = prescrizione(panca, { fase: 'fase1', cicloFase: 1 }, test, imp, -0.025);
+    expect(r.kg).toBe(61.5);
+  });
+  it('senza test il carico è undefined ma serie×rip restano', () => {
+    const r = prescrizione(panca, { fase: 'fase1', cicloFase: 1 }, {}, imp);
+    expect(r.kg).toBeUndefined();
+    expect(r.serie).toBe(4);
+  });
+  it('fase di test: 3RM per R1, ripetizioni_test per gli altri', () => {
+    expect(prescrizione(panca, { fase: 'test', cicloFase: 1 }, {}, imp).rip).toBe(3);
+    expect(prescrizione(manubri, { fase: 'test', cicloFase: 1 }, {}, imp).rip).toBe(10);
+    expect(prescrizione(croci, { fase: 'test', cicloFase: 1 }, {}, imp).rip).toBe(12);
+  });
+});
+
+describe('durataStimata', () => {
+  it('riscaldamento + serie × (45 + recupero); superserie condividono il recupero', () => {
+    const d = durataStimata([{ ruolo: 'R1', serie: 4 }], RECUPERI_DEFAULT);
+    expect(d).toBe(480 + 4 * (45 + 150));
+    const ss = durataStimata(
+      [
+        { ruolo: 'C', serie: 3, superserie: 'braccia' },
+        { ruolo: 'C', serie: 3, superserie: 'braccia' },
+      ],
+      RECUPERI_DEFAULT,
+    );
+    expect(ss).toBe(480 + 3 * (45 + 90) + 3 * 45);
+  });
+});

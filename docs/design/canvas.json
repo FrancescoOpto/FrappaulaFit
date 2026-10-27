@@ -1,0 +1,20 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-27T17:50:00Z" },
+  "title": "Frappaula Fit – layout app",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 390, "h": 844, "title": "1 · Oggi", "is_interactive": true },
+    "Seduta.dc.html": { "x": 470, "y": 0, "w": 390, "h": 1180, "title": "2 · Seduta", "is_interactive": true },
+    "Esercizio.dc.html": { "x": 940, "y": 0, "w": 390, "h": 1100, "title": "3 · Esercizio e timer", "is_interactive": true },
+    "TestRM.dc.html": { "x": 0, "y": 1300, "w": 390, "h": 960, "title": "4 · Settimana di test", "is_interactive": true },
+    "Checkin.dc.html": { "x": 470, "y": 1300, "w": 390, "h": 900, "title": "5 · Check-in (profilo di lei)", "is_interactive": true },
+    "Progressi.dc.html": { "x": 940, "y": 1300, "w": 390, "h": 900, "title": "6 · Progressi", "is_interactive": true }
+  },
+  "order": ["Main.dc.html", "Seduta.dc.html", "Esercizio.dc.html", "TestRM.dc.html", "Checkin.dc.html", "Progressi.dc.html"],
+  "notes": {
+    "titolo": { "x": 0, "y": -260, "text": "Frappaula Fit · schermate principali (bozza 1)", "kind": "title1", "maxW": 1330 }
+  },
+  "designSystems": []
+}

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Settimana di test</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+body{margin:0;background:#0E0F11}
+a{text-decoration:none;color:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 960px; box-sizing: border-box; background: #0E0F11; color: #F3F4F6; font-family: 'Barlow', system-ui, sans-serif; padding: 20px 20px 40px; display: flex; flex-direction: column; gap: 20px;">
+
+<a href="Main.dc.html" style="height: 44px; display: flex; align-items: center; gap: 6px; font-size: 15px; color: #A9ADB5;">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Indietro</a>
+
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.14em; color: #FF6B70;">SETTIMANA DI TEST · 1 DI 5 ESERCIZI</div>
+<div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 44px; line-height: 1;">Test: panca piana</div>
+<div style="font-size: 15px; color: #A9ADB5; line-height: 1.4;">Scegli un peso con cui fai 6-10 ripetizioni pulite fino al cedimento tecnico. Non contarle mentre le fai: le segni dopo.</div>
+</div>
+
+<div style="display: flex; gap: 12px;">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+<label for="peso" style="font-size: 13px; color: #A9ADB5;">Peso usato (kg)</label>
+<input id="peso" value="60" style="height: 64px; box-sizing: border-box; border-radius: 14px; background: #17181B; border: 1px solid #2A2C31; color: #F3F4F6; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 36px; text-align: center;">
+</div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+<label for="rip" style="font-size: 13px; color: #A9ADB5;">Ripetizioni fatte</label>
+<input id="rip" value="8" style="height: 64px; box-sizing: border-box; border-radius: 14px; background: #17181B; border: 1px solid #2A2C31; color: #F3F4F6; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 36px; text-align: center;">
+</div>
+</div>
+
+<div style="background: #17181B; border: 1px solid #2A2C31; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.14em; color: #A9ADB5;">MASSIMALE STIMATO (1RM)</div>
+<div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 64px; line-height: 1;">74,5 <span style="font-size: 26px; color: #A9ADB5;">kg</span></div>
+<div style="font-size: 13px; color: #8A8E96;">Formula: peso × 36 ÷ (37 − ripetizioni), arrotondato a 0,5 kg</div>
+<div style="margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: #202226; font-size: 13px; color: #D5D8DE; line-height: 1.4;">Sopra le 10 ripetizioni la stima diventa poco affidabile: in quel caso l'app ti chiede di rifare il test con più peso.</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.14em; color: #A9ADB5; padding-bottom: 6px;">CARICHI FASE 1 (ESEMPIO)</div>
+<div style="display: flex; justify-content: space-between; padding: 12px 0; border-top: 1px solid #2A2C31;"><span style="font-size: 16px;">Panca piana · 4×5</span><span style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 22px;">63 kg</span></div>
+<div style="font-size: 13px; color: #8A8E96; padding-bottom: 4px;">≈ 85% del massimale, arrotondato ai dischi che hai a disposizione.</div>
+</div>
+
+<div style="display: flex; flex-direction: column;">
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.14em; color: #A9ADB5; padding-bottom: 6px;">TEST DELLA SETTIMANA</div>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid #2A2C31;"><span>Panca piana</span><span style="padding: 3px 10px; border-radius: 999px; background: {{accent}}; color: #FFFFFF; font-size: 12px; font-weight: 600;">in corso</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid #2A2C31;"><span>Squat</span><span style="font-size: 13px; color: #8A8E96;">da fare</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid #2A2C31;"><span>Stacco da terra</span><span style="font-size: 13px; color: #8A8E96;">da fare</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid #2A2C31;"><span>Military press</span><span style="font-size: 13px; color: #8A8E96;">da fare</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid #2A2C31;"><span>Trazioni zavorrate</span><span style="font-size: 13px; color: #8A8E96;">da fare</span></div>
+</div>
+
+<button style="height: 54px; border-radius: 14px; background: {{accent}}; border: 0; color: #FFFFFF; font-family: 'Barlow', sans-serif; font-weight: 600; font-size: 17px;">Salva test</button>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D92B33","options":["#D92B33","#E0482B","#C2185B","#2E7DD7"]},"$preview":{"width":390,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#D92B33' };
+  }
+}
+</script>
+</body>
+</html>

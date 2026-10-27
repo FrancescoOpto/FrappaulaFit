@@ -1,0 +1,178 @@
+import { useEffect, useState } from 'preact/hooks';
+import type { SerieRegistrata } from '../../tipi';
+import { NOMI_GRUPPI, esercizio as trovaEsercizio, linkYoutube } from '../../data/esercizi';
+import { NOMI_FASI } from '../../data/tabelle';
+import { percentualeRM } from '../../motore/carichi';
+import { prescrizione } from '../../motore/prescrizione';
+import {
+  aggiornaNota,
+  aggiornaSerie,
+  aggiungiStripping,
+  blocco,
+  iniziaSeduta,
+  profilo,
+  registroDi,
+  registroPrecedente,
+  sedutaPerId,
+  stato,
+} from '../../store/stato';
+import { Avviso, Badge, Testata, formatoKg } from '../componenti/comuni';
+import { aggiungiSecondi, attivo, avviaTimer, fermaTimer, formatoMMSS, rimanente, timer } from '../timer';
+import { vai } from '../router';
+
+function RigaSerie({ sedutaId, slot, x, soloLettura, recupero, etichetta }: { sedutaId: string; slot: number; x: SerieRegistrata; soloLettura: boolean; recupero: number; etichetta: string }) {
+  const [kg, setKg] = useState(x.kg !== undefined ? String(x.kg) : x.kg_prev ? String(x.kg_prev) : '');
+  const [rip, setRip] = useState(x.rip !== undefined ? String(x.rip) : String(x.rip_prev));
+  // Se l'autocorrezione cambia il previsto (−5 %) e l'utente non ha ancora scritto nulla, aggiorna il campo.
+  useEffect(() => {
+    if (x.kg === undefined) setKg(x.kg_prev ? String(x.kg_prev) : '');
+  }, [x.kg_prev]);
+  const numeri = () => {
+    const k = parseFloat(kg.replace(',', '.'));
+    const r = parseInt(rip, 10);
+    return { kg: Number.isFinite(k) ? k : undefined, rip: Number.isFinite(r) ? r : undefined };
+  };
+  const salvaCampi = () => {
+    if (soloLettura) return;
+    void aggiornaSerie(sedutaId, slot, x.n, numeri());
+  };
+  const toggle = () => {
+    if (soloLettura) return;
+    if (x.fatta) {
+      void aggiornaSerie(sedutaId, slot, x.n, { fatta: false });
+      return;
+    }
+    const v = numeri();
+    void aggiornaSerie(sedutaId, slot, x.n, { ...v, fatta: true });
+    avviaTimer(recupero, etichetta);
+  };
+  return (
+    <div class={`serie-riga ${x.fatta ? 'fatta' : ''}`}>
+      <div class="n">{x.stripping ? '−30%' : x.n}</div>
+      <div>
+        <input type="number" inputMode="decimal" step="0.5" min="0" value={kg} disabled={soloLettura} onInput={(e) => setKg((e.target as HTMLInputElement).value)} onBlur={salvaCampi} aria-label={`kg serie ${x.n}`} />
+        <div class="prev">{x.kg_prev ? `prev. ${formatoKg(x.kg_prev)}` : 'kg'}</div>
+      </div>
+      <div>
+        <input type="number" inputMode="numeric" min="0" value={rip} disabled={soloLettura} onInput={(e) => setRip((e.target as HTMLInputElement).value)} onBlur={salvaCampi} aria-label={`ripetizioni serie ${x.n}`} />
+        <div class="prev">{x.stripping ? 'a cedimento' : `prev. ${x.rip_prev} rip`}</div>
+      </div>
+      <button class={`bottone piccolo ${x.fatta ? 'primario' : ''}`} style="min-height:46px;min-width:70px" disabled={soloLettura} onClick={toggle}>
+        {x.fatta ? '✓' : 'Fatta'}
+      </button>
+    </div>
+  );
+}
+
+export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }) {
+  void stato.value;
+  const s = sedutaPerId(sedutaId);
+  const b = blocco.value;
+  const p = profilo.value;
+  const es = s?.esercizi.find((e) => e.slot === slot);
+  if (!s || !b || !p || !es) return <div class="pagina"><Testata /><p class="muto">Esercizio non trovato.</p></div>;
+
+  const def = trovaEsercizio(es.esercizio_id, p.esercizi_personalizzati);
+  const correzione = b.correzioni[es.esercizio_id] ?? 0;
+  const pr = prescrizione(es, s, b.test, p.impostazioni, correzione);
+  const reg = registroDi(s.id);
+  const regEs = reg?.esercizi[slot];
+  const soloLettura = s.stato !== 'in_corso';
+  const recupero = p.impostazioni.recuperi[es.ruolo];
+  const prec = registroPrecedente(s.id, es.esercizio_id);
+  const idx = s.esercizi.findIndex((e) => e.slot === slot);
+  const precEs = s.esercizi[idx - 1];
+  const succEs = s.esercizi[idx + 1];
+  const ultimoDelGruppo = !s.esercizi.slice(idx + 1).some((e) => e.gruppo === es.gruppo);
+  const strippingPossibile = p.impostazioni.stripping && s.fase === 'fase2' && ultimoDelGruppo && regEs && !regEs.serie.some((x) => x.stripping);
+  const [nota, setNota] = useState(regEs?.nota ?? '');
+  const t = timer.value;
+  const inTimer = attivo.value;
+
+  return (
+    <div class="pagina">
+      <Testata sopratitolo={`${s.nome} · ${NOMI_FASI[s.fase]} · ciclo ${s.cicloFase}`} />
+      <div class="colonna" style="gap:8px">
+        <div class="riga" style="gap:8px"><Badge ruolo={es.ruolo} /><span class="piccolo">{NOMI_GRUPPI[es.gruppo]}</span></div>
+        <h1 style="font-size:34px">{def?.nome ?? es.esercizio_id}</h1>
+        <div class="riga" style="gap:10px;flex-wrap:wrap">
+          <span class="chip"><b>{pr.serie}×{pr.rip}</b>&nbsp;@ {pr.kg !== undefined ? formatoKg(pr.kg) : '—'}</span>
+          {pr.scalaRM ? <span class="chip">{pr.scalaRM}RM · {Math.round(percentualeRM(pr.scalaRM) * 100)}% del massimale</span> : null}
+          <span class="chip">recupero {recupero}″</span>
+        </div>
+        {correzione ? <p class="piccolo">Carico corretto del {Math.round(correzione * 1000) / 10}% per ripetizioni mancate nei cicli precedenti (modificabile in Impostazioni → Test).</p> : null}
+        {pr.kg === undefined && s.fase !== 'test' ? <Avviso>Nessun test per questo esercizio: inserisci il carico a mano o aggiungi il test da Impostazioni → Test.</Avviso> : null}
+      </div>
+
+      {(inTimer || (t && t.fine > Date.now() - 5000)) && t ? (
+        <div class="carta timer-grande">
+          <div class="piccolo">Recupero</div>
+          <div class={`tempo ${rimanente.value === 0 ? 'finito' : ''}`}>{rimanente.value === 0 ? 'Vai!' : formatoMMSS(rimanente.value)}</div>
+          <div class="griglia3 spazio-sopra">
+            <button class="bottone piccolo" onClick={() => aggiungiSecondi(-15)}>−15″</button>
+            <button class="bottone piccolo" onClick={() => aggiungiSecondi(30)}>+30″</button>
+            <button class="bottone piccolo" onClick={fermaTimer}>Salta</button>
+          </div>
+        </div>
+      ) : null}
+
+      {s.stato === 'futura' ? (
+        <Avviso tipo="info">
+          Seduta non ancora iniziata.{' '}
+          {b.sedute.find((x) => x.stato !== 'completata')?.id === s.id ? <button class="bottone piccolo" style="margin-left:6px" onClick={() => void iniziaSeduta(s.id)}>Inizia ora</button> : 'Potrai registrare le serie quando sarà il suo turno.'}
+        </Avviso>
+      ) : null}
+
+      {regEs ? (
+        <div class="carta">
+          <div class="riga spazio"><h3>Serie</h3><span class="piccolo">tocca “Fatta” per avviare il recupero</span></div>
+          {regEs.serie.map((x) => (
+            <RigaSerie key={`${x.n}-${es.esercizio_id}`} sedutaId={s.id} slot={slot} x={x} soloLettura={soloLettura} recupero={recupero} etichetta={def?.nome ?? ''} />
+          ))}
+          {strippingPossibile && !soloLettura ? (
+            <button class="bottone fantasma pieno" onClick={() => void aggiungiStripping(s.id, slot)}>Aggiungi serie extra a −30% (stripping)</button>
+          ) : null}
+        </div>
+      ) : (
+        <div class="carta">
+          <h3>Serie previste</h3>
+          {Array.from({ length: pr.serie }, (_, i) => (
+            <div class="riga spazio muto"><span>Serie {i + 1}</span><span>{pr.rip} rip @ {pr.kg !== undefined ? formatoKg(pr.kg) : '—'}</span></div>
+          ))}
+        </div>
+      )}
+
+      {prec ? (
+        <div class="carta compatta">
+          <div class="riga spazio"><h3>Ciclo scorso</h3><span class="piccolo">{prec.seduta.nome} · ciclo {prec.seduta.cicloFase}</span></div>
+          <div class="riga" style="flex-wrap:wrap;gap:6px">
+            {prec.es.serie.filter((x) => x.fatta).map((x) => (
+              <span class="chip">{x.kg ?? x.kg_prev}×{x.rip ?? x.rip_prev}{x.stripping ? ' (−30%)' : ''}</span>
+            ))}
+          </div>
+          {prec.es.nota ? <p class="piccolo">“{prec.es.nota}”</p> : null}
+        </div>
+      ) : null}
+
+      <div class="carta compatta">
+        <h3>Note</h3>
+        <textarea value={nota} disabled={soloLettura && !regEs} placeholder="Sensazioni, presa, regolazioni della macchina…" onInput={(e) => setNota((e.target as HTMLTextAreaElement).value)} onBlur={() => regEs && void aggiornaNota(s.id, slot, nota)} />
+      </div>
+
+      {def ? (
+        <a class="bottone pieno" href={linkYoutube(def)} target="_blank" rel="noopener noreferrer">
+          ▶ Cerca su YouTube
+        </a>
+      ) : null}
+
+      <div class="griglia2">
+        <button class="bottone" disabled={!precEs} onClick={() => precEs && vai(`/seduta/${s.id}/es/${precEs.slot}`)}>← Precedente</button>
+        {succEs ? (
+          <button class="bottone" onClick={() => vai(`/seduta/${s.id}/es/${succEs.slot}`)}>Successivo →</button>
+        ) : (
+          <button class="bottone primario" onClick={() => vai(`/seduta/${s.id}`)}>Riepilogo seduta</button>
+        )}
+      </div>
+    </div>
+  );
+}
