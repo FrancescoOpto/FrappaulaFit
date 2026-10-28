@@ -48,7 +48,7 @@ npm run preview    # anteprima della build su http://localhost:4173/FrappaulaFit
 
 ## Pubblicazione
 
-Push su `main` → GitHub Action `deploy.yml` costruisce e pubblica su GitHub Pages (`https://francescoopto.github.io/FrappaulaFit/`). Nelle impostazioni del repository, Pages deve essere impostato su "GitHub Actions".
+Push su `main` → GitHub Action `deploy.yml` costruisce e pubblica su GitHub Pages: **https://francescoopto.github.io/FrappaulaFit/** (Pages impostato su "GitHub Actions").
 
 Installazione sul telefono: Android Chrome → menu → "Installa app"; iPhone Safari → Condividi → "Aggiungi alla schermata Home".
 
