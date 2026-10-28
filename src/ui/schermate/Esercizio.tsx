@@ -3,16 +3,18 @@ import type { SerieRegistrata } from '../../tipi';
 import { NOMI_GRUPPI, esercizio as trovaEsercizio, linkYoutube } from '../../data/esercizi';
 import { NOMI_FASI } from '../../data/tabelle';
 import { percentualeRM } from '../../motore/carichi';
-import { prescrizione } from '../../motore/prescrizione';
 import {
   aggiornaNota,
   aggiornaSerie,
   aggiungiStripping,
   blocco,
+  caricoCorrenteDi,
   iniziaSeduta,
+  prescrizioneDi,
   profilo,
   registroDi,
   registroPrecedente,
+  ripristinaCaricoPiano,
   sedutaPerId,
   stato,
 } from '../../store/stato';
@@ -51,7 +53,7 @@ function RigaSerie({ sedutaId, slot, x, soloLettura, recupero, etichetta }: { se
       <div class="n">{x.stripping ? '−30%' : x.n}</div>
       <div>
         <input type="number" inputMode="decimal" step="0.5" min="0" value={kg} disabled={soloLettura} onInput={(e) => setKg((e.target as HTMLInputElement).value)} onBlur={salvaCampi} aria-label={`kg serie ${x.n}`} />
-        <div class="prev">{x.kg_prev ? `prev. ${formatoKg(x.kg_prev)}` : 'kg'}</div>
+        <div class="prev">{x.kg_piano !== undefined && x.kg_piano !== x.kg_prev ? `piano ${x.kg_piano} kg` : x.kg_prev ? `prev. ${formatoKg(x.kg_prev)}` : 'kg'}</div>
       </div>
       <div>
         <input type="number" inputMode="numeric" min="0" value={rip} disabled={soloLettura} onInput={(e) => setRip((e.target as HTMLInputElement).value)} onBlur={salvaCampi} aria-label={`ripetizioni serie ${x.n}`} />
@@ -74,7 +76,8 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
 
   const def = trovaEsercizio(es.esercizio_id, p.esercizi_personalizzati);
   const correzione = b.correzioni[es.esercizio_id] ?? 0;
-  const pr = prescrizione(es, s, b.test, p.impostazioni, correzione);
+  const pr = prescrizioneDi(es, s);
+  const corrente = caricoCorrenteDi(es.esercizio_id);
   const reg = registroDi(s.id);
   const regEs = reg?.esercizi[slot];
   const soloLettura = s.stato !== 'in_corso';
@@ -101,6 +104,14 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
           <span class="chip">recupero {recupero}″</span>
         </div>
         {correzione ? <p class="piccolo">Carico corretto del {Math.round(correzione * 1000) / 10}% per ripetizioni mancate nei cicli precedenti (modificabile in Impostazioni → Test).</p> : null}
+        {corrente && s.fase !== 'test' ? (
+          <div class="riga spazio" style="flex-wrap:wrap;gap:8px">
+            <span class="piccolo">
+              Carico scelto da te{corrente.fattore ? ` (×${corrente.fattore})` : ''} · piano: {formatoKg(pr.kgPiano)}
+            </span>
+            {!soloLettura || s.stato === 'futura' ? <button class="bottone piccolo fantasma" onClick={() => void ripristinaCaricoPiano(es.esercizio_id, s.stato === 'in_corso' ? s.id : undefined)}>Ripristina carico del piano</button> : null}
+          </div>
+        ) : null}
         {pr.kg === undefined && s.fase !== 'test' ? <Avviso>Nessun test per questo esercizio: inserisci il carico a mano o aggiungi il test da Impostazioni → Test.</Avviso> : null}
       </div>
 
@@ -129,6 +140,7 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
           {regEs.serie.map((x) => (
             <RigaSerie key={`${x.n}-${es.esercizio_id}`} sedutaId={s.id} slot={slot} x={x} soloLettura={soloLettura} recupero={recupero} etichetta={def?.nome ?? ''} />
           ))}
+          <p class="piccolo">Il kg che scrivi diventa il carico di questo esercizio anche per le sedute successive.</p>
           {strippingPossibile && !soloLettura ? (
             <button class="bottone fantasma pieno" onClick={() => void aggiungiStripping(s.id, slot)}>Aggiungi serie extra a −30% (stripping)</button>
           ) : null}

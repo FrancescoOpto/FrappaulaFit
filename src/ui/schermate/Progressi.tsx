@@ -75,6 +75,28 @@ export function Progressi({ esercizioId }: { esercizioId?: string }) {
     return m;
   }, [registro, b]);
 
+  // Storico dei massimali per blocco (TEST_INIZIO_BLOCCO §1c): un punto per blocco, blocco corrente evidenziato.
+  const massimali = useMemo(() => {
+    const blocchi = [...stato.value.blocchiPassati, ...(b ? [b] : [])];
+    const perEs = new Map<string, { blocco: number; rm1: number; corrente: boolean }[]>();
+    for (const bl of blocchi) {
+      for (const t of Object.values(bl.test)) {
+        if (t.modo !== 'stima' || !t.rm1) continue;
+        const arr = perEs.get(t.esercizio_id) ?? [];
+        arr.push({ blocco: bl.numero, rm1: t.rm1, corrente: bl.id === b?.id });
+        perEs.set(t.esercizio_id, arr);
+      }
+    }
+    return [...perEs.entries()].map(([id, punti]) => {
+      punti.sort((x, y) => x.blocco - y.blocco);
+      const ultimo = punti[punti.length - 1];
+      const prec = punti[punti.length - 2];
+      const delta = prec ? Math.round((ultimo.rm1 - prec.rm1) * 2) / 2 : null;
+      const deltaPct = prec ? Math.round(((ultimo.rm1 - prec.rm1) / prec.rm1) * 1000) / 10 : 0;
+      return { id, nome: trovaEsercizio(id, p?.esercizi_personalizzati)?.nome ?? id, punti, delta, deltaPct };
+    });
+  }, [b, stato.value.blocchiPassati]);
+
   const ids = [...storico.keys()].sort((a, c) => (trovaEsercizio(a, p?.esercizi_personalizzati)?.nome ?? a).localeCompare(trovaEsercizio(c, p?.esercizi_personalizzati)?.nome ?? c));
   const scelto = esercizioId && storico.has(esercizioId) ? esercizioId : undefined;
   const punti = scelto ? storico.get(scelto)! : [];
@@ -135,6 +157,25 @@ export function Progressi({ esercizioId }: { esercizioId?: string }) {
           })}
         </div>
       )}
+
+      {massimali.length ? (
+        <div class="carta">
+          <h2>Massimali per blocco</h2>
+          <p class="piccolo">Il massimale stimato non è un carico di allenamento: misura la crescita tra un blocco e l'altro e dà le percentuali degli RM.</p>
+          {massimali.map((m) => (
+            <div class="colonna" style="gap:6px;padding:8px 0;border-top:1px solid var(--bordo)">
+              <div class="riga spazio">
+                <h3>{m.nome}</h3>
+                {m.delta !== null ? <span class={`badge ${m.delta >= 0 ? 'verde' : 'giallo'}`}>{m.delta >= 0 ? '+' : ''}{m.delta} kg · {m.deltaPct >= 0 ? '+' : ''}{m.deltaPct}%</span> : <span class="piccolo">primo test</span>}
+              </div>
+              <div class="riga" style="flex-wrap:wrap;gap:6px">
+                {m.punti.map((x) => <span class="chip" style={x.corrente ? 'border:1px solid var(--accento);color:var(--testo)' : ''}>B{x.blocco} · {x.rm1} kg</span>)}
+              </div>
+              {m.punti.length > 1 ? <Grafico punti={m.punti.map((x) => ({ x: 0, y: x.rm1, etichetta: `B${x.blocco}` }))} unita="" /> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {b && Object.keys(b.test).length ? (
         <div class="carta">

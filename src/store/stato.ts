@@ -1,8 +1,10 @@
 import { signal, computed, batch } from '@preact/signals';
 import type {
   Blocco,
+  CaricoCorrente,
   Checkin,
   Esercizio,
+  EsercizioSeduta,
   Impostazioni,
   ParametriGeneratore,
   Profilo,
@@ -19,6 +21,7 @@ import { AUTOCORREZIONE_CICLO, AUTOCORREZIONE_SERIE, RECUPERI_DEFAULT, STRIPPING
 import { nuovoBlocco, rigeneraSeduteFuture } from '../motore/generatore';
 import { prescrizione } from '../motore/prescrizione';
 import { arrotonda, stimaMassimale } from '../motore/carichi';
+import { nuovoCaricoCorrente } from '../motore/correnti';
 import { ESERCIZI_PER_ID } from '../data/esercizi';
 
 // Stato globale con signals. Ogni mutazione passa da `aggiorna`, che salva la chiave toccata.
@@ -159,7 +162,10 @@ export async function salvaTest(esercizio_id: string, kg: number, rip: number, m
   if (!b || !p) return;
   const r: RisultatoTest = { esercizio_id, kg, rip, modo };
   if (modo === 'stima') r.rm1 = stimaMassimale(rip, kg, p.impostazioni.arrotondamento);
-  await aggiorna({ blocco: { ...b, test: { ...b.test, [esercizio_id]: r } } }, ['blocco']);
+  // Un nuovo test è un nuovo carico base: il carico corrente scelto prima non vale più.
+  const carichiCorrenti = { ...(b.carichiCorrenti ?? {}) };
+  delete carichiCorrenti[esercizio_id];
+  await aggiorna({ blocco: { ...b, test: { ...b.test, [esercizio_id]: r }, carichiCorrenti } }, ['blocco']);
 }
 
 /** Ultimo test dello stesso esercizio nei blocchi passati (suggerimento per il ritest, TEST_INIZIO_BLOCCO §3). */
@@ -232,9 +238,9 @@ export async function iniziaSeduta(id: string): Promise<void> {
   }
   const reg: RegistroSeduta = { seduta_id: id, iniziata: new Date().toISOString(), esercizi: {} };
   for (const e of s.esercizi) {
-    const pr = prescrizione(e, s, b.test, p.impostazioni, b.correzioni[e.esercizio_id] ?? 0);
+    const pr = prescrizioneDi(e, s);
     const serie: SerieRegistrata[] = [];
-    for (let n = 1; n <= pr.serie; n++) serie.push({ n, kg_prev: pr.kg ?? 0, rip_prev: pr.rip, fatta: false });
+    for (let n = 1; n <= pr.serie; n++) serie.push({ n, kg_prev: pr.kg ?? 0, kg_piano: pr.kgPiano, rip_prev: pr.rip, fatta: false });
     reg.esercizi[e.slot] = { esercizio_id: e.esercizio_id, serie };
   }
   batch(() => {});
@@ -246,21 +252,72 @@ export function registroDi(id: string): RegistroSeduta | undefined {
   return stato.value.registro[id];
 }
 
-/** Aggiorna una serie (kg/rip/fatta). Autocorrezione in seduta: rip < previste → serie successiva a −5% (SPEC §7). */
+/** Carico corrente di un esercizio nel blocco (SPEC §9.2b). */
+export function caricoCorrenteDi(esercizio_id: string): CaricoCorrente | undefined {
+  return stato.value.blocco?.carichiCorrenti?.[esercizio_id];
+}
+
+/** Prescrizione completa di un esercizio in una seduta: test, correzioni, promozioni e carico corrente. */
+export function prescrizioneDi(e: EsercizioSeduta, s: Pick<Seduta, 'fase' | 'cicloFase'>) {
+  const b = stato.value.blocco!;
+  const p = stato.value.profilo!;
+  return prescrizione(e, s, b.test, p.impostazioni, b.correzioni[e.esercizio_id] ?? 0, p.fondamentali_promossi ?? [], b.carichiCorrenti?.[e.esercizio_id]);
+}
+
+/**
+ * Aggiorna una serie (kg/rip/fatta). Autocorrezione in seduta: rip < previste → serie successiva a −5% (SPEC §7).
+ * Un kg scritto dall'utente diverso dal precompilato diventa il carico corrente dell'esercizio e precompila
+ * le serie rimanenti e le sedute successive (SPEC §9.2b).
+ */
 export async function aggiornaSerie(sedutaId: string, slot: number, n: number, mod: Partial<SerieRegistrata>): Promise<void> {
   const reg = stato.value.registro[sedutaId];
   const p = stato.value.profilo;
-  if (!reg || !p) return;
+  const b = stato.value.blocco;
+  const s = sedutaPerId(sedutaId);
+  if (!reg || !p || !b || !s) return;
   const es = reg.esercizi[slot];
   if (!es) return;
   const serie = es.serie.map((x) => (x.n === n ? { ...x, ...mod } : { ...x }));
   const corrente = serie.find((x) => x.n === n)!;
+  const prima = es.serie.find((x) => x.n === n)!;
+  let carichiCorrenti = b.carichiCorrenti;
+
+  // Carico scelto dall'utente (non una serie di stripping, non il semplice "fatta" sul precompilato).
+  if (mod.kg !== undefined && !corrente.stripping && mod.kg !== prima.kg_prev) {
+    const ruolo = s.esercizi.find((e) => e.slot === slot)?.ruolo ?? 'C';
+    const nuovo = nuovoCaricoCorrente(ruolo, mod.kg, prima.kg_piano, sedutaId);
+    carichiCorrenti = { ...(b.carichiCorrenti ?? {}) };
+    if (nuovo) carichiCorrenti[es.esercizio_id] = nuovo;
+    else delete carichiCorrenti[es.esercizio_id];
+    for (const x of serie) if (x.n > n && !x.fatta && !x.stripping) x.kg_prev = mod.kg;
+    corrente.kg_prev = mod.kg;
+  }
   if (mod.fatta && corrente.rip !== undefined && corrente.rip < corrente.rip_prev) {
     const succ = serie.find((x) => x.n > n && !x.fatta && !x.stripping);
     if (succ && succ.kg === undefined && succ.kg_prev > 0) succ.kg_prev = arrotonda(succ.kg_prev * (1 + AUTOCORREZIONE_SERIE), p.impostazioni.arrotondamento);
   }
   const nuovoReg: RegistroSeduta = { ...reg, esercizi: { ...reg.esercizi, [slot]: { ...es, serie } } };
-  await aggiorna({ registro: { ...stato.value.registro, [sedutaId]: nuovoReg } }, ['registro']);
+  const chiavi: Chiave[] = carichiCorrenti === b.carichiCorrenti ? ['registro'] : ['registro', 'blocco'];
+  await aggiorna({ registro: { ...stato.value.registro, [sedutaId]: nuovoReg }, blocco: { ...b, carichiCorrenti } }, chiavi);
+}
+
+/** Torna al carico del piano per un esercizio (SPEC §9.2b punto 5); nella seduta in corso ricalcola le serie non fatte. */
+export async function ripristinaCaricoPiano(esercizio_id: string, sedutaId?: string): Promise<void> {
+  const b = stato.value.blocco;
+  if (!b) return;
+  const carichiCorrenti = { ...(b.carichiCorrenti ?? {}) };
+  delete carichiCorrenti[esercizio_id];
+  const registro = { ...stato.value.registro };
+  const reg = sedutaId ? registro[sedutaId] : undefined;
+  if (reg) {
+    const esercizi = { ...reg.esercizi };
+    for (const [slot, es] of Object.entries(esercizi)) {
+      if (es.esercizio_id !== esercizio_id) continue;
+      esercizi[Number(slot)] = { ...es, serie: es.serie.map((x) => (x.fatta || x.stripping || x.kg_piano === undefined ? x : { ...x, kg_prev: x.kg_piano })) };
+    }
+    registro[sedutaId!] = { ...reg, esercizi };
+  }
+  await aggiorna({ blocco: { ...b, carichiCorrenti }, registro }, ['blocco', 'registro']);
 }
 
 export async function aggiornaNota(sedutaId: string, slot: number, nota: string): Promise<void> {
@@ -297,6 +354,8 @@ export async function sostituisciEsercizio(sedutaId: string, slot: number, nuovo
   // Carico: se l'alternativa ha un test usa quello, altrimenti eredita quello dell'originale (modificabile).
   // In fase di test l'alternativa si testa da sé: niente eredità.
   if (s.fase !== 'test' && !test[nuovoId] && test[vecchioId]) test[nuovoId] = { ...test[vecchioId], esercizio_id: nuovoId };
+  const carichiCorrenti = { ...(b.carichiCorrenti ?? {}) };
+  if (s.fase !== 'test' && !carichiCorrenti[nuovoId] && carichiCorrenti[vecchioId]) carichiCorrenti[nuovoId] = { ...carichiCorrenti[vecchioId] };
 
   const aggiornaEs = (sd: Seduta): Seduta => ({ ...sd, esercizi: sd.esercizi.map((e) => (e.slot === slot && e.esercizio_id === vecchioId ? { ...e, esercizio_id: nuovoId } : e)) });
   const sedute = b.sedute.map((sd) => {
@@ -312,11 +371,11 @@ export async function sostituisciEsercizio(sedutaId: string, slot: number, nuovo
   if (reg && reg.esercizi[slot]) {
     const sd = sedute.find((x) => x.id === sedutaId)!;
     const eNuovo = sd.esercizi.find((e) => e.slot === slot)!;
-    const pr = prescrizione(eNuovo, sd, test, p.impostazioni, b.correzioni[nuovoId] ?? 0, p.fondamentali_promossi);
-    const serie = reg.esercizi[slot].serie.map((x) => (x.fatta ? x : { ...x, kg_prev: pr.kg ?? 0, rip_prev: pr.rip }));
+    const pr = prescrizione(eNuovo, sd, test, p.impostazioni, b.correzioni[nuovoId] ?? 0, p.fondamentali_promossi, carichiCorrenti[nuovoId]);
+    const serie = reg.esercizi[slot].serie.map((x) => (x.fatta ? x : { ...x, kg_prev: pr.kg ?? 0, kg_piano: pr.kgPiano, rip_prev: pr.rip }));
     registro[sedutaId] = { ...reg, esercizi: { ...reg.esercizi, [slot]: { esercizio_id: nuovoId, serie } } };
   }
-  await aggiorna({ profilo: profiloNuovo, blocco: { ...b, sedute, test }, registro }, ['profilo', 'blocco', 'registro']);
+  await aggiorna({ profilo: profiloNuovo, blocco: { ...b, sedute, test, carichiCorrenti }, registro }, ['profilo', 'blocco', 'registro']);
 }
 
 /** Registro precedente dello stesso esercizio (seduta equivalente del ciclo prima, SPEC §9.2). */

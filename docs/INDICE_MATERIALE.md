@@ -79,3 +79,6 @@ I nomi dei file originali sono quelli che hanno nell'ambiente (prefisso a 8 cara
 - Elaborazione: specs/TEST_INIZIO_BLOCCO.md (copia in note_elaborate/) — protocollo stima Brzycki + serie unica 10/12/14RM, schermate, istruzioni di carico, tabella reale dei 34 test.
 - Fonti della regola di stima: ebook Blocco 1 pag. 46 (tabella %1RM/ripetizioni) e libro cap. 5 Tabella 5.2 (Brzycki).
 - 28/10 (2): video Blocco 2 giorno A — Screen_Recording_20261028_052154 (Fase 1), _052515 (Fase 2), _052545 (Scarico), _052648 (Fase 3). Elaborazione: note_elaborate/blocco2_giorno_A.md.
+
+## 28/10 — Blocco 2, giorno B (4 video)
+Screen_Recording_20261028_054028 (Fase 1: W2, W14, W18), _054153 (Fase 2: W22, W30, W34, W38), _054209 (Scarico 2), _054300 (Fase 3: W42, W46, W50, W54, W58). Sintesi in `note_elaborate/blocco2_giorno_B.md`. Non mostrati: W6, W10, W26.

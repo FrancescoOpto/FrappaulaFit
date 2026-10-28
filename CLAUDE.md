@@ -27,16 +27,11 @@ Progetto personale di Francesco (titolare di Ottica Curci, Rieti): PWA di bodybu
 - Prima di dichiarare finito: esegui i test e verifica l'app davvero (anche con un browser headless), non dedurlo dal codice.
 
 ## Stato (28/10/2026)
-Materiale del Blocco 1 e libro "Project Bodybuilding" completi. Mancano i libri su glutei e allenamento femminile. Aggiunto TEST_INIZIO_BLOCCO.md dai video dei test (28/10).
-
-**App scritta e funzionante** (vedi `README.md`): Vite + TypeScript + Preact + signals, router a hash, IndexedDB (idb-keyval), vite-plugin-pwa, Vitest.
-- `src/data/`: esercizi (con `carico_modo`, `fondamentale` solo per panca/squat/stacco/hip thrust, `ROTAZIONE_GUIDA` per blocco), contenitori (N=2..5, preset uomo/donna), tabelle. `src/motore/`: carichi (`stimaMassimale`), prescrizione (`modoTest`, `ripetizioniTest` = rip Fase 1 + 2), generatore (guida per blocco, promozione a fondamentale). 47 test, casi §6.4 e TEST_INIZIO_BLOCCO inclusi. `src/store/`: stato, db, sync Supabase REST. `src/ui/`: tutte le schermate di SPEC §9.1; settimana di test a due modalità (stima / serie unica).
-- Verificato in browser (Chromium): setup → test (stima 4×80 → 87,5; serie unica 10@28; completamento bloccato finché mancano esercizi) → seduta → serie con timer e autocorrezione → completamento → storico → persistenza.
-- **Non verificato**: timer/notifiche su telefoni reali; sync Supabase su progetto reale; offline sul dispositivo. Profilo donna provvisorio.
-- Deploy: `.github/workflows/deploy.yml` (Pages), `keepalive.yml` (Supabase). Repo git locale, nessun push.
-- Comandi: `npm run dev`, `npm test`, `npm run build`, `npm run preview` (serve su `/FrappaulaFit/`).
+Materiale del Blocco 1 e libro "Project Bodybuilding" completi. Mancano i libri su glutei e allenamento femminile. Aggiunto TEST_INIZIO_BLOCCO.md dai video dei test (28/10). Nessun codice scritto.
 
 ## Modifiche recenti (leggi prima di tutto)
 - 28/10: nuovo `TEST_INIZIO_BLOCCO.md` — test a inizio di ogni blocco (stima Brzycki per i fondamentali, serie unica 10/12/14RM per gli altri). Prevale su SPEC §6.1.
 - 28/10: fondamentali permanenti = panca, squat, stacco (+ hip thrust per lei). Il military NON è fondamentale: l'esercizio guida di ogni gruppo ruota per blocco (spalle: B1 military, B2 spinte manubri seduto). Vedi TEST_INIZIO_BLOCCO.md §1b e SPEC §4.3.
 - 28/10: nuovo `docs/note_elaborate/blocco2_giorno_A.md` (Blocco 2, giorno A, tutte le fasi/settimane). Conferma le tabelle di SPEC §7; corrette riga AB-Scarico (3×15) e riga C-Fase 2 (rip invariate). Il carico appare solo per gli esercizi testati nello stesso giorno: nella nostra app lo precompiliamo dall'esercizio equivalente.
+- 28/10: aggiunta SPEC §9.2b (persistenza carichi: il kg modificato dall'utente resta salvato per le sedute successive; massimale in memoria per tutto il blocco e modificabile).
+- 28/10: giorno B del Blocco 2 analizzato (`blocco2_giorno_B.md`). **Scoperta: i carichi RM = 0,9 × stima 1RM × (37−n)/36** (SPEC §6.2, parametro `fattore_lavoro`). La military press ha una progressione propria (R3b), serie×rip da tenere come dati per slot.

@@ -93,7 +93,8 @@ Sintesi [Certo, dai video dei test dell'app di riferimento]:
 - Istruzione di carico per attrezzo (campo `carico_modo`) e tabella reale dei 34 test del Blocco 2: vedi il file dedicato.
 
 ### 6.2 Formula
-`carico(n RM) = 1RM × (37 − n) / 36`, arrotondato a **0,5 kg** (arrotondamento configurabile: 0,5 / 1 / 2,5).
+`carico(n RM) = fattore_lavoro × 1RM_stimato × (37 − n) / 36`, con **`fattore_lavoro = 0,90`** (parametro modificabile, default 0,90), arrotondato a **0,5 kg** (arrotondamento configurabile: 0,5 / 1 / 2,5). [Certo: verificato nel Blocco 2 su panca (stima 87,5 → carichi da 78,75), squat (stima 56,5 → 9RM 39,5, 7RM 42,5, 5RM 45, 3RM 48, 11RM 36,5) e stacco (stima 90 → 81). Vedi `docs/note_elaborate/blocco2_giorno_B.md` §3. Non è noto se il 0,9 valga anche dal Blocco 3 o se dipenda da un'impostazione: tenerlo come parametro.]
+Il massimale mostrato/salvato resta la stima di Brzycki (non scontata); lo sconto si applica solo al calcolo dei carichi RM.
 
 ### 6.3 Scale RM per ruolo e fase (R1 = fondamentale; L = fondamentale alla 2ª esposizione settimanale o ospitato in seduta jolly)
 | Fase / ciclo | R1 | L (leggero: 2ª esposizione del fondamentale) |
@@ -108,7 +109,7 @@ Sintesi [Certo, dai video dei test dell'app di riferimento]:
 R2, R3, C, AB: **carico fisso del test** per tutto il blocco; cambia solo il volume.
 
 ### 6.4 Casi di verifica (test automatici) [Certo, dati reali del Blocco 1]
-Blocco 2 giorno A (panca): 1RM 78,75 → 9RM 61,5 · 7RM 65,5 · 5RM 70 · 3RM 74,5 · 11RM 57 (vedi `docs/note_elaborate/blocco2_giorno_A.md`). Con 1RM panca = 81 kg: 9RM = 63, 7RM = 67,5, 5RM = 72, 3RM = 76,5, 11RM = 58,5, 13RM = 54 (tutti uguali ai carichi dell'app di riferimento). Con 1RM squat = 78,75: 9RM = 61,5, 7RM = 65,5, 5RM = 70, 3RM = 74,5, 11RM = 57. Dati reali dell'utente (Blocco 2): panca 3 rip × 97,5 kg → 1RM ≈ 103,3.
+**Attenzione al coefficiente 0,9 (§6.2): i valori sotto sono già scontati. Con stime di test: panca 87,5 → 1RM di lavoro 78,75; squat 56,5 → 50,85 (9RM 39,5, 7RM 42,5, 5RM 45, 3RM 48, 11RM 36,5); stacco 90 → 81.** Blocco 2 giorno A (panca): 1RM di lavoro 78,75 → 9RM 61,5 · 7RM 65,5 · 5RM 70 · 3RM 74,5 · 11RM 57 (vedi `docs/note_elaborate/blocco2_giorno_A.md`). Con 1RM panca = 81 kg: 9RM = 63, 7RM = 67,5, 5RM = 72, 3RM = 76,5, 11RM = 58,5, 13RM = 54 (tutti uguali ai carichi dell'app di riferimento). Con 1RM squat = 78,75: 9RM = 61,5, 7RM = 65,5, 5RM = 70, 3RM = 74,5, 11RM = 57. Dati reali dell'utente (Blocco 2): panca 3 rip × 97,5 kg → 1RM ≈ 103,3.
 
 ## 7. Tabelle serie × ripetizioni (cicli 1→5) [Certo, ricavate dai video; identiche tra giorni A–D]
 | Ruolo | Fase 1 | Fase 2 | Fase 3 | Scarico |
@@ -118,7 +119,8 @@ Blocco 2 giorno A (panca): 1RM 78,75 → 9RM 61,5 · 7RM 65,5 · 5RM 70 · 3RM 7
 | R3 | 3×8, 3×8, 3×8, 4×8, 4×8 | 3×9, 3×9, 4×9, 4×9, 3×10 | 3×8, 4×8, 4×8, 3×9, 3×10 | 2×10 |
 | L | 3×9, 3×9, 3×9, 3×10, 3×10 | 3×8, 3×8, 3×8, 3×9, 3×10 | 3×10, 3×10, 3×8, 3×8, 3×8 | 3×10 |
 | AB | 3×12 fisso | 3×13, 3×13, 3×14, 3×14, 3×15 | 3×12, 3×12, 3×13, 3×13, 3×14 | 3×15 (= ultima settimana di Fase 2; Blocco 2 giorno A) |
-| C | serie/rip dello slot, fissi | **invariati** rispetto alla Fase 1 (Blocco 2 giorno A: nessun +1; nelle note del Blocco 1 si leggeva +1 rip: da verificare sui giorni B–D) | serie/rip del nuovo slot della variante | serie −1 (min 2), rip invariate |
+| C | serie/rip dello slot, fissi | **invariati** rispetto alla Fase 1 (Blocco 2 giorni A e B: nessun +1; nelle note del Blocco 1 si leggeva +1 rip: da verificare sui giorni C–D) | serie/rip del nuovo slot della variante | serie −1 (min 2), rip invariate |
+- **Giorno B (Blocco 2)**: squat = R1 e stacco rumeno = R2 seguono le righe sopra (verificati W2/14/18, 22/30/34/38, 42/46/50/54/58, Scarico). **Military press (Target spalle del giorno B) NON segue la riga R3**: F1 3×8 (c1), 3×9 (c4), 3×9 (c5); F2 4×9 (c1), 3×10 (c3), 3×10 (c4), 4×10 (c5); F3 3×8, 3×8, 4×8, 3×9, 4×9; Scarico 3×10. Chiamarla **R3b**; mancano c2-c3 di Fase 1 e c2 di Fase 2 (richiesti all'utente, vedi `blocco2_giorno_B.md`). Non assumere che la progressione dipenda solo dal ruolo: va tenuta **per slot**, come dato (tabella nel file di dati), non nel codice.
 - In Fase 1 il passaggio ciclo 3 → 4 di R1 **cambia carico** (da 9RM a 7RM) e riporta le rip a 5. In Fase 2 R1 tiene il carico 7RM e lavora sul volume.
 - In Fase 2/3 si cambiano alcune **varianti** dei complementari (es. croci manubri → croci ai cavi, curl 60° → 45°) senza cambiare la logica; i complementari nuovi non hanno carico prescritto: lo sceglie l'utente (o eredita quello dell'esercizio simile).
 - **Dubbio aperto [Probabile]**: 4×5@5RM e 4×3@3RM in Fase 3 non sono sostenibili al 100% con recuperi normali. Soluzione adottata: **autocorrezione** — se in una serie le ripetizioni fatte < prescritte, il peso della serie successiva è precompilato a −5%; se succede per 2 sedute di fila sullo stesso esercizio, il carico del ciclo successivo scende del 2,5% (modificabile dall'utente). 
@@ -136,7 +138,16 @@ Blocco 2 giorno A (panca): 1RM 78,75 → 9RM 61,5 · 7RM 65,5 · 5RM 70 · 3RM 7
 **Configurazione iniziale** (domande di §4.1 + anteprima di sedute, serie/gruppo/settimana e durata del blocco) · Home/percorso (barra fasi, prossima seduta, sedute completate con spunta) · Seduta (card per gruppo muscolare, etichetta "Target", `serie×rip@kg`, "Completa seduta") · Esercizio (serie una per riga con kg e rip precompilati, "fatto", recupero, note, cerca su YouTube) · Test (inserimento per esercizio, alternative) · Progressi (storico e grafici per esercizio) · Check-in (peso corporeo/sensazioni, opzionale) · **Impostazioni** (da creare: profilo, arrotondamento, recuperi, suoni, notifiche, backup/ripristino, sincronizzazione, nuovo blocco).
 ### 9.2 Registrazione
 - Per **ogni serie** si salva peso e ripetizioni effettivi; la settimana dopo l'app mostra i valori della seduta equivalente precedente accanto a quelli previsti. [Utente]
-- Peso previsto precompilato dal test e modificabile.
+- Peso previsto precompilato dal test e modificabile; **ciò che l'utente cambia resta in memoria per le sedute successive: vedi 9.2b**.
+### 9.2b Persistenza dei carichi (regola dell'utente, 28/10) [Certo: descritta dall'utente guardando l'app di riferimento]
+1. **Il test salva un carico base per esercizio** (`1@kg` per i fondamentali, `N@kg` per gli altri) e lo conserva **per tutto il blocco**. Il massimale (stima) resta in memoria per tutto il blocco ed è modificabile a mano (cambiare il massimale ricalcola le scale RM delle sedute future, non quelle già fatte).
+2. **Il carico è sempre modificabile** dall'utente in seduta (troppo leggero → sale, troppo pesante → scende), per ogni serie.
+3. **Quello che l'utente scrive vale anche per dopo**: il kg inserito in un esercizio diventa il *carico corrente* di quell'esercizio e viene **precompilato in tutte le sedute successive** (settimana dopo compresa) finché non lo cambia di nuovo. Dentro la stessa seduta, cambiare il peso della serie 1 precompila le serie rimanenti (ognuna ancora modificabile).
+4. **Esercizi a carico fisso (R2, R3, C, AB):** il carico corrente sostituisce il carico base per le sedute future. Il test originale resta nello storico (serve per il confronto tra blocchi).
+5. **Fondamentali con scala RM che cambia (9RM→7RM→5RM→3RM…):** il piano calcola il carico dal massimale; se l'utente lo modifica, l'app salva il **fattore di correzione** `kg_inseriti / kg_previsti` e lo applica ai carichi previsti delle sedute future dello stesso esercizio, così la progressione di fase continua ma partendo dal livello scelto. [Mia decisione, discutibile; alternativa più semplice: ricopiare l'ultimo kg inserito. Il fattore va mostrato e azzerabile da "Ripristina carico del piano".]
+6. Le due cose si distinguono nei dati: `kg_previsto` (piano), `kg_corrente` (ultimo scelto dall'utente) e `kg` effettivo per serie (storico). Nella UI: il campo mostra `kg_corrente`; accanto, in piccolo, il valore del piano e quello della seduta precedente.
+7. Varianti/sostituzioni: se l'esercizio non ha test, il carico iniziale è ereditato da un equivalente testato (§9.3) e da lì vale la stessa regola (3).
+8. Test di acceptance: (a) imposto 70→72,5 sulla panca W9 → W13 mostra 72,5 (o 72,5 × fattore se la scala sale); (b) modifico un carico fisso in W5 → W9, W13… lo mostrano; (c) riavvio app / offline / import-export non perdono i carichi correnti.
 ### 9.3 Sostituzione esercizi
 - "Modifica" sulla card del gruppo: sostituisci con un'alternativa della stessa classe. Carico: se l'alternativa ha un test usa quello, altrimenti eredita quello dell'originale (modificabile). Regola in seduta: troppo facile (>3 RIR) → sale, impossibile → scende.
 ### 9.4 Timer di recupero
@@ -148,7 +159,7 @@ Blocco 2 giorno A (panca): 1RM 78,75 → 9RM 61,5 · 7RM 65,5 · 5RM 70 · 3RM 7
 Esporta/importa JSON completo; promemoria periodico.
 
 ## 10. Modello dati (indicativo)
-`profilo(id, nome, sesso, impostazioni, parametri_generatore{N, T, priorità[], esclusi[], esperienza, preset})` · `contenitore(id, N, sessioni[{gruppi, slot[{gruppo, ruolo, classe}]}])` · `blocco(id, profilo, numero, stato)` · `test(blocco, esercizio_id, kg, rip, rm1_stimato)` · `seduta(id, blocco, fase, ciclo, giorno, numero, stato, data)` · `esercizio_seduta(seduta, slot, esercizio_id, ruolo)` · `serie(seduta, slot, n, kg_prev, rip_prev, kg, rip, fatta, nota)` · `sostituzione(profilo, esercizio_id, alternativa_id)`.
+`profilo(id, nome, sesso, impostazioni, parametri_generatore{N, T, priorità[], esclusi[], esperienza, preset})` · `contenitore(id, N, sessioni[{gruppi, slot[{gruppo, ruolo, classe}]}])` · `blocco(id, profilo, numero, stato)` · `test(blocco, esercizio_id, kg, rip, rm1_stimato)` · `seduta(id, blocco, fase, ciclo, giorno, numero, stato, data)` · `esercizio_seduta(seduta, slot, esercizio_id, ruolo)` · `serie(seduta, slot, n, kg_prev, rip_prev, kg, rip, fatta, nota)` · `carico_corrente(profilo, blocco, esercizio_id, kg, fattore_correzione, aggiornato)` · `sostituzione(profilo, esercizio_id, alternativa_id)`.
 Sync [Probabile come soluzione semplice]: tabella `kv(user_id uuid, chiave text, valore jsonb, aggiornato timestamptz)` con RLS `user_id = auth.uid()`, last-write-wins per chiave; coda offline in IndexedDB.
 
 ## 11. Cosa NON fare

@@ -1,7 +1,8 @@
-import type { EsercizioSeduta, Fase, Impostazioni, RisultatoTest, Ruolo, Seduta, TestMode } from '../tipi';
+import type { CaricoCorrente, EsercizioSeduta, Fase, Impostazioni, RisultatoTest, Ruolo, Seduta, TestMode } from '../tipi';
 import { ESECUZIONE_SERIE_S, RISCALDAMENTO_S, SCALE_RM, TABELLE, type SerieRip } from '../data/tabelle';
 import { ESERCIZI_PER_ID } from '../data/esercizi';
 import { arrotonda, caricoRM, rm1DaTest } from './carichi';
+import { applicaCorrente } from './correnti';
 
 export interface Prescrizione {
   serie: number;
@@ -14,6 +15,10 @@ export interface Prescrizione {
   testo?: string;
   /** Solo fase di test: tipo di test dell'esercizio. */
   modoTest?: TestMode;
+  /** Carico del piano (test + scala RM), senza il carico corrente scelto dall'utente (SPEC §9.2b). */
+  kgPiano?: number;
+  /** Carico corrente applicato, se presente. */
+  corrente?: CaricoCorrente;
 }
 
 /** Tipo di test (TEST_INIZIO_BLOCCO §2): stima per i fondamentali permanenti e per i promossi, serie unica per gli altri. */
@@ -77,6 +82,7 @@ export function prescrizione(
   impostazioni: Pick<Impostazioni, 'arrotondamento'>,
   correzione = 0,
   promossi: string[] = [],
+  corrente?: CaricoCorrente,
 ): Prescrizione {
   const t = test[es.esercizio_id];
 
@@ -95,13 +101,13 @@ export function prescrizione(
   if (es.ruolo === 'R1' || es.ruolo === 'L') {
     const n = scalaRM(es.ruolo, seduta.fase, seduta.cicloFase);
     const rm1 = rm1DiTest(t);
-    const kg = rm1 ? caricoRM(rm1 * (1 + correzione), n, passo) : undefined;
-    return { serie, rip, kg, scalaRM: n };
+    const kgPiano = rm1 ? caricoRM(rm1 * (1 + correzione), n, passo) : undefined;
+    return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, scalaRM: n, corrente };
   }
 
-  // R2, R3, C, AB: carico fisso del test per tutto il blocco (SPEC §6.3).
-  const kg = t && t.kg > 0 ? arrotonda(t.kg * (1 + correzione), passo) : undefined;
-  return { serie, rip, kg };
+  // R2, R3, C, AB: carico fisso del test per tutto il blocco (SPEC §6.3), salvo carico corrente scelto dall'utente (§9.2b).
+  const kgPiano = t && t.kg > 0 ? arrotonda(t.kg * (1 + correzione), passo) : undefined;
+  return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, corrente };
 }
 
 /** Durata stimata in secondi (SPEC §9.5): riscaldamento + Σ serie × (45 s + recupero); superserie condividono il recupero. */

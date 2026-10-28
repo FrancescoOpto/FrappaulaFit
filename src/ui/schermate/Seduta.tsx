@@ -11,6 +11,7 @@ import {
   completaSeduta,
   impostazioni,
   iniziaSeduta,
+  prescrizioneDi,
   profilo,
   registroDi,
   riapriSeduta,
@@ -200,7 +201,7 @@ function RigaEsercizio({ s, es, onSostituisci }: { s: TSeduta; es: EsercizioSedu
   const b = blocco.value!;
   const p = profilo.value!;
   const def = trovaEsercizio(es.esercizio_id, p.esercizi_personalizzati);
-  const pr = prescrizione(es, s, b.test, p.impostazioni, b.correzioni[es.esercizio_id] ?? 0);
+  const pr = prescrizioneDi(es, s);
   const reg = registroDi(s.id)?.esercizi[es.slot];
   const fatte = reg?.serie.filter((x) => x.fatta && !x.stripping).length ?? 0;
   const tutte = reg ? fatte >= reg.serie.filter((x) => !x.stripping).length : false;
@@ -211,7 +212,7 @@ function RigaEsercizio({ s, es, onSostituisci }: { s: TSeduta; es: EsercizioSedu
         <div class="nome">{def?.nome ?? es.esercizio_id}</div>
         <div class="dettaglio">
           <Badge ruolo={es.ruolo} />
-          <span>{pr.serie}×{pr.rip} @ {pr.kg !== undefined ? formatoKg(pr.kg) : 'senza test'}</span>
+          <span>{pr.serie}×{pr.rip} @ {pr.kg !== undefined ? formatoKg(pr.kg) : 'senza test'}{pr.corrente ? ' ✎' : ''}</span>
           {pr.scalaRM ? <span class="piccolo">{pr.scalaRM}RM · {Math.round(percentualeRM(pr.scalaRM) * 100)}%</span> : null}
         </div>
       </div>

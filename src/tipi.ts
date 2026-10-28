@@ -159,6 +159,18 @@ export interface Seduta {
   esercizi: EsercizioSeduta[];
 }
 
+/**
+ * Carico corrente di un esercizio (SPEC §9.2b). Per i ruoli a carico fisso (R2, R3, C, AB) è un kg assoluto;
+ * per i fondamentali con scala RM (R1, L) è il fattore kg_inseriti / kg_previsti applicato ai carichi del piano.
+ */
+export interface CaricoCorrente {
+  kg?: number;
+  fattore?: number;
+  aggiornato: string;
+  /** Seduta in cui è stato scelto (per lo storico). */
+  seduta_id?: string;
+}
+
 export interface RisultatoTest {
   esercizio_id: string;
   /** Carico inserito (per la stima: il carico della prova; per la serie unica: il carico di lavoro). */
@@ -172,7 +184,10 @@ export interface RisultatoTest {
 
 export interface SerieRegistrata {
   n: number;
+  /** Carico precompilato (carico corrente al momento dell'avvio o dopo una modifica in seduta). */
   kg_prev: number;
+  /** Carico del piano (dal test e dalla scala RM), per confronto (SPEC §9.2b punto 6). */
+  kg_piano?: number;
   rip_prev: number;
   kg?: number;
   rip?: number;
@@ -203,6 +218,8 @@ export interface Blocco {
   test: Record<string, RisultatoTest>;
   /** Correzioni di carico per esercizio (frazione, es. −0.025) da autocorrezione §7. */
   correzioni: Record<string, number>;
+  /** Carichi correnti scelti dall'utente in seduta (SPEC §9.2b): sostituiscono il carico base per le sedute future. */
+  carichiCorrenti?: Record<string, CaricoCorrente>;
   /** Parametri con cui sono state generate le sedute (per rigenerare al confine di ciclo). */
   parametri: ParametriGeneratore;
   /** Modifica dei parametri in attesa: si applica al prossimo confine di ciclo. */

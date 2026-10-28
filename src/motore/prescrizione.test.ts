@@ -97,6 +97,22 @@ describe('Target R2/R3 a carico fisso', () => {
   });
 });
 
+describe('Carico corrente (SPEC §9.2b)', () => {
+  it('fondamentale: fattore applicato a ogni scala; kgPiano resta quello del piano', () => {
+    const c = { fattore: 1.036, aggiornato: '' };
+    const w13 = prescrizione(panca, { fase: 'fase1', cicloFase: 4 }, test, imp, 0, [], c);
+    expect(w13.kgPiano).toBe(67.5);
+    expect(w13.kg).toBe(70);
+    expect(prescrizione(panca, { fase: 'fase1', cicloFase: 1 }, test, imp, 0, [], c).kg).toBe(65.5);
+  });
+  it('carico fisso: il kg corrente sostituisce il test', () => {
+    const r = prescrizione(manubri, { fase: 'fase2', cicloFase: 1 }, test, imp, 0, [], { kg: 30, aggiornato: '' });
+    expect(r.kgPiano).toBe(26);
+    expect(r.kg).toBe(30);
+    expect(r.rip).toBe(9);
+  });
+});
+
 describe('Autocorrezione e casi limite', () => {
   it('correzione −2,5% sul 1RM', () => {
     const r = prescrizione(panca, { fase: 'fase1', cicloFase: 1 }, test, imp, -0.025);

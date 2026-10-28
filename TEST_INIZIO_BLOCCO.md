@@ -26,6 +26,9 @@ La SPEC precedente imponeva "fondamentali = 3RM fisso, 1RM = carico/0,944". **Er
 - L'app deve quindi **salvare lo storico dei massimali per blocco** (panca, squat, stacco, hip thrust) e mostrare nei Progressi la variazione rispetto al test precedente (kg e %). [Mia decisione: grafico per fondamentale, con il valore del blocco in corso evidenziato]
 - Un fondamentale ritestato a inizio blocco ricalcola subito tutte le scale RM del blocco.
 
+## 1d. Persistenza dei carichi dopo il test [Certo, utente 28/10]
+Il carico/massimale salvato dal test resta in memoria per tutto il blocco, ma **l'utente può cambiarlo in qualsiasi momento** (troppo leggero/pesante) e **il nuovo valore resta salvato** e viene precompilato nelle sedute successive. Il massimale è solo il punto di partenza per gli RM. Regole complete e test di acceptance: `SPEC.md` §9.2b.
+
 ## 2. Due tipi di test (tipo scelto dall'esercizio, campo di libreria `test_mode`)
 ### 2.1 `stima` — fondamentali permanenti (panca piana, squat, stacco da terra; hip thrust per la moglie)
 [Certo] Schermata "Stima del massimale":

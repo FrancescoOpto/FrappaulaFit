@@ -17,6 +17,7 @@ import {
   profilo,
   promuoviFondamentale,
   rimuoviTest,
+  ripristinaCaricoPiano,
   salvaTest,
   sostituisciStato,
   stato,
@@ -126,12 +127,14 @@ function Test() {
         const modo = modoTest(e, promossi);
         const ripFisse = ripetizioniTest(e);
         const corr = b.correzioni[e.esercizio_id] ?? 0;
+        const cc = b.carichiCorrenti?.[e.esercizio_id];
         return (
           <div class="colonna" style="padding:10px 0;border-top:1px solid var(--bordo)">
             <div class="riga spazio">
               <div class="cresce">
                 <div style="font-weight:500">{def?.nome ?? e.esercizio_id}</div>
-                <div class="piccolo">{NOMI_RUOLI[e.ruolo]} · {modo === 'stima' ? 'stima' : `serie unica ${ripFisse}RM`} · {t ? (t.modo === 'stima' ? `1@${t.rm1} kg (${t.rip}×${t.kg})` : `${t.rip}@${t.kg} kg`) : 'nessun test'}{corr ? ` · correzione ${Math.round(corr * 1000) / 10}%` : ''}</div>
+                <div class="piccolo">{NOMI_RUOLI[e.ruolo]} · {modo === 'stima' ? 'stima' : `serie unica ${ripFisse}RM`} · {t ? (t.modo === 'stima' ? `1@${t.rm1} kg (${t.rip}×${t.kg})` : `${t.rip}@${t.kg} kg`) : 'nessun test'}{corr ? ` · correzione ${Math.round(corr * 1000) / 10}%` : ''}{cc ? ` · scelto da te: ${cc.kg !== undefined ? `${cc.kg} kg` : `×${cc.fattore}`}` : ''}</div>
+                {cc ? <button class="bottone piccolo fantasma" style="align-self:flex-start;margin-top:4px" onClick={() => void ripristinaCaricoPiano(e.esercizio_id)}>Ripristina carico del piano</button> : null}
               </div>
               <button class="bottone piccolo" onClick={() => { setModifica(e.esercizio_id); setKg(t ? String(t.kg) : ''); setRip(t?.modo === 'stima' ? String(t.rip) : '3'); }}>Modifica</button>
             </div>
