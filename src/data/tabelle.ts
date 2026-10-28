@@ -46,6 +46,13 @@ export const TABELLE: Record<Exclude<Ruolo, 'C'>, Record<FaseLavoro, SerieRip[]>
     fase3: [[3, 8], [4, 8], [4, 8], [3, 9], [3, 10]],
     scarico: [[2, 10]],
   },
+  // Esercizio guida del gruppo (military press nel Blocco 2 giorno B): progressione propria, carico fisso.
+  R3b: {
+    fase1: [[3, 8], [3, 8], [3, 8], [3, 9], [3, 9]],
+    fase2: [[4, 9], [4, 9], [3, 10], [3, 10], [4, 10]],
+    fase3: [[3, 8], [3, 8], [4, 8], [3, 9], [4, 9]],
+    scarico: [[3, 10]],
+  },
   L: {
     fase1: [[3, 9], [3, 9], [3, 9], [3, 10], [3, 10]],
     fase2: [[3, 8], [3, 8], [3, 8], [3, 9], [3, 10]],
@@ -82,10 +89,18 @@ export const RECUPERI_DEFAULT: Record<Ruolo, number> = {
   R1: 150,
   R2: 120,
   R3: 120,
+  R3b: 120,
   L: 120,
   C: 90,
   AB: 60,
 };
+
+/**
+ * Fattore di lavoro sul massimale stimato (blocco2_giorno_B.md §3): i carichi RM dell'app di riferimento sono
+ * 0,9 × stima × (37−n)/36, verificato su panca (87,5 → 78,75), squat (56,5 → 50,85) e stacco (90 → 81).
+ * Origine del 10 % non nota: parametro modificabile nelle Impostazioni.
+ */
+export const FATTORE_LAVORO_DEFAULT = 0.9;
 
 /** Durata stimata (SPEC §9.5). */
 export const RISCALDAMENTO_S = 8 * 60;

@@ -9,6 +9,7 @@ import {
   aggiungiStripping,
   blocco,
   caricoCorrenteDi,
+  impostazioni,
   iniziaSeduta,
   prescrizioneDi,
   profilo,
@@ -81,13 +82,13 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
   const reg = registroDi(s.id);
   const regEs = reg?.esercizi[slot];
   const soloLettura = s.stato !== 'in_corso';
-  const recupero = p.impostazioni.recuperi[es.ruolo];
+  const recupero = impostazioni.value.recuperi[es.ruolo];
   const prec = registroPrecedente(s.id, es.esercizio_id);
   const idx = s.esercizi.findIndex((e) => e.slot === slot);
   const precEs = s.esercizi[idx - 1];
   const succEs = s.esercizi[idx + 1];
   const ultimoDelGruppo = !s.esercizi.slice(idx + 1).some((e) => e.gruppo === es.gruppo);
-  const strippingPossibile = p.impostazioni.stripping && s.fase === 'fase2' && ultimoDelGruppo && regEs && !regEs.serie.some((x) => x.stripping);
+  const strippingPossibile = impostazioni.value.stripping && s.fase === 'fase2' && ultimoDelGruppo && regEs && !regEs.serie.some((x) => x.stripping);
   const [nota, setNota] = useState(regEs?.nota ?? '');
   const t = timer.value;
   const inTimer = attivo.value;

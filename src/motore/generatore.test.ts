@@ -9,7 +9,7 @@ const base: ParametriGeneratore = { N: 3, T: 60, priorita: [], esclusi: [], espe
 const profilo: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati' | 'impostazioni'> = {
   sostituzioni: {},
   esercizi_personalizzati: [],
-  impostazioni: { arrotondamento: 0.5, recuperi: RECUPERI_DEFAULT, suoni: true, vibrazione: true, notifiche: false, stripping: false },
+  impostazioni: { arrotondamento: 0.5, fattore_lavoro: 0.9, recuperi: RECUPERI_DEFAULT, suoni: true, vibrazione: true, notifiche: false, stripping: false },
 };
 
 describe('contenitori: vincoli strutturali (SPEC §4.3)', () => {
@@ -60,7 +60,7 @@ describe('generaSettimana — N=3 uomo, T=60', () => {
     expect(r.sessioni[1].esercizi.map((e) => e.esercizio_id)).toContain('military_press');
     expect(r.sessioni[1].esercizi.map((e) => e.esercizio_id)).toContain('stacco_da_terra');
     // Il military è la guida delle spalle: Target R2 a carico fisso, non fondamentale (TEST_INIZIO_BLOCCO §1b).
-    expect(r.sessioni[1].esercizi.find((e) => e.esercizio_id === 'military_press')?.ruolo).toBe('R2');
+    expect(r.sessioni[1].esercizi.find((e) => e.esercizio_id === 'military_press')?.ruolo).toBe('R3b');
     // I complementari di copertura restano (almeno 2 serie), gli altri possono sparire.
     expect(r.sessioni[1].esercizi.some((e) => e.esercizio_id === 'leg_curl')).toBe(true);
     const sfora = r.sessioni.filter((s) => s.durataS > 62 * 60);
@@ -132,7 +132,7 @@ describe('preset donna (PROVVISORIO, SPEC §8)', () => {
     expect(ids(1)).toContain('hip_thrust');
     expect(ids(1)).toContain('stacco_da_terra');
     const mil = r.sessioni[2].esercizi.find((e) => e.esercizio_id === 'military_press');
-    expect(mil?.ruolo).toBe('R2');
+    expect(mil?.ruolo).toBe('R3b');
     expect(r.copertura.glutei).toBeGreaterThanOrEqual(12);
   });
 });
@@ -140,13 +140,13 @@ describe('preset donna (PROVVISORIO, SPEC §8)', () => {
 describe('esercizio guida per blocco (TEST_INIZIO_BLOCCO §1b)', () => {
   it('Blocco 1: military guida (R2) in B1 e spinte manubri in B2; Blocco 2: ruotano', () => {
     const b1 = generaSettimana({ ...base, N: 4, T: 90 }, profilo, 1);
-    expect(b1.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R2')?.esercizio_id).toBe('military_press');
+    expect(b1.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R3b')?.esercizio_id).toBe('military_press');
     expect(b1.sessioni[3].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R3')?.esercizio_id).toBe('spinte_manubri_seduto');
     const b2 = generaSettimana({ ...base, N: 4, T: 90 }, profilo, 2);
-    expect(b2.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R2')?.esercizio_id).toBe('spinte_manubri_seduto');
+    expect(b2.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R3b')?.esercizio_id).toBe('spinte_manubri_seduto');
     expect(b2.sessioni[3].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R3')?.esercizio_id).toBe('military_press');
     const b3 = generaSettimana({ ...base, N: 4, T: 90 }, profilo, 3);
-    expect(b3.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R2')?.esercizio_id).toBe('military_press');
+    expect(b3.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R3b')?.esercizio_id).toBe('military_press');
   });
   it('la guida non è mai R1/L di default; promossa dall’utente diventa R1 (o L se ci sono già 2 R1)', () => {
     const r = generaSettimana(base, profilo, 1);
@@ -159,7 +159,7 @@ describe('esercizio guida per blocco (TEST_INIZIO_BLOCCO §1b)', () => {
   });
   it('la sostituzione del profilo prevale sulla rotazione', () => {
     const r = generaSettimana(base, { ...profilo, sostituzioni: { military_press: 'shoulder_press_macchina' } }, 2);
-    expect(r.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R2')?.esercizio_id).toBe('shoulder_press_macchina');
+    expect(r.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R3b')?.esercizio_id).toBe('shoulder_press_macchina');
   });
 });
 
@@ -179,13 +179,13 @@ describe('blocco e rigenerazione (SPEC §4.7, §12.2)', () => {
 
   it('cambio N 3→4 a metà blocco: le sedute fatte restano, le future si rigenerano, test intatti', () => {
     const b = nuovoBlocco(base, profilo);
-    b.test.panca_piana = { esercizio_id: 'panca_piana', kg: 76.5, rip: 3, modo: 'stima', rm1: 81 };
+    b.test.panca_piana = { esercizio_id: 'panca_piana', kg: 80, rip: 5, modo: 'stima', rm1: 90 };
     // Completo test (ciclo 1) e il primo ciclo di Fase 1 (ciclo 2), inizio la prima del ciclo 3.
     for (const s of b.sedute) if (s.ciclo <= 2) s.stato = 'completata';
     b.sedute[6].stato = 'in_corso';
     expect(primoCicloModificabile(b)).toBe(4);
     const nuovo = rigeneraSeduteFuture(b, { ...base, N: 4 }, profilo);
-    expect(nuovo.test.panca_piana.rm1).toBe(81);
+    expect(nuovo.test.panca_piana.rm1).toBe(90);
     const conservate = nuovo.sedute.filter((s) => s.ciclo <= 3);
     expect(conservate.length).toBe(9);
     expect(conservate.filter((s) => s.stato === 'completata').length).toBe(6);

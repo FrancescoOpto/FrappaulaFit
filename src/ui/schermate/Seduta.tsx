@@ -91,7 +91,7 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
   const p = profilo.value!;
   const def = trovaEsercizio(es.esercizio_id, p.esercizi_personalizzati);
   const t = b.test[es.esercizio_id];
-  const pr = prescrizione(es, s, b.test, p.impostazioni, 0, p.fondamentali_promossi ?? []);
+  const pr = prescrizione(es, s, b.test, impostazioni.value, 0, p.fondamentali_promossi ?? []);
   const stima = pr.modoTest === 'stima';
   const precedente = testBloccoPrecedente(es.esercizio_id);
   const [aperta, setAperta] = useState(!t);
@@ -109,7 +109,7 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
 
   const calcola = () => {
     try {
-      setRisultato(stimaMassimale(r, k, p.impostazioni.arrotondamento));
+      setRisultato(stimaMassimale(r, k, impostazioni.value.arrotondamento));
       setErrore(null);
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Valori non validi');
@@ -160,7 +160,7 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
                   <button class="bottone primario pieno" disabled={!kgOk || k <= 0 || !ripOk} onClick={calcola}>Calcola massimale</button>
                   {!kgOk || k <= 0 || !Number.isFinite(r) ? <p class="piccolo centrato">Scrivi reps e carico per la stima.</p> : null}
                   <button class="bottone fantasma piccolo" onClick={() => setRiscaldamento(!riscaldamento)}>{riscaldamento ? 'Nascondi riscaldamento' : 'Riscaldamento consigliato'}</button>
-                  {riscaldamento && riferimento > 0 ? <Riscaldamento riferimento={riferimento} passo={p.impostazioni.arrotondamento} /> : null}
+                  {riscaldamento && riferimento > 0 ? <Riscaldamento riferimento={riferimento} passo={impostazioni.value.arrotondamento} /> : null}
                 </>
               ) : (
                 <>

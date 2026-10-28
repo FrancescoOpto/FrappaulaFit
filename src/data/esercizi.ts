@@ -141,6 +141,7 @@ export const NOMI_RUOLI: Record<string, string> = {
   R1: 'Fondamentale',
   R2: 'Target',
   R3: 'Target',
+  R3b: 'Target',
   L: 'Fondamentale leggero',
   C: 'Complementare',
   AB: 'Addome',

@@ -105,7 +105,7 @@ function generaSessione(sessione: SessioneContenitore, parametri: ParametriGener
     usati.add(id);
     // Guida promossa a fondamentale dall'utente: scala RM piena se c'è posto (max 2 R1), altrimenti scala leggera.
     let ruolo: Ruolo = slot.ruolo;
-    if ((slot.ruolo === 'R2' || slot.ruolo === 'R3') && promossi.includes(id)) {
+    if ((slot.ruolo === 'R2' || slot.ruolo === 'R3' || slot.ruolo === 'R3b') && promossi.includes(id)) {
       ruolo = esercizi.filter((e) => e.ruolo === 'R1').length < 2 ? 'R1' : 'L';
     }
     esercizi.push({

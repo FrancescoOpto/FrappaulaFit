@@ -8,6 +8,7 @@ import { esportaJSON, importaJSON } from '../../store/db';
 import {
   aggiornaImpostazioni,
   aggiornaProfilo,
+  impostazioni,
   aggiungiEsercizioPersonalizzato,
   azzeraTutto,
   blocco,
@@ -29,7 +30,7 @@ import { avviaTimer, chiediPermessoNotifiche, sbloccaAudio } from '../timer';
 import { vai } from '../router';
 
 const GRUPPI: Gruppo[] = ['petto', 'dorso', 'spalle', 'gambe', 'bicipiti', 'tricipiti', 'addome'];
-const RUOLI: Ruolo[] = ['R1', 'R2', 'R3', 'L', 'C', 'AB'];
+const RUOLI: Ruolo[] = ['R1', 'R2', 'R3', 'R3b', 'L', 'C', 'AB'];
 const CLASSI: Classe[] = ['spinta_orizzontale', 'spinta_inclinata', 'spinta_verticale', 'trazione_verticale', 'trazione_orizzontale', 'squat', 'cerniera_anca', 'hip_thrust', 'quadricipiti_isolamento', 'femorali_isolamento', 'bicipiti', 'tricipiti', 'spalle_laterali', 'spalle_posteriori', 'petto_isolamento', 'addome'];
 
 function Sezione({ id, titolo, aperta, onToggle, children }: { id: string; titolo: string; aperta: boolean; onToggle: () => void; children: preact.ComponentChildren }) {
@@ -257,7 +258,7 @@ export function Impostazioni({ sezione }: { sezione?: string }) {
   void stato.value;
   const p = profilo.value!;
   const b = blocco.value;
-  const imp = p.impostazioni;
+  const imp = impostazioni.value;
   const [aperta, setAperta] = useState<string | null>(sezione ?? null);
   const [confermaReset, setConfermaReset] = useState(false);
   const [confermaBlocco, setConfermaBlocco] = useState(false);
@@ -306,6 +307,11 @@ export function Impostazioni({ sezione }: { sezione?: string }) {
 
       <Sezione id="test" titolo="Test e carichi" aperta={aperta === 'test'} onToggle={() => toggle('test')}>
         <div class="campo"><label>Arrotondamento dei carichi</label><Scelte valori={[0.5, 1, 2.5] as const} valore={imp.arrotondamento} onCambia={(v) => void aggiornaImpostazioni({ arrotondamento: v })} etichette={{ 0.5: '0,5 kg', 1: '1 kg', 2.5: '2,5 kg' }} /></div>
+        <div class="campo">
+          <label>Fattore di lavoro sul massimale stimato</label>
+          <Scelte valori={[0.85, 0.9, 0.95, 1] as const} valore={(imp.fattore_lavoro ?? 0.9) as 0.85 | 0.9 | 0.95 | 1} onCambia={(v) => void aggiornaImpostazioni({ fattore_lavoro: v })} etichette={{ 0.85: '85%', 0.9: '90%', 0.95: '95%', 1: '100%' }} />
+          <p class="piccolo">I carichi dei fondamentali sono fattore × massimale stimato × (37 − n)/36. L'app di riferimento usa il 90% (stima 87,5 → 9RM 61,5). Vale per le sedute non ancora iniziate.</p>
+        </div>
         <Test />
       </Sezione>
 

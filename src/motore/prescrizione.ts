@@ -1,5 +1,5 @@
 import type { CaricoCorrente, EsercizioSeduta, Fase, Impostazioni, RisultatoTest, Ruolo, Seduta, TestMode } from '../tipi';
-import { ESECUZIONE_SERIE_S, RISCALDAMENTO_S, SCALE_RM, TABELLE, type SerieRip } from '../data/tabelle';
+import { ESECUZIONE_SERIE_S, FATTORE_LAVORO_DEFAULT, RISCALDAMENTO_S, SCALE_RM, TABELLE, type SerieRip } from '../data/tabelle';
 import { ESERCIZI_PER_ID } from '../data/esercizi';
 import { arrotonda, caricoRM, rm1DaTest } from './carichi';
 import { applicaCorrente } from './correnti';
@@ -79,7 +79,7 @@ export function prescrizione(
   es: EsercizioSeduta,
   seduta: Pick<Seduta, 'fase' | 'cicloFase'>,
   test: Record<string, RisultatoTest>,
-  impostazioni: Pick<Impostazioni, 'arrotondamento'>,
+  impostazioni: Pick<Impostazioni, 'arrotondamento' | 'fattore_lavoro'>,
   correzione = 0,
   promossi: string[] = [],
   corrente?: CaricoCorrente,
@@ -101,7 +101,9 @@ export function prescrizione(
   if (es.ruolo === 'R1' || es.ruolo === 'L') {
     const n = scalaRM(es.ruolo, seduta.fase, seduta.cicloFase);
     const rm1 = rm1DiTest(t);
-    const kgPiano = rm1 ? caricoRM(rm1 * (1 + correzione), n, passo) : undefined;
+    // Carico RM = fattore di lavoro × massimale stimato × (37−n)/36 (blocco2_giorno_B.md §3).
+    const fattore = impostazioni.fattore_lavoro ?? FATTORE_LAVORO_DEFAULT;
+    const kgPiano = rm1 ? caricoRM(rm1 * fattore * (1 + correzione), n, passo) : undefined;
     return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, scalaRM: n, corrente };
   }
 

@@ -17,7 +17,7 @@ import type {
   TestMode,
 } from '../tipi';
 import { CHIAVI, type Chiave, caricaMeta, caricaStato, salvaChiave, salvaMeta, cancellaTutto, STATO_VUOTO } from './db';
-import { AUTOCORREZIONE_CICLO, AUTOCORREZIONE_SERIE, RECUPERI_DEFAULT, STRIPPING } from '../data/tabelle';
+import { AUTOCORREZIONE_CICLO, AUTOCORREZIONE_SERIE, FATTORE_LAVORO_DEFAULT, RECUPERI_DEFAULT, STRIPPING } from '../data/tabelle';
 import { nuovoBlocco, rigeneraSeduteFuture } from '../motore/generatore';
 import { prescrizione } from '../motore/prescrizione';
 import { arrotonda, stimaMassimale } from '../motore/carichi';
@@ -32,10 +32,16 @@ export const ultimoSalvataggio = signal<string | null>(null);
 
 export const profilo = computed(() => stato.value.profilo);
 export const blocco = computed(() => stato.value.blocco);
-export const impostazioni = computed<Impostazioni>(() => stato.value.profilo?.impostazioni ?? IMPOSTAZIONI_DEFAULT);
+/** Impostazioni del profilo con i default per i campi aggiunti dopo (migrazione implicita). */
+export function impostazioniDi(p: Profilo | null | undefined): Impostazioni {
+  if (!p) return IMPOSTAZIONI_DEFAULT;
+  return { ...IMPOSTAZIONI_DEFAULT, ...p.impostazioni, recuperi: { ...RECUPERI_DEFAULT, ...p.impostazioni.recuperi } };
+}
+export const impostazioni = computed<Impostazioni>(() => impostazioniDi(stato.value.profilo));
 
 export const IMPOSTAZIONI_DEFAULT: Impostazioni = {
   arrotondamento: 0.5,
+  fattore_lavoro: FATTORE_LAVORO_DEFAULT,
   recuperi: { ...RECUPERI_DEFAULT },
   suoni: true,
   vibrazione: true,
@@ -161,7 +167,7 @@ export async function salvaTest(esercizio_id: string, kg: number, rip: number, m
   const p = stato.value.profilo;
   if (!b || !p) return;
   const r: RisultatoTest = { esercizio_id, kg, rip, modo };
-  if (modo === 'stima') r.rm1 = stimaMassimale(rip, kg, p.impostazioni.arrotondamento);
+  if (modo === 'stima') r.rm1 = stimaMassimale(rip, kg, impostazioniDi(p).arrotondamento);
   // Un nuovo test è un nuovo carico base: il carico corrente scelto prima non vale più.
   const carichiCorrenti = { ...(b.carichiCorrenti ?? {}) };
   delete carichiCorrenti[esercizio_id];
@@ -261,7 +267,7 @@ export function caricoCorrenteDi(esercizio_id: string): CaricoCorrente | undefin
 export function prescrizioneDi(e: EsercizioSeduta, s: Pick<Seduta, 'fase' | 'cicloFase'>) {
   const b = stato.value.blocco!;
   const p = stato.value.profilo!;
-  return prescrizione(e, s, b.test, p.impostazioni, b.correzioni[e.esercizio_id] ?? 0, p.fondamentali_promossi ?? [], b.carichiCorrenti?.[e.esercizio_id]);
+  return prescrizione(e, s, b.test, impostazioniDi(p), b.correzioni[e.esercizio_id] ?? 0, p.fondamentali_promossi ?? [], b.carichiCorrenti?.[e.esercizio_id]);
 }
 
 /**
@@ -371,7 +377,7 @@ export async function sostituisciEsercizio(sedutaId: string, slot: number, nuovo
   if (reg && reg.esercizi[slot]) {
     const sd = sedute.find((x) => x.id === sedutaId)!;
     const eNuovo = sd.esercizi.find((e) => e.slot === slot)!;
-    const pr = prescrizione(eNuovo, sd, test, p.impostazioni, b.correzioni[nuovoId] ?? 0, p.fondamentali_promossi, carichiCorrenti[nuovoId]);
+    const pr = prescrizione(eNuovo, sd, test, impostazioniDi(p), b.correzioni[nuovoId] ?? 0, p.fondamentali_promossi, carichiCorrenti[nuovoId]);
     const serie = reg.esercizi[slot].serie.map((x) => (x.fatta ? x : { ...x, kg_prev: pr.kg ?? 0, kg_piano: pr.kgPiano, rip_prev: pr.rip }));
     registro[sedutaId] = { ...reg, esercizi: { ...reg.esercizi, [slot]: { esercizio_id: nuovoId, serie } } };
   }

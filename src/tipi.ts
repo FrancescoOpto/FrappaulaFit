@@ -31,7 +31,8 @@ export type Classe =
   | 'addome';
 
 /** Ruolo dello slot (SPEC §4.3): decide tabella serie×rip e scala RM. */
-export type Ruolo = 'R1' | 'R2' | 'R3' | 'L' | 'C' | 'AB';
+/** R3b = esercizio guida del gruppo (es. military): Target con progressione propria (blocco2_giorno_B.md §2.4). */
+export type Ruolo = 'R1' | 'R2' | 'R3' | 'R3b' | 'L' | 'C' | 'AB';
 
 /** Come si inserisce il carico nel test (TEST_INIZIO_BLOCCO §4). */
 export type CaricoModo = 'bilanciere_totale' | 'manubrio_singolo' | 'macchina' | 'cavo' | 'solo_dischi' | 'carico_sul_corpo' | 'corpo_libero';
@@ -111,6 +112,8 @@ export interface ParametriGeneratore {
 
 export interface Impostazioni {
   arrotondamento: 0.5 | 1 | 2.5;
+  /** Carichi RM = fattore × massimale stimato × (37−n)/36 (blocco2_giorno_B.md §3). Default 0,9. */
+  fattore_lavoro?: number;
   recuperi: Record<Ruolo, number>;
   suoni: boolean;
   vibrazione: boolean;

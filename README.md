@@ -28,8 +28,8 @@ npm run preview    # anteprima della build su http://localhost:4173/FrappaulaFit
 - **Blocco** = Test (1 ciclo) → Fase 1 (5) → Fase 2 (5) → Scarico (1) → Fase 3 (5). Un ciclo = un giro del contenitore (N sedute). N=3 → 51 sedute; N=4 → 68. Blocco breve: 12 cicli.
 - **Test a inizio blocco** (`TEST_INIZIO_BLOCCO.md`): fondamentali permanenti (panca, squat, stacco, hip thrust) con **stima del massimale** — reps qualsiasi + carico, `1RM = kg × 36 / (37 − reps)` arrotondato (4×80 → 87,5), salvato come `1@kg`; tutti gli altri con **serie unica** a N RM, dove N = ripetizioni di lavoro della Fase 1 + 2 (3×8 → 10, 3×10 → 12, 3×12 → 14), salvato `N@kg` e usato fisso per tutto il blocco.
 - **Esercizio guida** del gruppo (es. spalle): non è un fondamentale, ruota per blocco (`ROTAZIONE_GUIDA`: Blocco 1 military press, Blocco 2 spinte manubri seduto) ed è un Target a carico fisso. Promuovibile a fondamentale dalle Impostazioni → Test.
-- **Carico fondamentali**: `1RM × (37 − n) / 36` con la scala 9RM → 7RM → 5RM → 3RM (Fase 1 → Fase 3), 11RM in scarico. Il fondamentale "leggero" (seconda esposizione) sta due gradini sotto.
-- **Ruoli**: R1 fondamentale, R2/R3 Target, L fondamentale leggero, C complementare, AB addome. Le tabelle serie×rip valgono per ruolo, qualunque sia il contenitore.
+- **Carico fondamentali**: `fattore_lavoro × 1RM stimato × (37 − n) / 36` con la scala 9RM → 7RM → 5RM → 3RM (Fase 1 → Fase 3), 11RM in scarico; `fattore_lavoro` = 0,9 di default (l'app di riferimento: stima 87,5 → 9RM 61,5), modificabile in Impostazioni → Test. Il fondamentale "leggero" (seconda esposizione) sta due gradini sotto.
+- **Ruoli**: R1 fondamentale, R2/R3 Target, R3b esercizio guida del gruppo (progressione propria, es. military press), L fondamentale leggero, C complementare, AB addome. Le tabelle serie×rip valgono per ruolo, qualunque sia il contenitore.
 - **Carichi correnti** (SPEC §9.2b): il kg che scrivi in seduta diventa il carico dell'esercizio per le sedute successive. Per i ruoli a carico fisso sostituisce il test; per i fondamentali con scala RM si salva il fattore `kg_inseriti / kg_previsti` e la progressione continua dal livello scelto. "Ripristina carico del piano" nella schermata esercizio e in Impostazioni → Test. Lo storico dei massimali per blocco è nei Progressi.
 - **Autocorrezione**: ripetizioni mancate → serie successiva a −5 %; due sedute di fila → −2,5 % sul ciclo dopo (modificabile in Impostazioni → Test).
 - **Modifiche in corso d'opera**: cambiare N, T, priorità o esclusioni rigenera solo le sedute future dal prossimo confine di ciclo; test, carichi e storico restano.
@@ -49,7 +49,7 @@ Installazione sul telefono: Android Chrome → menu → "Installa app"; iPhone S
 
 ## Stato delle verifiche
 
-- [Certo] Motore: 54 test automatici passano, inclusi i casi di SPEC §6.4, le tabelle §7 e le stime di TEST_INIZIO_BLOCCO §2.1.
+- [Certo] Motore: 57 test automatici passano, inclusi i casi di SPEC §6.4, le tabelle §7 e le stime di TEST_INIZIO_BLOCCO §2.1.
 - [Certo] Flusso completo verificato in browser (Chromium): setup → settimana di test (stima e serie unica) → seduta → serie con timer e autocorrezione → completamento → storico → persistenza dopo ricarica.
 - [Non verificato] Timer con suono/vibrazione e notifiche su telefono reale (Android Chrome, iPhone PWA): da provare sui dispositivi.
 - [Non verificato] Sincronizzazione Supabase su un progetto reale.

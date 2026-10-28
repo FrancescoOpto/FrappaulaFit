@@ -3,7 +3,7 @@ import { durataStimata, modoTest, prescrizione, ripetizioniTest, serieRip } from
 import { RECUPERI_DEFAULT } from '../data/tabelle';
 import type { EsercizioSeduta, RisultatoTest } from '../tipi';
 
-const imp = { arrotondamento: 0.5 as const };
+const imp = { arrotondamento: 0.5 as const, fattore_lavoro: 0.9 };
 const panca: EsercizioSeduta = { slot: 0, esercizio_id: 'panca_piana', ruolo: 'R1', gruppo: 'petto' };
 const pancaL: EsercizioSeduta = { slot: 0, esercizio_id: 'panca_piana', ruolo: 'L', gruppo: 'petto' };
 const squat: EsercizioSeduta = { slot: 0, esercizio_id: 'squat', ruolo: 'R1', gruppo: 'gambe' };
@@ -11,10 +11,13 @@ const manubri: EsercizioSeduta = { slot: 1, esercizio_id: 'panca_manubri', ruolo
 const spinteAlto: EsercizioSeduta = { slot: 2, esercizio_id: 'spinte_manubri_seduto', ruolo: 'R3', gruppo: 'spalle' };
 const crunch: EsercizioSeduta = { slot: 3, esercizio_id: 'crunch_cavo', ruolo: 'AB', gruppo: 'addome' };
 const croci: EsercizioSeduta = { slot: 4, esercizio_id: 'croci_manubri', ruolo: 'C', gruppo: 'petto', serie: 3, rip: 10 };
+const military: EsercizioSeduta = { slot: 5, esercizio_id: 'military_press', ruolo: 'R3b', gruppo: 'spalle' };
 
 const test: Record<string, RisultatoTest> = {
-  panca_piana: { esercizio_id: 'panca_piana', kg: 76.5, rip: 3, modo: 'stima', rm1: 81 },
-  squat: { esercizio_id: 'squat', kg: 74.5, rip: 3, modo: 'stima', rm1: 78.75 },
+  // Stime reali del Blocco 2: stacco 5×80 → 90 (×0,9 = 81, il 1RM di SPEC §6.4) e panca 4×80 → 87,5 (×0,9 = 78,75).
+  panca_piana: { esercizio_id: 'panca_piana', kg: 80, rip: 5, modo: 'stima', rm1: 90 },
+  squat: { esercizio_id: 'squat', kg: 80, rip: 4, modo: 'stima', rm1: 87.5 },
+  military_press: { esercizio_id: 'military_press', kg: 22, rip: 10, modo: 'serie_unica' },
   panca_manubri: { esercizio_id: 'panca_manubri', kg: 26, rip: 10, modo: 'serie_unica' },
   spinte_manubri_seduto: { esercizio_id: 'spinte_manubri_seduto', kg: 16, rip: 10, modo: 'serie_unica' },
   crunch_cavo: { esercizio_id: 'crunch_cavo', kg: 30, rip: 14, modo: 'serie_unica' },
@@ -54,6 +57,28 @@ describe('Giorno B — squat R1 (1RM 78,75)', () => {
   });
   it('Scarico: 3x7@57', () => {
     expect(fmt(squat, 'scarico', 1)).toBe('3x7@57');
+  });
+});
+
+describe('Fattore di lavoro 0,9 (blocco2_giorno_B.md §3)', () => {
+  it('squat stima 56,5 → 9RM 39,5 · 7RM 42,5 · 5RM 45 · 3RM 48 · 11RM 36,5', () => {
+    const t = { squat: { esercizio_id: 'squat', kg: 50, rip: 5, modo: 'stima' as const, rm1: 56.5 } };
+    const kg = (fase: 'fase1' | 'fase2' | 'fase3' | 'scarico', c: number) => prescrizione(squat, { fase, cicloFase: c }, t, imp).kg;
+    expect([kg('fase1', 1), kg('fase1', 4), kg('fase3', 1), kg('fase3', 5), kg('scarico', 1)]).toEqual([39.5, 42.5, 45, 48, 36.5]);
+  });
+  it('fattore 1 usa il massimale pieno; fattore mancante usa 0,9', () => {
+    expect(prescrizione(panca, { fase: 'fase1', cicloFase: 1 }, test, { arrotondamento: 0.5, fattore_lavoro: 1 }).kg).toBe(70);
+    expect(prescrizione(panca, { fase: 'fase1', cicloFase: 1 }, test, { arrotondamento: 0.5 }).kg).toBe(63);
+  });
+});
+
+describe('Guida R3b — military press 22 kg (blocco2_giorno_B.md §2.4)', () => {
+  it('F1 3×8,3×8,3×8,3×9,3×9 · F2 4×9,4×9,3×10,3×10,4×10 · F3 3×8,3×8,4×8,3×9,4×9 · scarico 3×10', () => {
+    expect([1, 2, 3, 4, 5].map((c) => fmt(military, 'fase1', c))).toEqual(['3x8@22', '3x8@22', '3x8@22', '3x9@22', '3x9@22']);
+    expect([1, 2, 3, 4, 5].map((c) => fmt(military, 'fase2', c))).toEqual(['4x9@22', '4x9@22', '3x10@22', '3x10@22', '4x10@22']);
+    expect([1, 2, 3, 4, 5].map((c) => fmt(military, 'fase3', c))).toEqual(['3x8@22', '3x8@22', '4x8@22', '3x9@22', '4x9@22']);
+    expect(fmt(military, 'scarico', 1)).toBe('3x10@22');
+    expect(ripetizioniTest(military)).toBe(10);
   });
 });
 
