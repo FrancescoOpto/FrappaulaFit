@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { SerieRegistrata } from '../../tipi';
 import { NOMI_GRUPPI, esercizio as trovaEsercizio, linkYoutube } from '../../data/esercizi';
+import { PAUSA_REST_PAUSE_TOTALE, PAUSE_10_PIU_3 } from '../../data/tabelle';
 import { NOMI_FASI } from '../../data/tabelle';
 import { percentualeRM } from '../../motore/carichi';
 import {
@@ -9,6 +10,7 @@ import {
   aggiungiStripping,
   blocco,
   caricoCorrenteDi,
+  chiaveCorrente,
   impostazioni,
   iniziaSeduta,
   prescrizioneDi,
@@ -22,6 +24,47 @@ import {
 import { Avviso, Badge, Testata, formatoKg } from '../componenti/comuni';
 import { aggiungiSecondi, attivo, avviaTimer, fermaTimer, formatoMMSS, rimanente, timer } from '../timer';
 import { vai } from '../router';
+
+/** Riga rest-pause (Blocco 3): un solo kg, ripetizioni di ogni mini-serie, timer con le pause previste. */
+function RigaRestPause({ sedutaId, slot, x, soloLettura, recupero, etichetta }: { sedutaId: string; slot: number; x: SerieRegistrata; soloLettura: boolean; recupero: number; etichetta: string }) {
+  const dieciPiuTre = x.rest_pause === '10_piu_3';
+  const nMini = dieciPiuTre ? 4 : Math.max(4, (x.mini?.length ?? 0) + 1);
+  const [kg, setKg] = useState(x.kg !== undefined ? String(x.kg) : x.kg_prev ? String(x.kg_prev) : '');
+  const [mini, setMini] = useState<string[]>(Array.from({ length: nMini }, (_, i) => (x.mini?.[i] !== undefined ? String(x.mini[i]) : i === 0 && dieciPiuTre ? '10' : '')));
+  const numeri = () => mini.map((m) => parseInt(m, 10)).filter((n) => Number.isFinite(n) && n > 0);
+  const totale = numeri().reduce((a, b) => a + b, 0);
+  const salva = (fatta: boolean) => {
+    if (soloLettura) return;
+    const k = parseFloat(kg.replace(',', '.'));
+    void aggiornaSerie(sedutaId, slot, x.n, { kg: Number.isFinite(k) ? k : undefined, rip: totale || undefined, mini: numeri(), fatta });
+  };
+  const pausaDopo = (i: number) => (dieciPiuTre ? PAUSE_10_PIU_3[Math.min(i, PAUSE_10_PIU_3.length - 1)] : PAUSA_REST_PAUSE_TOTALE);
+  return (
+    <div class="colonna" style="gap:8px">
+      <p class="piccolo">
+        {dieciPiuTre
+          ? `Rest-pause “10 + 3 volte max”: 10 ripetizioni, pausa ${PAUSE_10_PIU_3[0]}″, massime ripetizioni, pausa ${PAUSE_10_PIU_3[1]}″, massime, pausa ${PAUSE_10_PIU_3[2]}″, massime. Carico leggermente più basso di quello da 8 ripetizioni.`
+          : `Rest-pause: ${x.rip_prev} ripetizioni totali con il carico del test, con pause brevi (≈${PAUSA_REST_PAUSE_TOTALE}″) quando serve. Segna le ripetizioni di ogni tratto.`}
+      </p>
+      <div class="riga" style="gap:8px;align-items:flex-end">
+        <div class="campo" style="width:110px"><label>kg</label><input type="number" inputMode="decimal" step="0.5" min="0" value={kg} disabled={soloLettura} onInput={(e) => setKg((e.target as HTMLInputElement).value)} onBlur={() => salva(x.fatta)} /></div>
+        <div class="cresce piccolo">{x.kg_piano !== undefined && x.kg_piano !== x.kg_prev ? `piano ${x.kg_piano} kg` : x.kg_prev ? `prev. ${formatoKg(x.kg_prev)}` : 'carico a tua scelta'} · totale <b>{totale}</b>{dieciPiuTre ? '' : ` / ${x.rip_prev}`}</div>
+      </div>
+      <div class="riga" style="gap:6px;flex-wrap:wrap">
+        {mini.map((m, i) => (
+          <div class="colonna" style="gap:2px;width:64px">
+            <input type="number" inputMode="numeric" min="0" value={m} disabled={soloLettura} placeholder={i === 0 && dieciPiuTre ? '10' : 'max'} onInput={(e) => { const c = [...mini]; c[i] = (e.target as HTMLInputElement).value; setMini(c); }} onBlur={() => salva(x.fatta)} aria-label={`rest-pause tratto ${i + 1}`} />
+            {i < mini.length - 1 ? <button class="bottone piccolo fantasma" style="min-height:30px;padding:0 6px;font-size:12px" disabled={soloLettura} onClick={() => avviaTimer(pausaDopo(i), `${etichetta} · pausa`)}>pausa {pausaDopo(i)}″</button> : <span class="piccolo centrato">fine</span>}
+          </div>
+        ))}
+        {!dieciPiuTre && !soloLettura ? <button class="bottone piccolo fantasma" onClick={() => setMini([...mini, ''])}>+ tratto</button> : null}
+      </div>
+      <button class={`bottone ${x.fatta ? 'primario' : ''}`} disabled={soloLettura} onClick={() => { if (x.fatta) { void aggiornaSerie(sedutaId, slot, x.n, { fatta: false }); return; } salva(true); avviaTimer(recupero, etichetta); }}>
+        {x.fatta ? '✓ Fatta' : 'Fatta (avvia recupero)'}
+      </button>
+    </div>
+  );
+}
 
 function RigaSerie({ sedutaId, slot, x, soloLettura, recupero, etichetta }: { sedutaId: string; slot: number; x: SerieRegistrata; soloLettura: boolean; recupero: number; etichetta: string }) {
   const [kg, setKg] = useState(x.kg !== undefined ? String(x.kg) : x.kg_prev ? String(x.kg_prev) : '');
@@ -78,7 +121,7 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
   const def = trovaEsercizio(es.esercizio_id, p.esercizi_personalizzati);
   const correzione = b.correzioni[es.esercizio_id] ?? 0;
   const pr = prescrizioneDi(es, s);
-  const corrente = caricoCorrenteDi(es.esercizio_id);
+  const corrente = caricoCorrenteDi(es);
   const reg = registroDi(s.id);
   const regEs = reg?.esercizi[slot];
   const soloLettura = s.stato !== 'in_corso';
@@ -102,6 +145,9 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
         <div class="riga" style="gap:10px;flex-wrap:wrap">
           <span class="chip"><b>{pr.serie}×{pr.rip}</b>&nbsp;@ {pr.kg !== undefined ? formatoKg(pr.kg) : '—'}</span>
           {pr.scalaRM ? <span class="chip">{pr.scalaRM}RM · {Math.round(percentualeRM(pr.scalaRM) * 100)}% del massimale</span> : null}
+          {pr.percentuale ? <span class="chip">{Math.round(pr.percentuale * 100)}% del massimale</span> : null}
+          {es.seconda_riga ? <span class="chip">seconda riga · carico a tua scelta</span> : null}
+          {pr.rest_pause ? <span class="chip">rest-pause</span> : null}
           <span class="chip">recupero {recupero}″</span>
         </div>
         {correzione ? <p class="piccolo">Carico corretto del {Math.round(correzione * 1000) / 10}% per ripetizioni mancate nei cicli precedenti (modificabile in Impostazioni → Test).</p> : null}
@@ -110,11 +156,12 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
             <span class="piccolo">
               Carico scelto da te{corrente.fattore ? ` (×${corrente.fattore})` : ''} · piano: {formatoKg(pr.kgPiano)}
             </span>
-            {!soloLettura || s.stato === 'futura' ? <button class="bottone piccolo fantasma" onClick={() => void ripristinaCaricoPiano(es.esercizio_id, s.stato === 'in_corso' ? s.id : undefined)}>Ripristina carico del piano</button> : null}
+            {!soloLettura || s.stato === 'futura' ? <button class="bottone piccolo fantasma" onClick={() => void ripristinaCaricoPiano(chiaveCorrente(es), s.stato === 'in_corso' ? s.id : undefined)}>Ripristina carico del piano</button> : null}
           </div>
         ) : null}
         {pr.ereditatoDa ? <p class="piccolo">Variante di fase: carico ereditato da {trovaEsercizio(pr.ereditatoDa, p.esercizi_personalizzati)?.nome ?? pr.ereditatoDa}; il kg che scrivi diventa il suo.</p> : null}
-        {pr.kg === undefined && s.fase !== 'test' ? <Avviso>Nessun test per questo esercizio: inserisci il carico a mano o aggiungi il test da Impostazioni → Test.</Avviso> : null}
+        {pr.kg === undefined && s.fase !== 'test' && !es.senza_carico ? <Avviso>Nessun test per questo esercizio: inserisci il carico a mano o aggiungi il test da Impostazioni → Test.</Avviso> : null}
+        {es.senza_carico ? <p class="piccolo">Seconda riga del Target: scegli un carico più leggero di quello delle serie principali; il kg che scrivi resta per le sedute successive.</p> : null}
       </div>
 
       {(inTimer || (t && t.fine > Date.now() - 5000)) && t ? (
@@ -139,9 +186,13 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
       {regEs ? (
         <div class="carta">
           <div class="riga spazio"><h3>Serie</h3><span class="piccolo">tocca “Fatta” per avviare il recupero</span></div>
-          {regEs.serie.map((x) => (
-            <RigaSerie key={`${x.n}-${es.esercizio_id}`} sedutaId={s.id} slot={slot} x={x} soloLettura={soloLettura} recupero={recupero} etichetta={def?.nome ?? ''} />
-          ))}
+          {regEs.serie.map((x) =>
+            x.rest_pause ? (
+              <RigaRestPause key={`${x.n}-${es.esercizio_id}`} sedutaId={s.id} slot={slot} x={x} soloLettura={soloLettura} recupero={recupero} etichetta={def?.nome ?? ''} />
+            ) : (
+              <RigaSerie key={`${x.n}-${es.esercizio_id}`} sedutaId={s.id} slot={slot} x={x} soloLettura={soloLettura} recupero={recupero} etichetta={def?.nome ?? ''} />
+            ),
+          )}
           <p class="piccolo">Il kg che scrivi diventa il carico di questo esercizio anche per le sedute successive.</p>
           {strippingPossibile && !soloLettura ? (
             <button class="bottone fantasma pieno" onClick={() => void aggiungiStripping(s.id, slot)}>Aggiungi serie extra a −30% (stripping)</button>

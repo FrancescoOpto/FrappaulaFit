@@ -38,7 +38,14 @@ export type Ruolo = 'R1' | 'R2' | 'R3' | 'L' | 'C' | 'AB';
  * Tabella di progressione serie×rip (BLOCCO2_programma.md §A2): dipende dall'esercizio nello slot, non dal ruolo.
  * R3b = military press (giorno B), R3c = spinte manubri piana (giorno C). C usa serie/rip fissi dello slot.
  */
-export type TabellaProg = 'R1' | 'R2' | 'R3' | 'R3b' | 'R3c' | 'R3d' | 'L' | 'AB';
+export type TabellaProg = 'R1' | 'R2' | 'R3' | 'R3b' | 'R3c' | 'R3d' | 'L' | 'AB' | 'AB_C' | 'B3_F' | 'B3_T8' | 'B3_T10' | 'B3_X12' | 'B3_X1';
+
+/** Serie rest-pause (Blocco 3): `totale` = N ripetizioni totali con pause brevi; `10_piu_3` = 10 rip + 3 mini-serie a cedimento (pause 30/40/50 s). */
+export type RestPause = 'totale' | '10_piu_3';
+
+export type FaseLavoro = Exclude<Fase, 'test'>;
+
+export type Obiettivo = 'massa' | 'mantenimento' | 'definizione';
 
 /** Come si inserisce il carico nel test (TEST_INIZIO_BLOCCO §4). */
 export type CaricoModo = 'bilanciere_totale' | 'manubrio_singolo' | 'macchina' | 'cavo' | 'solo_dischi' | 'carico_sul_corpo' | 'corpo_libero';
@@ -62,6 +69,8 @@ export interface Esercizio {
   fondamentale?: boolean;
   /** Istruzione di carico mostrata nel test. */
   carico_modo: CaricoModo;
+  /** Versione al multipower: il carico inserito esclude il bilanciere; niente stima del massimale. */
+  esclude_bilanciere?: boolean;
   query_youtube: string;
   personalizzato?: boolean;
 }
@@ -87,12 +96,22 @@ export interface Slot {
   tabella?: TabellaProg;
   /** Varianti dell'esercizio per fase (complementari): Fase 2 e Fase 3; lo scarico usa la Fase 2. Con serie/rip proprie se cambiano. */
   varianti?: Partial<Record<'fase2' | 'fase3', string | VarianteSlot>>;
+  /** Riga rest-pause (Blocco 3): serie 1, rip = totale (40) o 10. */
+  rest_pause?: RestPause;
+  /** Seconda riga dello stesso Target (×12): senza carico prescritto e senza test. */
+  seconda_riga?: boolean;
+  /** Fasi in cui lo slot esiste (default: tutte). */
+  fasi?: FaseLavoro[];
+  /** Serie×rip nello scarico quando non seguono la regola generale. */
+  scarico?: { serie: number; rip: number };
 }
 
 export interface VarianteSlot {
   id: string;
   serie?: number;
   rip?: number;
+  /** Variante in rest-pause (null = serie normali). */
+  rest_pause?: RestPause | null;
 }
 
 export interface SessioneContenitore {
@@ -153,6 +172,8 @@ export interface Profilo {
   fondamentali_promossi?: string[];
   /** Regole del motore coach (solo `ipotesi`) disattivate dall'utente (SPEC §14.5). */
   regole_disattivate?: string[];
+  /** Obiettivo dichiarato (SPEC §15): scelta dell'utente, non un attributo del blocco. Solo dato, per ora. */
+  obiettivo?: Obiettivo;
 }
 
 export interface EsercizioSeduta {
@@ -168,6 +189,12 @@ export interface EsercizioSeduta {
   tabella?: TabellaProg;
   /** Variante senza test: eredita il carico dall'esercizio di Fase 1 dello stesso slot. */
   eredita_da?: string;
+  /** Serie e rip fissi per questa seduta (override di scarico o rest-pause): ignora le tabelle. */
+  serie_fisse?: boolean;
+  rest_pause?: RestPause;
+  /** Riga senza carico prescritto (seconda riga ×12): niente test, kg a scelta. */
+  senza_carico?: boolean;
+  seconda_riga?: boolean;
 }
 
 export interface Seduta {
@@ -221,6 +248,9 @@ export interface SerieRegistrata {
   fatta: boolean;
   /** Serie extra di stripping (−30%). */
   stripping?: boolean;
+  /** Rest-pause: ripetizioni di ogni mini-serie (la somma va in `rip`). */
+  mini?: number[];
+  rest_pause?: RestPause;
 }
 
 export interface RegistroEsercizio {

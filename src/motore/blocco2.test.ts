@@ -31,7 +31,8 @@ describe('Blocco 2 a 4 giorni (§A1): struttura', () => {
   it('contenitorePer sceglie il Blocco 2 solo per uomo a 4 giorni nel blocco 2', () => {
     expect(contenitorePer(4, 'uomo_base', 2).id).toBe('b2u4');
     expect(contenitorePer(4, 'uomo_base', 1).id).toBe('b1u4');
-    expect(contenitorePer(4, 'uomo_base', 3).id).toBe('u4');
+    expect(contenitorePer(4, 'uomo_base', 3).id).toBe('b3u4');
+    expect(contenitorePer(4, 'uomo_base', 4).id).toBe('b1u4');
     expect(contenitorePer(3, 'uomo_base', 2).id).toBe('u3');
     expect(contenitorePer(4, 'donna_glutei', 2).id).toBe('d4');
   });

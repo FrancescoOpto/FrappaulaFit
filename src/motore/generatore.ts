@@ -17,6 +17,8 @@ import { contenitorePer } from '../data/contenitori';
 import { ESERCIZI, ESERCIZI_PER_ID, NOMI_GRUPPI, NOMI_SOTTOGRUPPI, ROTAZIONE_GUIDA, guidaDelBlocco } from '../data/esercizi';
 import {
   COPERTURA_FALLBACK,
+  SCARICO_REST_PAUSE,
+  TABELLE,
   COPERTURA_MINIMA,
   FASI_BLOCCO,
   FASI_BLOCCO_BREVE,
@@ -79,7 +81,8 @@ function scegliEsercizio(slot: Slot, parametri: ParametriGeneratore, usati: Set<
   }
   for (const id of candidati) {
     if (parametri.esclusi.includes(id)) continue;
-    if (usati.has(id)) continue;
+    // La seconda riga ripete di proposito lo stesso esercizio del Target.
+    if (usati.has(id) && !slot.seconda_riga) continue;
     // Un R1 richiede un fondamentale (o comunque un multiarticolare della stessa classe).
     if (slot.ruolo === 'R1' && ESERCIZI_PER_ID[id] && ESERCIZI_PER_ID[id].tipo !== 'multi') continue;
     return id;
@@ -119,6 +122,10 @@ function generaSessione(sessione: SessioneContenitore, parametri: ParametriGener
       rip: slot.rip,
       superserie: slot.superserie,
       tabella,
+      rest_pause: slot.rest_pause,
+      serie_fisse: slot.rest_pause ? true : undefined,
+      senza_carico: slot.seconda_riga ? true : undefined,
+      seconda_riga: slot.seconda_riga,
     });
   });
   if (fisso) {
@@ -275,20 +282,44 @@ export function cicliDelBlocco(bloccoBreve: boolean): { fase: Fase; ciclo: numbe
  */
 export function eserciziPerFase(sessione: SessioneGenerata, contenitoreSessione: SessioneContenitore | undefined, fase: Fase, parametri: ParametriGeneratore, sostituzioni: Record<string, string> = {}): EsercizioSeduta[] {
   const faseVarianti = fase === 'scarico' ? 'fase2' : fase === 'fase2' || fase === 'fase3' ? fase : undefined;
-  return sessione.esercizi.map((e) => {
-    const base: EsercizioSeduta = { ...e };
-    if (!faseVarianti || e.slot < 0) return base;
-    const slot = contenitoreSessione?.slot[e.slot];
-    const v = slot?.varianti?.[faseVarianti];
-    if (!v) return base;
-    const variante = typeof v === 'string' ? v : v.id;
-    const serie = typeof v === 'string' ? e.serie : (v.serie ?? e.serie);
-    const rip = typeof v === 'string' ? e.rip : (v.rip ?? e.rip);
-    if (parametri.esclusi.includes(variante)) return base;
-    const id = sostituzioni[variante] && !parametri.esclusi.includes(sostituzioni[variante]) ? sostituzioni[variante] : variante;
-    if (id === e.esercizio_id) return { ...base, serie, rip };
-    return { ...base, esercizio_id: id, serie, rip, eredita_da: e.esercizio_id };
-  });
+  const out: EsercizioSeduta[] = [];
+  for (const e of sessione.esercizi) {
+    const slot = e.slot >= 0 ? contenitoreSessione?.slot[e.slot] : undefined;
+    // Slot presenti solo in alcune fasi (es. affondi dalla Fase 2); la settimana di test segue la Fase 1.
+    if (slot?.fasi && !slot.fasi.includes(fase === 'test' ? 'fase1' : fase)) continue;
+    // Seconde righe e righe senza carico non si testano.
+    if (fase === 'test' && (e.seconda_riga || e.senza_carico)) continue;
+    // Tabelle con scarico vuoto (seconda riga ×12): la riga sparisce nello scarico.
+    if (fase === 'scarico' && e.tabella && e.ruolo !== 'C' && TABELLE[e.tabella].scarico.length === 0) continue;
+
+    let base: EsercizioSeduta = { ...e };
+    if (faseVarianti && slot) {
+      const v = slot.varianti?.[faseVarianti];
+      if (v) {
+        const variante = typeof v === 'string' ? v : v.id;
+        if (!parametri.esclusi.includes(variante)) {
+          const serie = typeof v === 'string' ? e.serie : (v.serie ?? e.serie);
+          const rip = typeof v === 'string' ? e.rip : (v.rip ?? e.rip);
+          const rp = typeof v === 'string' ? e.rest_pause : v.rest_pause === undefined ? e.rest_pause : v.rest_pause ?? undefined;
+          const id = sostituzioni[variante] && !parametri.esclusi.includes(sostituzioni[variante]) ? sostituzioni[variante] : variante;
+          const serieRp = rp ? 1 : serie;
+          const ripRp = rp === 'totale' ? 40 : rp === '10_piu_3' ? 10 : rip;
+          base = { ...base, serie: serieRp, rip: ripRp, rest_pause: rp, serie_fisse: rp ? true : undefined };
+          if (id !== e.esercizio_id) base = { ...base, esercizio_id: id, eredita_da: e.esercizio_id };
+        }
+      }
+    }
+    if (fase === 'scarico') {
+      // Righe rest-pause → serie normali (2×12 / 2×10); override di scarico dello slot per i Target.
+      if (base.rest_pause) {
+        const [serie, rip] = SCARICO_REST_PAUSE[base.rest_pause];
+        base = { ...base, serie, rip, rest_pause: undefined, serie_fisse: base.ruolo !== 'C' ? true : undefined };
+      }
+      if (slot?.scarico) base = { ...base, serie: slot.scarico.serie, rip: slot.scarico.rip, serie_fisse: true };
+    }
+    out.push(base);
+  }
+  return out;
 }
 
 function nomeSeduta(fase: Fase, numeroNellaFase: number): string {

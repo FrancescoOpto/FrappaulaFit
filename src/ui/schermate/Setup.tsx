@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'preact/hooks';
-import type { Esperienza, Gruppo, ParametriGeneratore, Preset } from '../../tipi';
+import type { Esperienza, Gruppo, Obiettivo, ParametriGeneratore, Preset } from '../../tipi';
 import { ESERCIZI, ESERCIZI_PER_ID, NOMI_GRUPPI } from '../../data/esercizi';
 import { generaSettimana, targetVolume } from '../../motore/generatore';
 import { minuti } from '../../motore/prescrizione';
@@ -16,6 +16,7 @@ export function Setup() {
   const [N, setN] = useState(4);
   const [T, setT] = useState(60);
   const [esperienza, setEsperienza] = useState<Esperienza>('intermedio');
+  const [obiettivo, setObiettivo] = useState<Obiettivo>('massa');
   const [priorita, setPriorita] = useState<Gruppo[]>([]);
   const [esclusi, setEsclusi] = useState<string[]>([]);
   const [bloccoBreve, setBloccoBreve] = useState(false);
@@ -48,7 +49,7 @@ export function Setup() {
   const conferma = async () => {
     if (!nome.trim() || !anteprima) return;
     setSalvando(true);
-    await creaProfilo(nome.trim(), sesso, parametri);
+    await creaProfilo(nome.trim(), sesso, parametri, obiettivo);
     setSalvando(false);
     vai('/');
   };
@@ -85,6 +86,11 @@ export function Setup() {
         <div class="campo">
           <label>Quanto tempo hai per seduta?</label>
           <Scelte valori={[45, 60, 75, 90]} valore={T} onCambia={setT} etichette={{ 45: '45 min', 60: '60 min', 75: '75 min', 90: '90 min' }} />
+        </div>
+        <div class="campo">
+          <label>Obiettivo</label>
+          <Scelte valori={['massa', 'mantenimento', 'definizione'] as Obiettivo[]} valore={obiettivo} onCambia={setObiettivo} etichette={{ massa: 'Massa', mantenimento: 'Mantenimento', definizione: 'Definizione' }} />
+          <p class="piccolo">È una tua scelta, non un attributo del blocco: l'allenamento resta lo stesso, cambia l'alimentazione (fuori dall'app).</p>
         </div>
         <div class="campo">
           <label>Esperienza</label>

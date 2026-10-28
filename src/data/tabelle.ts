@@ -1,4 +1,4 @@
-import type { Fase, Gruppo, Ruolo, Sottogruppo, TabellaProg } from '../tipi';
+import type { Fase, FaseLavoro, Gruppo, Ruolo, Sottogruppo, TabellaProg } from '../tipi';
 
 /** Struttura del blocco in cicli (SPEC §3). */
 export const FASI_BLOCCO: { fase: Fase; cicli: number; nome: string }[] = [
@@ -20,7 +20,6 @@ export const NOMI_FASI: Record<Fase, string> = {
   fase3: 'Fase 3',
 };
 
-type FaseLavoro = Exclude<Fase, 'test'>;
 export type SerieRip = [serie: number, rip: number];
 
 /**
@@ -80,7 +79,65 @@ export const TABELLE: Record<TabellaProg, Record<FaseLavoro, SerieRip[]>> = {
     // Scarico AB invariato rispetto all'ultima settimana di Fase 2 (Blocco 2 giorno A, 28/10).
     scarico: [[3, 15]],
   },
+  // Crunch del giorno C nel Blocco 3: in Fase 3 riparte da 13 invece che da 12.
+  AB_C: {
+    fase1: [[3, 12], [3, 12], [3, 12], [3, 12], [3, 12]],
+    fase2: [[3, 13], [3, 13], [3, 14], [3, 14], [3, 15]],
+    fase3: [[3, 13], [3, 13], [3, 14], [3, 14], [3, 15]],
+    scarico: [[3, 15]],
+  },
+  // ---- Blocco 3 (BLOCCO3_programma.md §A2–A3): prescrizioni piatte dentro la fase ----
+  // Fondamentali liberi: 3×5 / 3×4 / 3×3, scarico 3×4; carico a percentuale (CARICO_PER_TABELLA).
+  B3_F: {
+    fase1: [[3, 5], [3, 5], [3, 5], [3, 5], [3, 5]],
+    fase2: [[3, 4], [3, 4], [3, 4], [3, 4], [3, 4]],
+    fase3: [[3, 3], [3, 3], [3, 3], [3, 3], [3, 3]],
+    scarico: [[3, 4]],
+  },
+  // Target a 10RM: 3×8 → 3×9 → 3×7 poi 3×8; scarico −1 serie.
+  B3_T8: {
+    fase1: [[3, 8], [3, 8], [3, 8], [3, 8], [3, 8]],
+    fase2: [[3, 9], [3, 9], [3, 9], [3, 9], [3, 9]],
+    fase3: [[3, 7], [3, 7], [3, 7], [3, 8], [3, 8]],
+    scarico: [[2, 9]],
+  },
+  // Target a 12RM (multipower): 3×10 → 3×11 → 3×8; scarico 2×11.
+  B3_T10: {
+    fase1: [[3, 10], [3, 10], [3, 10], [3, 10], [3, 10]],
+    fase2: [[3, 11], [3, 11], [3, 11], [3, 11], [3, 11]],
+    fase3: [[3, 8], [3, 8], [3, 8], [3, 8], [3, 8]],
+    scarico: [[2, 11]],
+  },
+  // Seconda riga ×12 del Target principale: 1 serie nelle settimane 1–2, 2 dalla 3; sparisce in scarico.
+  B3_X12: {
+    fase1: [[1, 12], [1, 12], [2, 12], [2, 12], [2, 12]],
+    fase2: [[1, 12], [1, 12], [2, 12], [2, 12], [2, 12]],
+    fase3: [[1, 12], [1, 12], [2, 12], [2, 12], [2, 12]],
+    scarico: [],
+  },
+  // Lat media a serie singola (giorno C): 1×10 in Fase 1, 1×12 dopo; sparisce in scarico.
+  B3_X1: {
+    fase1: [[1, 10], [1, 10], [1, 10], [1, 10], [1, 10]],
+    fase2: [[1, 12], [1, 12], [1, 12], [1, 12], [1, 12]],
+    fase3: [[1, 12], [1, 12], [1, 12], [1, 12], [1, 12]],
+    scarico: [],
+  },
 };
+
+/**
+ * Carico dei fondamentali a percentuale diretta del massimale stimato, per tabella (Blocco 3, BLOCCO3_programma.md §A2):
+ * carico = round(1RM × pct). Per le tabelle senza voce vale la scala RM × fattore_lavoro (Blocchi 1–2).
+ */
+export const CARICO_PER_TABELLA: Partial<Record<TabellaProg, Record<FaseLavoro, number>>> = {
+  B3_F: { fase1: 0.77, fase2: 0.82, fase3: 0.87, scarico: 0.77 },
+};
+
+/** Scarico delle righe rest-pause (Blocco 3 §A5): 1×40 → 2×12, 1×10 → 2×10. */
+export const SCARICO_REST_PAUSE: Record<'totale' | '10_piu_3', [number, number]> = { totale: [2, 12], '10_piu_3': [2, 10] };
+
+/** Pause della rest-pause "10 + 3 volte max" (secondi) e pausa consigliata tra le mini-serie della versione a totale. */
+export const PAUSE_10_PIU_3 = [30, 40, 50];
+export const PAUSA_REST_PAUSE_TOTALE = 15;
 
 /** Scale RM (n della formula di Brzycki) per R1 e L, per fase e ciclo (SPEC §6.3). */
 export const SCALE_RM: Record<'R1' | 'L', Record<FaseLavoro, number[]>> = {

@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import type { CaricoModo, Classe, Esercizio, Gruppo, ParametriGeneratore, Ruolo, TestMode } from '../../tipi';
+import type { CaricoModo, Classe, Esercizio, Gruppo, Obiettivo, ParametriGeneratore, Ruolo, TestMode } from '../../tipi';
 import { CARICO_MODO, ESERCIZI, NOMI_GRUPPI, NOMI_RUOLI, ROTAZIONE_GUIDA, esercizio as trovaEsercizio } from '../../data/esercizi';
 import { RECUPERI_DEFAULT } from '../../data/tabelle';
 import { eserciziDaTestare, generaSettimana, primoCicloModificabile } from '../../motore/generatore';
@@ -300,6 +300,7 @@ export function Impostazioni({ sezione }: { sezione?: string }) {
       <Sezione id="profilo" titolo="Profilo" aperta={aperta === 'profilo'} onToggle={() => toggle('profilo')}>
         <div class="campo"><label>Nome</label><div class="riga"><input type="text" value={nome} onInput={(e) => setNome((e.target as HTMLInputElement).value)} /><button class="bottone piccolo" style="min-height:46px" disabled={nome.trim() === p.nome || !nome.trim()} onClick={() => void aggiornaProfilo({ nome: nome.trim() })}>Salva</button></div></div>
         <div class="campo"><label>Profilo</label><Scelte valori={['M', 'F']} valore={p.sesso} onCambia={(v) => void aggiornaProfilo({ sesso: v })} etichette={{ M: 'Uomo · base', F: 'Donna · focus glutei' }} /><p class="piccolo">Il preset cambia solo le sedute del prossimo blocco (o rigenerandole da “Programma”).</p></div>
+        <div class="campo"><label>Obiettivo</label><Scelte valori={['massa', 'mantenimento', 'definizione'] as Obiettivo[]} valore={p.obiettivo ?? 'massa'} onCambia={(v) => void aggiornaProfilo({ obiettivo: v })} etichette={{ massa: 'Massa', mantenimento: 'Mantenimento', definizione: 'Definizione' }} /><p class="piccolo">Scelta tua, non del blocco: il programma non cambia (SPEC §15).</p></div>
         <button class="bottone fantasma pieno" onClick={() => vai('/nuovo-profilo')}>Crea un nuovo profilo su questo dispositivo…</button>
       </Sezione>
 

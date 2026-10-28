@@ -102,6 +102,7 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
   const [riscaldamento, setRiscaldamento] = useState(false);
   const [sost, setSost] = useState(false);
   const modo = def ? CARICO_MODO[def.carico_modo] : undefined;
+  const notaMultipower = def?.esclude_bilanciere ? ' Carico escludendo il peso del bilanciere del multipower.' : '';
   const k = parseFloat(kg.replace(',', '.'));
   const r = parseInt(rip, 10);
   const kgOk = Number.isFinite(k) && k >= 0;
@@ -178,7 +179,7 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
           ) : (
             <>
               <h3>Serie unica di test</h3>
-              <p class="piccolo">Devi fare un test <b>{pr.rip}RM</b>: il peso più alto possibile con cui riesci a fare {pr.rip} ripetizioni a cedimento tecnico. {modo?.testo}</p>
+              <p class="piccolo">Devi fare un test <b>{pr.rip}RM</b>: il peso più alto possibile con cui riesci a fare {pr.rip} ripetizioni a cedimento tecnico. {modo?.testo}{notaMultipower}</p>
               <p class="piccolo">Se ne fai più di {pr.rip + 2} il peso era leggero: ripeti dopo 3 minuti con più carico. Meglio farsi contare le ripetizioni o filmarsi.</p>
               {precedente ? <p class="piccolo">Blocco precedente: {precedente.modo === 'stima' ? `1@${precedente.rm1} kg` : `${precedente.rip}@${precedente.kg} kg`}.</p> : null}
               <div class="riga" style="gap:8px">
@@ -212,8 +213,10 @@ function RigaEsercizio({ s, es, onSostituisci }: { s: TSeduta; es: EsercizioSedu
         <div class="nome">{def?.nome ?? es.esercizio_id}</div>
         <div class="dettaglio">
           <Badge ruolo={es.ruolo} />
-          <span>{pr.serie}×{pr.rip} @ {pr.kg !== undefined ? formatoKg(pr.kg) : 'senza test'}{pr.corrente ? ' ✎' : ''}</span>
+          <span>{pr.serie}×{pr.rip} @ {pr.kg !== undefined ? formatoKg(pr.kg) : es.senza_carico ? 'a scelta' : 'senza test'}{pr.corrente ? ' ✎' : ''}</span>
           {pr.scalaRM ? <span class="piccolo">{pr.scalaRM}RM · {Math.round(percentualeRM(pr.scalaRM) * 100)}%</span> : null}
+          {pr.percentuale ? <span class="piccolo">{Math.round(pr.percentuale * 100)}%</span> : null}
+          {pr.rest_pause ? <span class="piccolo">rest-pause</span> : null}
         </div>
       </div>
       {s.stato !== 'completata' ? <button class="icona-bottone" aria-label="Sostituisci esercizio" onClick={onSostituisci}>⇄</button> : null}

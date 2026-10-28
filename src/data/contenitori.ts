@@ -1,6 +1,7 @@
 import type { Contenitore, Preset, SessioneContenitore, Slot } from '../tipi';
 import { BLOCCO2_4G } from './blocco2';
 import { BLOCCO1_4G } from './blocco1';
+import { BLOCCO3_4G } from './blocco3';
 
 // Contenitori (SPEC §4.2–4.3): per ogni N, quali gruppi/slot stanno in quale seduta.
 // Il contenitore definisce i ruoli; i singoli esercizi sono "default" sostituibili per classe.
@@ -235,8 +236,11 @@ export const CONTENITORI: Contenitore[] = [
  */
 export function contenitorePer(N: number, preset: Preset, numeroBlocco = 1): Contenitore {
   if (N === 4 && preset === 'uomo_base') {
-    if (numeroBlocco === 1) return BLOCCO1_4G;
-    if (numeroBlocco === 2) return BLOCCO2_4G;
+    // Tre blocchi ≈ un anno: dal quarto si ricomincia dal Blocco 1.
+    const ciclo = ((Math.max(1, numeroBlocco) - 1) % 3) + 1;
+    if (ciclo === 1) return BLOCCO1_4G;
+    if (ciclo === 2) return BLOCCO2_4G;
+    return BLOCCO3_4G;
   }
   const prefisso = preset === 'donna_glutei' ? 'd' : 'u';
   const c = CONTENITORI.find((x) => x.id === prefisso + N);

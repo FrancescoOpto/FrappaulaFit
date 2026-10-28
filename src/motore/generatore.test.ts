@@ -153,7 +153,7 @@ describe('esercizio guida per blocco (TEST_INIZIO_BLOCCO §1b)', () => {
     const b2gen = generaSettimana({ ...base, N: 3, T: 90 }, profilo, 2);
     expect(b2gen.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.tabella === 'R3b')?.esercizio_id).toBe('spinte_manubri_seduto');
     expect(b2gen.avvisi.some((a) => /Da definire/.test(a))).toBe(true);
-    const b3 = generaSettimana({ ...base, N: 4, T: 90 }, profilo, 3);
+    const b3 = generaSettimana({ ...base, N: 3, T: 90 }, profilo, 3);
     expect(b3.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.tabella === 'R3b')?.esercizio_id).toBe('military_press');
   });
   it('la guida non è mai R1/L di default; promossa dall’utente diventa R1 (o L se ci sono già 2 R1)', () => {

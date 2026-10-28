@@ -19,3 +19,8 @@
 - Nessun ruolo L nel Blocco 2 a 4 giorni; i fondamentali compaiono una volta a settimana come R1.
 - Carico modificato dall'utente resta salvato per le sedute successive (SPEC §9.2b).
 - Obiettivi futuri: motore coach a regole (SPEC §14) e pianificatore a obiettivo (SPEC §15).
+
+## 28/10 — Blocco 3 completo (test, Fase 1–3, scarico)
+- Fondamentali Blocco 3: carico = % diretta del 1RM per fase (77/82/87 %), 3×5/3×4/3×3, piatti nelle 5 settimane; il fattore 0,9 del Blocco 2 non vale qui. Dati per giorno in `BLOCCO3_programma.md`.
+- Nuovo: seconda riga Target ×12 (1→2 serie), rest-pause `1×40` (reps totali), flag `esclude_bilanciere` per multipower, gruppi per giorno che cambiano a ogni blocco.
+- Blocco 3 non è un blocco di definizione (volume invariato, 97–99 serie W1): obiettivo/dieta vanno chiesti all'utente (SPEC §15).

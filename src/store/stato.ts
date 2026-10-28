@@ -5,6 +5,7 @@ import type {
   Checkin,
   Esercizio,
   EsercizioSeduta,
+  Obiettivo,
   Impostazioni,
   ParametriGeneratore,
   Profilo,
@@ -98,7 +99,7 @@ export async function azzeraTutto(): Promise<void> {
 
 // ---------- Profilo e blocco ----------
 
-export async function creaProfilo(nome: string, sesso: 'M' | 'F', parametri: ParametriGeneratore): Promise<void> {
+export async function creaProfilo(nome: string, sesso: 'M' | 'F', parametri: ParametriGeneratore, obiettivo: Obiettivo = 'massa'): Promise<void> {
   const p: Profilo = {
     id: 'p-' + Date.now().toString(36),
     nome,
@@ -109,6 +110,7 @@ export async function creaProfilo(nome: string, sesso: 'M' | 'F', parametri: Par
     sostituzioni: {},
     esercizi_personalizzati: [],
     fondamentali_promossi: [],
+    obiettivo,
   };
   const b = nuovoBlocco(parametri, p, 1);
   await aggiorna({ profilo: p, blocco: b }, ['profilo', 'blocco']);
@@ -120,7 +122,7 @@ export async function aggiornaImpostazioni(mod: Partial<Impostazioni>): Promise<
   await aggiorna({ profilo: { ...p, impostazioni: { ...p.impostazioni, ...mod } } }, ['profilo']);
 }
 
-export async function aggiornaProfilo(mod: Partial<Pick<Profilo, 'nome' | 'sesso'>>): Promise<void> {
+export async function aggiornaProfilo(mod: Partial<Pick<Profilo, 'nome' | 'sesso' | 'obiettivo'>>): Promise<void> {
   const p = stato.value.profilo;
   if (!p) return;
   await aggiorna({ profilo: { ...p, ...mod } }, ['profilo']);
@@ -246,7 +248,7 @@ export async function iniziaSeduta(id: string): Promise<void> {
   for (const e of s.esercizi) {
     const pr = prescrizioneDi(e, s);
     const serie: SerieRegistrata[] = [];
-    for (let n = 1; n <= pr.serie; n++) serie.push({ n, kg_prev: pr.kg ?? 0, kg_piano: pr.kgPiano, rip_prev: pr.rip, fatta: false });
+    for (let n = 1; n <= pr.serie; n++) serie.push({ n, kg_prev: pr.kg ?? 0, kg_piano: pr.kgPiano, rip_prev: pr.rip, fatta: false, rest_pause: e.rest_pause });
     reg.esercizi[e.slot] = { esercizio_id: e.esercizio_id, serie };
   }
   batch(() => {});
@@ -258,16 +260,21 @@ export function registroDi(id: string): RegistroSeduta | undefined {
   return stato.value.registro[id];
 }
 
+/** Chiave del carico corrente: la seconda riga ×12 ha un carico suo, separato dal Target dello stesso esercizio. */
+export function chiaveCorrente(e: Pick<EsercizioSeduta, 'esercizio_id' | 'seconda_riga'>): string {
+  return e.seconda_riga ? `${e.esercizio_id}#2` : e.esercizio_id;
+}
+
 /** Carico corrente di un esercizio nel blocco (SPEC §9.2b). */
-export function caricoCorrenteDi(esercizio_id: string): CaricoCorrente | undefined {
-  return stato.value.blocco?.carichiCorrenti?.[esercizio_id];
+export function caricoCorrenteDi(e: Pick<EsercizioSeduta, 'esercizio_id' | 'seconda_riga'>): CaricoCorrente | undefined {
+  return stato.value.blocco?.carichiCorrenti?.[chiaveCorrente(e)];
 }
 
 /** Prescrizione completa di un esercizio in una seduta: test, correzioni, promozioni e carico corrente. */
 export function prescrizioneDi(e: EsercizioSeduta, s: Pick<Seduta, 'fase' | 'cicloFase'>) {
   const b = stato.value.blocco!;
   const p = stato.value.profilo!;
-  return prescrizione(e, s, b.test, impostazioniDi(p), b.correzioni[e.esercizio_id] ?? 0, p.fondamentali_promossi ?? [], b.carichiCorrenti?.[e.esercizio_id]);
+  return prescrizione(e, s, b.test, impostazioniDi(p), b.correzioni[e.esercizio_id] ?? 0, p.fondamentali_promossi ?? [], b.carichiCorrenti?.[chiaveCorrente(e)]);
 }
 
 /**
@@ -290,11 +297,13 @@ export async function aggiornaSerie(sedutaId: string, slot: number, n: number, m
 
   // Carico scelto dall'utente (non una serie di stripping, non il semplice "fatta" sul precompilato).
   if (mod.kg !== undefined && !corrente.stripping && mod.kg !== prima.kg_prev) {
-    const ruolo = s.esercizi.find((e) => e.slot === slot)?.ruolo ?? 'C';
+    const esSeduta = s.esercizi.find((e) => e.slot === slot);
+    const ruolo = esSeduta?.ruolo ?? 'C';
+    const chiave = chiaveCorrente(esSeduta ?? { esercizio_id: es.esercizio_id });
     const nuovo = nuovoCaricoCorrente(ruolo, mod.kg, prima.kg_piano, sedutaId);
     carichiCorrenti = { ...(b.carichiCorrenti ?? {}) };
-    if (nuovo) carichiCorrenti[es.esercizio_id] = nuovo;
-    else delete carichiCorrenti[es.esercizio_id];
+    if (nuovo) carichiCorrenti[chiave] = nuovo;
+    else delete carichiCorrenti[chiave];
     for (const x of serie) if (x.n > n && !x.fatta && !x.stripping) x.kg_prev = mod.kg;
     corrente.kg_prev = mod.kg;
   }
@@ -308,17 +317,19 @@ export async function aggiornaSerie(sedutaId: string, slot: number, n: number, m
 }
 
 /** Torna al carico del piano per un esercizio (SPEC §9.2b punto 5); nella seduta in corso ricalcola le serie non fatte. */
-export async function ripristinaCaricoPiano(esercizio_id: string, sedutaId?: string): Promise<void> {
+export async function ripristinaCaricoPiano(chiave: string, sedutaId?: string): Promise<void> {
   const b = stato.value.blocco;
   if (!b) return;
   const carichiCorrenti = { ...(b.carichiCorrenti ?? {}) };
-  delete carichiCorrenti[esercizio_id];
+  delete carichiCorrenti[chiave];
   const registro = { ...stato.value.registro };
   const reg = sedutaId ? registro[sedutaId] : undefined;
+  const sd = sedutaId ? sedutaPerId(sedutaId) : undefined;
   if (reg) {
     const esercizi = { ...reg.esercizi };
     for (const [slot, es] of Object.entries(esercizi)) {
-      if (es.esercizio_id !== esercizio_id) continue;
+      const esSeduta = sd?.esercizi.find((e) => e.slot === Number(slot));
+      if (chiaveCorrente(esSeduta ?? { esercizio_id: es.esercizio_id }) !== chiave) continue;
       esercizi[Number(slot)] = { ...es, serie: es.serie.map((x) => (x.fatta || x.stripping || x.kg_piano === undefined ? x : { ...x, kg_prev: x.kg_piano })) };
     }
     registro[sedutaId!] = { ...reg, esercizi };

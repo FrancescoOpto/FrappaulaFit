@@ -1,5 +1,5 @@
-import type { CaricoCorrente, EsercizioSeduta, Fase, Impostazioni, RisultatoTest, Ruolo, Seduta, TabellaProg, TestMode } from '../tipi';
-import { ESECUZIONE_SERIE_S, FATTORE_LAVORO_DEFAULT, RISCALDAMENTO_S, SCALE_RM, TABELLE, type SerieRip } from '../data/tabelle';
+import type { CaricoCorrente, EsercizioSeduta, Fase, Impostazioni, RestPause, RisultatoTest, Ruolo, Seduta, TabellaProg, TestMode } from '../tipi';
+import { CARICO_PER_TABELLA, ESECUZIONE_SERIE_S, FATTORE_LAVORO_DEFAULT, RISCALDAMENTO_S, SCALE_RM, TABELLE, type SerieRip } from '../data/tabelle';
 import { ESERCIZI_PER_ID } from '../data/esercizi';
 import { arrotonda, caricoRM, rm1DaTest } from './carichi';
 import { applicaCorrente } from './correnti';
@@ -21,6 +21,9 @@ export interface Prescrizione {
   corrente?: CaricoCorrente;
   /** Variante senza test: id dell'esercizio da cui eredita il carico. */
   ereditatoDa?: string;
+  /** Fondamentali a percentuale diretta (Blocco 3): quota del massimale. */
+  percentuale?: number;
+  rest_pause?: RestPause;
 }
 
 /** Tipo di test (TEST_INIZIO_BLOCCO §2): stima per i fondamentali permanenti e per i promossi, serie unica per gli altri. */
@@ -33,6 +36,9 @@ export function modoTest(es: Pick<EsercizioSeduta, 'esercizio_id' | 'ruolo'>, pr
 /** N della serie unica di test = ripetizioni di lavoro della Fase 1 + 2, limitato a 10–14 (TEST_INIZIO_BLOCCO §2.2). */
 export function ripetizioniTest(es: EsercizioSeduta): 10 | 12 | 14 {
   if (es.ruolo === 'R1' || es.ruolo === 'L') return 10;
+  // Righe rest-pause (Blocco 3): 1×40 testato a 14RM, "10 + 3 volte max" a 12RM (BLOCCO3 §B1).
+  if (es.rest_pause === 'totale') return 14;
+  if (es.rest_pause === '10_piu_3') return 12;
   const rip = serieRip(es.ruolo, 'fase1', 1, es)[1] + 2;
   const n = Math.min(14, Math.max(10, rip));
   return (n % 2 === 1 ? n + 1 : n) as 10 | 12 | 14;
@@ -42,7 +48,8 @@ export function ripetizioniTest(es: EsercizioSeduta): 10 | 12 | 14 {
  * Serie × rip per fase e ciclo (SPEC §7, BLOCCO2 §A2). La tabella viene dallo slot (`tabella`), altrimenti dal ruolo.
  * Per C usa i valori dello slot con le regole di fase.
  */
-export function serieRip(ruolo: Ruolo, fase: Exclude<Fase, 'test'>, cicloFase: number, slot?: { serie?: number; rip?: number; tabella?: TabellaProg }): SerieRip {
+export function serieRip(ruolo: Ruolo, fase: Exclude<Fase, 'test'>, cicloFase: number, slot?: { serie?: number; rip?: number; tabella?: TabellaProg; serie_fisse?: boolean }): SerieRip {
+  if (slot?.serie_fisse && slot.serie !== undefined && slot.rip !== undefined) return [slot.serie, slot.rip];
   if (ruolo === 'C') {
     const serie = slot?.serie ?? 3;
     const rip = slot?.rip ?? 10;
@@ -58,6 +65,7 @@ export function serieRip(ruolo: Ruolo, fase: Exclude<Fase, 'test'>, cicloFase: n
     }
   }
   const tab = TABELLE[slot?.tabella ?? ruolo][fase];
+  if (!tab.length) return [0, 0];
   const idx = Math.min(Math.max(cicloFase, 1), tab.length) - 1;
   return tab[idx];
 }
@@ -105,9 +113,18 @@ export function prescrizione(
   const [serie, rip] = serieRip(es.ruolo, seduta.fase, seduta.cicloFase, es);
   const passo = impostazioni.arrotondamento;
 
+  // Seconda riga ×12 e righe senza carico: kg a scelta dell'utente (più leggero del Target).
+  if (es.senza_carico) return { serie, rip, kg: applicaCorrente(es.ruolo, undefined, corrente, passo), rest_pause: es.rest_pause };
+
   if (es.ruolo === 'R1' || es.ruolo === 'L') {
-    const n = scalaRM(es.ruolo, seduta.fase, seduta.cicloFase);
     const rm1 = rm1DiTest(t);
+    const pct = es.tabella ? CARICO_PER_TABELLA[es.tabella]?.[seduta.fase] : undefined;
+    if (pct !== undefined) {
+      // Blocco 3: percentuale diretta del massimale, senza fattore di lavoro (BLOCCO3 §A2).
+      const kgPiano = rm1 ? arrotonda(rm1 * pct * (1 + correzione), passo) : undefined;
+      return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, percentuale: pct, corrente, ereditatoDa };
+    }
+    const n = scalaRM(es.ruolo, seduta.fase, seduta.cicloFase);
     // Carico RM = fattore di lavoro × massimale stimato × (37−n)/36 (blocco2_giorno_B.md §3).
     const fattore = impostazioni.fattore_lavoro ?? FATTORE_LAVORO_DEFAULT;
     const kgPiano = rm1 ? caricoRM(rm1 * fattore * (1 + correzione), n, passo) : undefined;
@@ -116,7 +133,7 @@ export function prescrizione(
 
   // R2, R3, C, AB: carico fisso del test per tutto il blocco (SPEC §6.3), salvo carico corrente scelto dall'utente (§9.2b).
   const kgPiano = t && t.kg > 0 ? arrotonda(t.kg * (1 + correzione), passo) : undefined;
-  return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, corrente, ereditatoDa };
+  return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, corrente, ereditatoDa, rest_pause: es.rest_pause };
 }
 
 /** Durata stimata in secondi (SPEC §9.5): riscaldamento + Σ serie × (45 s + recupero); superserie condividono il recupero. */
