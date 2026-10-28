@@ -6,6 +6,7 @@ import { rm1DaTest } from '../../motore/carichi';
 import { blocco, prescrizioneDi, profilo, stato } from '../../store/stato';
 import { Scelte, Testata, formatoData, formatoKg } from '../componenti/comuni';
 import { infoCiclo } from '../etichette';
+import { Icona, IconaEsercizio } from '../componenti/IconaEsercizio';
 import { vai } from '../router';
 
 // Progressi: storico per esercizio (carico, volume, 1RM stimato), andamento delle sedute
@@ -139,8 +140,9 @@ function PianoEsercizio({ b, esercizioId }: { b: Blocco; esercizioId?: string })
             const d = trovaEsercizio(id, p?.esercizi_personalizzati);
             return (
               <div class="esercizio-riga" onClick={() => vai(`/progressi/piano/${id}`)}>
+                <IconaEsercizio def={d} piccola />
                 <div class="cresce"><div class="nome">{d?.nome ?? id}</div><div class="dettaglio"><span>{d ? NOMI_GRUPPI[d.gruppo] : ''}</span></div></div>
-                <span class="piccolo">›</span>
+                <span class="piccolo"><Icona nome="freccia" dimensione={18} /></span>
               </div>
             );
           })}
@@ -313,6 +315,7 @@ export function Progressi({ esercizioId, scheda }: { esercizioId?: string; sched
               const def = trovaEsercizio(id, p?.esercizi_personalizzati);
               return (
                 <div class="esercizio-riga" onClick={() => vai(`/progressi/${id}`)}>
+                  <IconaEsercizio def={def} piccola />
                   <div class="cresce">
                     <div class="nome">{def?.nome ?? id}</div>
                     <div class="dettaglio"><span>{def ? NOMI_GRUPPI[def.gruppo] : ''}</span><span>{arr.length} sedute</span><span>vol. {ultimo.volume.toLocaleString('it-IT')}</span></div>

@@ -82,7 +82,7 @@ export function Energia() {
       </div>
       <p class="piccolo">Il TDEE misurato (10–14 giorni di conteggio calorie a peso stabile) prevale sul modello.</p>
       <div class="campo"><label>Calorie obiettivo (lascia vuoto per usare il calcolo)</label><input type="number" inputMode="numeric" value={kcalOverride} onInput={(e) => setKcalOverride((e.target as HTMLInputElement).value)} placeholder={cal ? String(cal.kcal) : '—'} /></div>
-      <button class="bottone primario pieno" onClick={salva}>{salvato ? 'Salvato ✓' : 'Salva'}</button>
+      <button class="bottone primario pieno" onClick={salva}>{salvato ? 'Salvato' : 'Salva'}</button>
 
       {bmi > 29 && !chiusoBmi ? <Avviso>Con un indice di massa corporea sopra 29 il libro consiglia di farsi seguire da un professionista. <button class="bottone piccolo fantasma" onClick={() => setChiusoBmi(true)}>Ok</button></Avviso> : null}
 

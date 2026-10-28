@@ -22,6 +22,7 @@ import {
   stato,
 } from '../../store/stato';
 import { Avviso, Badge, Testata, formatoKg } from '../componenti/comuni';
+import { Icona, IconaEsercizio } from '../componenti/IconaEsercizio';
 import { infoCiclo } from '../etichette';
 import { aggiungiSecondi, attivo, avviaTimer, fermaTimer, formatoMMSS, rimanente, timer } from '../timer';
 import { vai } from '../router';
@@ -61,7 +62,7 @@ function RigaRestPause({ sedutaId, slot, x, soloLettura, recupero, etichetta }: 
         {!dieciPiuTre && !soloLettura ? <button class="bottone piccolo fantasma" onClick={() => setMini([...mini, ''])}>+ tratto</button> : null}
       </div>
       <button class={`bottone ${x.fatta ? 'primario' : ''}`} disabled={soloLettura} onClick={() => { if (x.fatta) { void aggiornaSerie(sedutaId, slot, x.n, { fatta: false }); return; } salva(true); avviaTimer(recupero, etichetta); }}>
-        {x.fatta ? '✓ Fatta' : 'Fatta (avvia recupero)'}
+        {x.fatta ? 'Fatta' : 'Fatta (avvia recupero)'}
       </button>
     </div>
   );
@@ -104,8 +105,8 @@ function RigaSerie({ sedutaId, slot, x, soloLettura, recupero, etichetta, ultima
         <input type="number" inputMode="numeric" min="0" value={rip} disabled={soloLettura} onInput={(e) => setRip((e.target as HTMLInputElement).value)} onBlur={salvaCampi} aria-label={`ripetizioni serie ${x.n}`} />
         <div class="prev">{x.stripping ? 'a cedimento' : `prev. ${x.rip_prev} rip`}</div>
       </div>
-      <button class={`bottone piccolo ${x.fatta ? 'primario' : ''}`} style="min-height:46px;min-width:70px" disabled={soloLettura} onClick={toggle}>
-        {x.fatta ? '✓' : 'Fatta'}
+      <button class={`bottone piccolo ${x.fatta ? 'primario' : ''}`} style="min-height:46px;min-width:70px" disabled={soloLettura} onClick={toggle} aria-label={x.fatta ? `Serie ${x.n} fatta` : `Segna fatta la serie ${x.n}`}>
+        {x.fatta ? <Icona nome="spunta" dimensione={18} /> : 'Fatta'}
       </button>
       {ultima && x.fatta && !x.stripping ? (
         <div class="riga" style="grid-column:1 / -1;gap:6px;align-items:center">
@@ -113,7 +114,7 @@ function RigaSerie({ sedutaId, slot, x, soloLettura, recupero, etichetta, ultima
           {(['facile', 'giusto', 'limite'] as const).map((v) => (
             <button class={`bottone piccolo ${x.sforzo === v ? 'primario' : 'fantasma'}`} style="min-height:32px;padding:0 10px;font-size:13px" disabled={soloLettura} onClick={() => void aggiornaSerie(sedutaId, slot, x.n, { sforzo: v })}>{v === 'facile' ? 'Facile' : v === 'giusto' ? 'Giusto' : 'Al limite'}</button>
           ))}
-          {x.sforzo === 'facile' ? <span class="piccolo">→ +1 passo di carico proposto alla prossima seduta</span> : null}
+          {x.sforzo === 'facile' ? <span class="piccolo">+1 passo di carico proposto alla prossima seduta</span> : null}
         </div>
       ) : null}
     </div>
@@ -148,9 +149,12 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
 
   return (
     <div class="pagina">
-      <Testata sopratitolo={`${s.nome} · ${infoCiclo(b, s).testata}`} />
+      <Testata sopratitolo={`${s.nome} · ${infoCiclo(b, s).testata}`} accento />
       <div class="colonna" style="gap:8px">
-        <div class="riga" style="gap:8px"><Badge ruolo={es.ruolo} /><span class="piccolo">{NOMI_GRUPPI[es.gruppo]}</span></div>
+        <div class="riga" style="gap:10px">
+          <IconaEsercizio def={def} />
+          <div class="riga" style="gap:8px"><Badge ruolo={es.ruolo} /><span class="piccolo">{NOMI_GRUPPI[es.gruppo]}</span></div>
+        </div>
         <h1 style="font-size:34px">{def?.nome ?? es.esercizio_id}</h1>
         <div class="riga" style="gap:10px;flex-wrap:wrap">
           <span class="chip"><b>{pr.serie}×{pr.rip}</b>&nbsp;@ {pr.kg !== undefined ? formatoKg(pr.kg) : '—'}</span>
@@ -198,7 +202,7 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
 
       {regEs ? (
         <div class="carta">
-          <div class="riga spazio"><h3>Serie</h3><span class="piccolo">tocca “Fatta” per avviare il recupero</span></div>
+          <div class="riga spazio"><h3>Serie</h3><span class="piccolo">“Fatta” avvia il recupero</span></div>
           {regEs.serie.map((x) =>
             x.rest_pause ? (
               <RigaRestPause key={`${x.n}-${es.esercizio_id}`} sedutaId={s.id} slot={slot} x={x} soloLettura={soloLettura} recupero={recupero} etichetta={def?.nome ?? ''} />
@@ -239,14 +243,14 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
 
       {def ? (
         <a class="bottone pieno" href={linkYoutube(def)} target="_blank" rel="noopener noreferrer">
-          ▶ Cerca su YouTube
+          <Icona nome="play" dimensione={18} /> Cerca su YouTube
         </a>
       ) : null}
 
       <div class="griglia2">
-        <button class="bottone" disabled={!precEs} onClick={() => precEs && vai(`/seduta/${s.id}/es/${precEs.slot}`)}>← Precedente</button>
+        <button class="bottone" disabled={!precEs} onClick={() => precEs && vai(`/seduta/${s.id}/es/${precEs.slot}`)}><Icona nome="indietro" dimensione={18} /> Precedente</button>
         {succEs ? (
-          <button class="bottone" onClick={() => vai(`/seduta/${s.id}/es/${succEs.slot}`)}>Successivo →</button>
+          <button class="bottone" onClick={() => vai(`/seduta/${s.id}/es/${succEs.slot}`)}>Successivo <Icona nome="freccia" dimensione={18} /></button>
         ) : (
           <button class="bottone primario" onClick={() => vai(`/seduta/${s.id}`)}>Riepilogo seduta</button>
         )}

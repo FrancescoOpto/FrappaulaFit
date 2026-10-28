@@ -2,22 +2,24 @@ import type { ComponentChildren } from 'preact';
 import { indietro } from '../router';
 import type { Ruolo } from '../../tipi';
 import { NOMI_RUOLI } from '../../data/esercizi';
+import { Icona } from './IconaEsercizio';
 
-export function Testata({ sopratitolo, destra, senzaIndietro }: { sopratitolo?: string; destra?: ComponentChildren; senzaIndietro?: boolean }) {
+export function Testata({ sopratitolo, destra, senzaIndietro, accento }: { sopratitolo?: string; destra?: ComponentChildren; senzaIndietro?: boolean; accento?: boolean }) {
   return (
     <div class="testata">
       {senzaIndietro ? <span /> : (
         <button class="indietro" onClick={indietro} aria-label="Indietro">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+          <Icona nome="indietro" dimensione={20} />
           Indietro
         </button>
       )}
-      {sopratitolo ? <div class="sopratitolo">{sopratitolo}</div> : null}
+      {sopratitolo ? <div class={`eyebrow ${accento ? 'accento' : ''}`}>{sopratitolo}</div> : null}
       {destra ?? <span />}
     </div>
   );
 }
 
+/** Etichetta del tipo di esercizio in testo: FONDAMENTALE in arancione, TARGET e COMPLEMENTARE in grigio. */
 export function Badge({ ruolo }: { ruolo: Ruolo }) {
   return <span class={`badge ${ruolo}`}>{NOMI_RUOLI[ruolo]}</span>;
 }
@@ -32,7 +34,9 @@ export function Modale({ titolo, onChiudi, children }: { titolo: string; onChiud
       <div class="modale" role="dialog" aria-label={titolo}>
         <div class="riga spazio">
           <h2>{titolo}</h2>
-          <button class="icona-bottone" onClick={onChiudi} aria-label="Chiudi">✕</button>
+          <button class="icona-bottone" onClick={onChiudi} aria-label="Chiudi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
         </div>
         {children}
       </div>
@@ -75,6 +79,24 @@ export function Stepper({ valore, min, max, passo, onCambia, formato, etichettaA
       <button type="button" class="stepper-bottone" aria-label="Meno" disabled={valore <= min} onClick={() => cambia(-passo)}>−</button>
       <span class="stepper-valore">{f(valore)}</span>
       <button type="button" class="stepper-bottone" aria-label="Più" disabled={valore >= max} onClick={() => cambia(passo)}>+</button>
+    </div>
+  );
+}
+
+/**
+ * Controllo compatto − / valore / + per peso e ripetizioni in seduta (§11c): il valore si può anche scrivere.
+ * `passo` è il passo di arrotondamento in uso; i tasti hanno area ≥ 44 px.
+ */
+export function Controllo({ valore, passo, min = 0, onCambia, unita, etichettaAria, disabilitato }: { valore: string; passo: number; min?: number; onCambia: (v: string) => void; unita?: string; etichettaAria: string; disabilitato?: boolean }) {
+  const n = parseFloat(valore.replace(',', '.'));
+  const base = Number.isFinite(n) ? n : 0;
+  const arr = (v: number) => String(Math.round(Math.max(min, v) / passo) * passo).replace(/\.?0+$/, (m) => (m.includes('.') ? '' : m));
+  return (
+    <div class="controllo" role="group" aria-label={etichettaAria}>
+      <button type="button" aria-label={`${etichettaAria}: meno`} disabled={disabilitato} onClick={() => onCambia(arr(base - passo))}>−</button>
+      <input type="number" inputMode="decimal" step={passo} min={min} value={valore} disabled={disabilitato} aria-label={etichettaAria} onInput={(e) => onCambia((e.target as HTMLInputElement).value)} />
+      {unita ? <span class="unita">{unita}</span> : null}
+      <button type="button" aria-label={`${etichettaAria}: più`} disabled={disabilitato} onClick={() => onCambia(arr(base + passo))}>+</button>
     </div>
   );
 }

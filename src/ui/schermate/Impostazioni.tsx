@@ -28,6 +28,7 @@ import {
 } from '../../store/stato';
 import { accedi, configSync, erroreSync, esci, registrati, salvaConfigSync, sessioneSync, sincronizza, statoSync, ultimaSync } from '../../store/sync';
 import { Avviso, Scelte, Testata, formatoData } from '../componenti/comuni';
+import { Icona } from '../componenti/IconaEsercizio';
 import { Energia } from './Energia';
 import { NOMI_ENERGIA, NOMI_MODULO, NOMI_OBIETTIVO } from './Setup';
 import { DURATA_DEFAULT } from '../../motore/energia';
@@ -46,7 +47,7 @@ function Sezione({ id, titolo, aperta, onToggle, children }: { id: string; titol
     <div class="carta" id={id}>
       <button class="riga spazio" style="background:none;border:0;padding:0;cursor:pointer;text-align:left;color:inherit" onClick={onToggle}>
         <h2>{titolo}</h2>
-        <span class="piccolo">{aperta ? '▲' : '▼'}</span>
+        <span class="piccolo"><Icona nome={aperta ? 'su' : 'giu'} dimensione={18} /></span>
       </button>
       {aperta ? children : null}
     </div>
@@ -80,13 +81,13 @@ function Programma() {
         </div>
       </div>
       <div class="campo"><label>Blocco</label><Scelte valori={['completo', 'breve']} valore={par.bloccoBreve ? 'breve' : 'completo'} onCambia={(v) => setPar({ ...par, bloccoBreve: v === 'breve' })} etichette={{ completo: 'Completo · 17 cicli', breve: 'Breve · 12 cicli' }} /></div>
-      <button type="button" class="bottone fantasma" onClick={() => setMostraEsclusi(!mostraEsclusi)}>Esercizi esclusi ({par.esclusi.length}) {mostraEsclusi ? '▲' : '▼'}</button>
+      <button type="button" class="bottone fantasma" onClick={() => setMostraEsclusi(!mostraEsclusi)}>Esercizi esclusi ({par.esclusi.length}) <Icona nome={mostraEsclusi ? 'su' : 'giu'} dimensione={18} /></button>
       {mostraEsclusi ? GRUPPI.map((g) => (
         <div class="colonna">
           <div class="etichetta">{NOMI_GRUPPI[g]}</div>
           <div class="scelte">
             {[...ESERCIZI, ...p.esercizi_personalizzati].filter((e) => e.gruppo === g).map((e) => (
-              <button type="button" class={`scelta ${par.esclusi.includes(e.id) ? 'attiva' : ''}`} style="min-height:38px;padding:6px 10px;font-size:14px;font-weight:500" onClick={() => setPar({ ...par, esclusi: par.esclusi.includes(e.id) ? par.esclusi.filter((x) => x !== e.id) : [...par.esclusi, e.id] })}>{par.esclusi.includes(e.id) ? '✕ ' : ''}{e.nome}</button>
+              <button type="button" class={`scelta ${par.esclusi.includes(e.id) ? 'attiva' : ''}`} style="min-height:38px;padding:6px 10px;font-size:14px;font-weight:500" onClick={() => setPar({ ...par, esclusi: par.esclusi.includes(e.id) ? par.esclusi.filter((x) => x !== e.id) : [...par.esclusi, e.id] })}>{par.esclusi.includes(e.id) ? 'via · ' : ''}{e.nome}</button>
             ))}
           </div>
         </div>
@@ -310,7 +311,7 @@ function NuovoEsercizio() {
         <div class="campo"><label>Ripetizioni di test (riserva)</label><Scelte valori={[10, 12, 14] as const} valore={rip} onCambia={setRip} /></div>
       </div>
       <div class="campo"><label>Come si inserisce il carico</label><select value={caricoModo} onChange={(e) => setCaricoModo((e.target as HTMLSelectElement).value as CaricoModo)}>{(Object.keys(CARICO_MODO) as CaricoModo[]).map((m) => <option value={m}>{CARICO_MODO[m].breve}</option>)}</select></div>
-      <button class="bottone pieno" disabled={nome.trim().length < 3} onClick={salva}>{fatto ? 'Aggiunto ✓' : 'Aggiungi'}</button>
+      <button class="bottone pieno" disabled={nome.trim().length < 3} onClick={salva}>{fatto ? 'Aggiunto' : 'Aggiungi'}</button>
       {profilo.value!.esercizi_personalizzati.length ? <p class="piccolo">Tuoi: {profilo.value!.esercizi_personalizzati.map((e) => e.nome).join(', ')}</p> : null}
     </div>
   );

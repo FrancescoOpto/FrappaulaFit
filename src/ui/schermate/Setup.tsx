@@ -8,6 +8,7 @@ import { avvisoEnergia } from '../../motore/coach';
 import { ENERGIA_PER_OBIETTIVO, proponiPiano, settimaneCalendario } from '../../motore/pianificatore';
 import { creaProfilo, profilo, IMPOSTAZIONI_DEFAULT } from '../../store/stato';
 import { Avviso, Scelte, Stepper } from '../componenti/comuni';
+import { Icona } from '../componenti/IconaEsercizio';
 import { vai } from '../router';
 
 const GRUPPI: Gruppo[] = ['petto', 'dorso', 'spalle', 'gambe', 'bicipiti', 'tricipiti', 'addome'];
@@ -144,7 +145,7 @@ export function Setup() {
 
       <div class="carta">
         <button type="button" class="riga spazio" style="background:none;border:0;padding:0;cursor:pointer;color:inherit;text-align:left" onClick={() => setMostraCorpo(!mostraCorpo)}>
-          <h2>Energia (facoltativo)</h2><span class="piccolo">{mostraCorpo ? '▲' : '▼'}</span>
+          <h2>Energia (facoltativo)</h2><span class="piccolo"><Icona nome={mostraCorpo ? 'su' : 'giu'} dimensione={18} /></span>
         </button>
         {mostraCorpo ? (
           <>
@@ -192,7 +193,7 @@ export function Setup() {
         </div>
         <div class="campo">
           <button type="button" class="bottone fantasma" onClick={() => setMostraEsclusi(!mostraEsclusi)}>
-            Esercizi da escludere {esclusi.length ? `(${esclusi.length})` : ''} {mostraEsclusi ? '▲' : '▼'}
+            Esercizi da escludere {esclusi.length ? `(${esclusi.length})` : ''} <Icona nome={mostraEsclusi ? 'su' : 'giu'} dimensione={18} />
           </button>
           {mostraEsclusi ? (
             <div class="colonna" style="gap:12px">
@@ -202,7 +203,7 @@ export function Setup() {
                   <div class="etichetta">{NOMI_GRUPPI[g]}</div>
                   <div class="scelte">
                     {ESERCIZI.filter((e) => e.gruppo === g).map((e) => (
-                      <button type="button" class={`scelta ${esclusi.includes(e.id) ? 'attiva' : ''}`} style="min-height:38px;padding:6px 10px;font-size:14px;font-weight:500" onClick={() => toggleEscluso(e.id)}>{esclusi.includes(e.id) ? '✕ ' : ''}{e.nome}</button>
+                      <button type="button" class={`scelta ${esclusi.includes(e.id) ? 'attiva' : ''}`} style="min-height:38px;padding:6px 10px;font-size:14px;font-weight:500" onClick={() => toggleEscluso(e.id)}>{esclusi.includes(e.id) ? 'via · ' : ''}{e.nome}</button>
                     ))}
                   </div>
                 </div>

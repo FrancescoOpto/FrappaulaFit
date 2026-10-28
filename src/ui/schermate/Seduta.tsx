@@ -1,16 +1,17 @@
-import { useState } from 'preact/hooks';
-import type { EsercizioSeduta, Fase, Gruppo, Seduta as TSeduta } from '../../tipi';
+import { useEffect, useState } from 'preact/hooks';
+import type { EsercizioSeduta, Fase, Gruppo, RegistroEsercizio, Seduta as TSeduta, SerieRegistrata } from '../../tipi';
 import { CARICO_MODO, NOMI_GRUPPI, esercizio as trovaEsercizio } from '../../data/esercizi';
 import { alternative } from '../../motore/generatore';
 import { durataStimata, minuti, prescrizione, serieRip } from '../../motore/prescrizione';
 import { percentualeRM, stimaMassimale } from '../../motore/carichi';
 import {
+  aggiornaSerie,
   annullaSeduta,
   avviabile,
   blocco,
   completaSeduta,
-  inAnteprima,
   impostazioni,
+  inAnteprima,
   iniziaSeduta,
   prescrizioneDi,
   profilo,
@@ -22,15 +23,20 @@ import {
   stato,
   testBloccoPrecedente,
 } from '../../store/stato';
-import { Avviso, Badge, Modale, Scelte, Testata, formatoData, formatoKg } from '../componenti/comuni';
+import { Avviso, Badge, Controllo, Modale, Scelte, Testata, formatoData, formatoKg } from '../componenti/comuni';
+import { Icona, IconaEsercizio } from '../componenti/IconaEsercizio';
 import { infoCiclo } from '../etichette';
+import { aggiungiSecondi, attivo, avviaTimer, fermaTimer, formatoMMSS, rimanente, timer } from '../timer';
 import { vai } from '../router';
+
+// Seduta (SPEC_PIANIFICATORE v2 §11c): testata per modulo, gruppi come eyebrow sopra un filo, esercizio in corso
+// espanso con una riga per serie e controlli − / +, barra fissa in basso con recupero e "Serie fatta".
+// La scheda del singolo esercizio (note, ciclo scorso, rest-pause, stripping) resta sulla sua rotta.
 
 const ORDINE_GRUPPI: Gruppo[] = ['petto', 'dorso', 'spalle', 'gambe', 'bicipiti', 'tricipiti', 'addome'];
 
 function gruppi(s: TSeduta): { gruppo: Gruppo; esercizi: EsercizioSeduta[] }[] {
   const out: { gruppo: Gruppo; esercizi: EsercizioSeduta[] }[] = [];
-  // Mantiene l'ordine di comparsa degli esercizi (grandi → piccoli, dal contenitore).
   for (const e of s.esercizi) {
     let g = out.find((x) => x.gruppo === e.gruppo);
     if (!g) {
@@ -44,6 +50,11 @@ function gruppi(s: TSeduta): { gruppo: Gruppo; esercizi: EsercizioSeduta[] }[] {
     const ib = s.esercizi.findIndex((e) => e.gruppo === b.gruppo);
     return ia - ib || ORDINE_GRUPPI.indexOf(a.gruppo) - ORDINE_GRUPPI.indexOf(b.gruppo);
   });
+}
+
+function recuperoTesto(sec: number): string {
+  if (sec % 60 === 0) return `${sec / 60} min`;
+  return sec >= 60 ? `${Math.floor(sec / 60)}′${String(sec % 60).padStart(2, '0')}″` : `${sec}″`;
 }
 
 function Sostituzione({ s, es, onChiudi }: { s: TSeduta; es: EsercizioSeduta; onChiudi: () => void }) {
@@ -61,7 +72,7 @@ function Sostituzione({ s, es, onChiudi }: { s: TSeduta; es: EsercizioSeduta; on
       {alt.length === 0 ? <Avviso>Nessuna alternativa disponibile (tutte escluse o già in seduta).</Avviso> : null}
       {alt.map((a) => (
         <button class="bottone pieno" style="justify-content:space-between" onClick={async () => { await sostituisciEsercizio(s.id, es.slot, a.id, permanente); onChiudi(); }}>
-          <span>{a.nome}</span>
+          <span class="riga" style="gap:10px"><IconaEsercizio def={a} piccola /> {a.nome}</span>
           <span class="piccolo">{test[a.id] ? `test ${test[a.id].rm1 ? `1@${test[a.id].rm1}` : `${test[a.id].rip}@${test[a.id].kg}`}` : s.fase === 'test' ? '' : 'eredita'}</span>
         </button>
       ))}
@@ -87,7 +98,7 @@ function Riscaldamento({ riferimento, passo }: { riferimento: number; passo: num
   );
 }
 
-/** Riga della settimana di test: `stima` (fondamentali) o `serie_unica` (TEST_INIZIO_BLOCCO §2). */
+/** Riga della settimana di test: `stima` (fondamentali, con ripetizioni di riserva) o `serie_unica` (TEST_INIZIO_BLOCCO §2). */
 function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
   const b = blocco.value!;
   const p = profilo.value!;
@@ -131,18 +142,19 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
   const riferimento = risultato ?? t?.rm1 ?? precedente?.rm1 ?? (kgOk && ripOk && k > 0 ? Math.round(k * 36 / (37 - r - rir)) : 0);
 
   return (
-    <div class="colonna" style="padding:12px 0;border-top:1px solid var(--bordo);gap:8px">
+    <div class="colonna" style="padding:12px 0;border-top:1px solid var(--filo);gap:8px">
       <div class="riga">
-        <span class={`spunta ${t ? 'fatta' : ''}`}>{t ? '✓' : ''}</span>
+        <span class={`spunta ${t ? 'fatta' : ''}`}>{t ? <Icona nome="spunta" dimensione={16} /> : null}</span>
+        <IconaEsercizio def={def} />
         <div class="cresce">
-          <div class="nome" style="font-size:17px;font-weight:500">{def?.nome ?? es.esercizio_id}</div>
-          <div class="dettaglio" style="margin-top:3px">
+          <div class="nome" style="font-size:17px;font-weight:600">{def?.nome ?? es.esercizio_id}</div>
+          <div class="dettaglio" style="margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--testo2)">
             <Badge ruolo={es.ruolo} />
             {t ? <span>{t.modo === 'stima' ? `1@${t.rm1} kg (${t.rip}×${t.kg}${t.rir ? ` +${t.rir} RIR` : ''})` : `${t.rip}@${t.kg} kg`}</span> : <span class="piccolo">{stima ? 'stima del massimale' : `serie unica ${pr.rip}RM`}</span>}
           </div>
         </div>
         {t && !aperta ? <button class="bottone piccolo" onClick={() => setAperta(true)}>Modifica</button> : null}
-        {s.stato !== 'completata' ? <button class="icona-bottone" aria-label="Sostituisci esercizio" onClick={() => setSost(true)}>⇄</button> : null}
+        {s.stato !== 'completata' ? <button class="icona-bottone" aria-label="Sostituisci esercizio" onClick={() => setSost(true)}><Icona nome="scambia" dimensione={20} /></button> : null}
       </div>
 
       {aperta && s.stato !== 'completata' ? (
@@ -163,7 +175,7 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
                     <Scelte valori={[0, 1, 2, 3, 4]} valore={rir} onCambia={setRir} />
                   </div>
                   {Number.isFinite(r) && r > 8 && r <= 12 ? <Avviso>Oltre 8 ripetizioni la stima diventa imprecisa: meglio una prova più pesante con 3–5 ripetizioni.</Avviso> : null}
-                  {Number.isFinite(r) && r > 12 ? <Avviso tipo="errore">Oltre 12 ripetizioni la formula perde senso: ripeti la prova con più carico.</Avviso> : null}
+                  {Number.isFinite(r) && r + rir > 12 ? <Avviso tipo="errore">Oltre 12 ripetizioni effettive la formula perde senso: ripeti la prova con più carico.</Avviso> : null}
                   {errore ? <Avviso tipo="errore">{errore}</Avviso> : null}
                   <button class="bottone primario pieno" disabled={!kgOk || k <= 0 || !ripOk} onClick={calcola}>Calcola massimale</button>
                   {!kgOk || k <= 0 || !Number.isFinite(r) ? <p class="piccolo centrato">Scrivi reps e carico per la stima.</p> : null}
@@ -205,28 +217,146 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
   );
 }
 
-function RigaEsercizio({ s, es, onSostituisci }: { s: TSeduta; es: EsercizioSeduta; onSostituisci: () => void }) {
-  const b = blocco.value!;
+/** Campi (kg, rip) della serie corrente dell'esercizio aperto: li legge la barra "Serie fatta". */
+export interface CampiSerie {
+  slot: number;
+  n: number;
+  kg: string;
+  rip: string;
+}
+
+/** Serie dell'esercizio in corso: fatte compatte, corrente con − / +, future compatte (§11c punto 3). */
+function SerieEspanse({ s, es, reg, campi, setCampi, soloLettura }: { s: TSeduta; es: EsercizioSeduta; reg: RegistroEsercizio; campi: CampiSerie | null; setCampi: (c: CampiSerie | null) => void; soloLettura: boolean }) {
+  const passo = impostazioni.value.arrotondamento;
+  const corrente = reg.serie.find((x) => !x.fatta);
+  const ultima = Math.max(...reg.serie.filter((y) => !y.stripping).map((y) => y.n));
+  // Quando cambia la serie corrente, i campi ripartono dai valori previsti.
+  useEffect(() => {
+    if (!corrente) return;
+    if (campi && campi.slot === es.slot && campi.n === corrente.n) return;
+    setCampi({ slot: es.slot, n: corrente.n, kg: corrente.kg !== undefined ? String(corrente.kg) : corrente.kg_prev ? String(corrente.kg_prev) : '', rip: corrente.rip !== undefined ? String(corrente.rip) : String(corrente.rip_prev) });
+  }, [es.slot, corrente?.n, corrente?.kg_prev]);
+
+  const testoFatta = (x: SerieRegistrata) => (x.rest_pause ? `${x.kg ?? x.kg_prev} kg · ${x.rip ?? x.mini?.reduce((a, b) => a + b, 0) ?? ''} rip totali` : `${formatoKg(x.kg ?? x.kg_prev)} × ${x.rip ?? x.rip_prev}`);
+  return (
+    <div class="serie-lista">
+      {reg.serie.map((x) => {
+        const eCorrente = corrente?.n === x.n && !soloLettura;
+        if (x.fatta) {
+          return (
+            <div class={`serie-inline fatta`}>
+              <button type="button" class="cerchio" aria-label={`Serie ${x.n} fatta: tocca per riaprirla`} disabled={soloLettura} onClick={() => void aggiornaSerie(s.id, es.slot, x.n, { fatta: false })}><Icona nome="spunta" dimensione={14} /></button>
+              <span class="valore">{testoFatta(x)}</span>
+              {x.stripping ? <span class="piccolo">stripping −30 %</span> : null}
+              {x.n === ultima && !x.stripping ? (
+                <div class="riga cresce" style="gap:4px;justify-content:flex-end;flex-wrap:wrap">
+                  {(['facile', 'giusto', 'limite'] as const).map((v) => (
+                    <button class={`bottone piccolo ${x.sforzo === v ? 'primario' : 'fantasma'}`} style="min-height:32px;padding:0 9px;font-size:12px" disabled={soloLettura} onClick={() => void aggiornaSerie(s.id, es.slot, x.n, { sforzo: v })}>{v === 'facile' ? 'Facile' : v === 'giusto' ? 'Giusto' : 'Al limite'}</button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        }
+        if (x.rest_pause) {
+          return (
+            <div class={`serie-inline ${eCorrente ? 'corrente' : 'futura'}`}>
+              <span class="cerchio">{x.n}</span>
+              <span class="valore">{x.rest_pause === 'totale' ? `${x.rip_prev} rip totali` : '10 + 3 × max'}</span>
+              <button class="bottone piccolo" style="margin-left:auto" onClick={() => vai(`/seduta/${s.id}/es/${es.slot}`)}>Rest-pause →</button>
+            </div>
+          );
+        }
+        if (eCorrente && campi && campi.slot === es.slot && campi.n === x.n) {
+          return (
+            <div class="serie-inline corrente">
+              <span class="cerchio">{x.n}</span>
+              <div class="controlli">
+                <Controllo valore={campi.kg} passo={passo} onCambia={(kg) => setCampi({ ...campi, kg })} unita="kg" etichettaAria={`kg serie ${x.n}`} />
+                <Controllo valore={campi.rip} passo={1} onCambia={(rip) => setCampi({ ...campi, rip })} unita="rip" etichettaAria={`ripetizioni serie ${x.n}`} />
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div class="serie-inline futura">
+            <span class="cerchio">{x.n}</span>
+            <span class="valore">{x.kg_prev ? formatoKg(x.kg_prev) : '—'} × {x.rip_prev}</span>
+            {x.kg_piano !== undefined && x.kg_piano !== x.kg_prev ? <span class="piccolo">piano {x.kg_piano} kg</span> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RigaEsercizio({ s, es, aperto, onApri, onSostituisci, campi, setCampi }: { s: TSeduta; es: EsercizioSeduta; aperto: boolean; onApri: () => void; onSostituisci: () => void; campi: CampiSerie | null; setCampi: (c: CampiSerie | null) => void }) {
   const p = profilo.value!;
   const def = trovaEsercizio(es.esercizio_id, p.esercizi_personalizzati);
   const pr = prescrizioneDi(es, s);
   const reg = registroDi(s.id)?.esercizi[es.slot];
   const fatte = reg?.serie.filter((x) => x.fatta && !x.stripping).length ?? 0;
   const tutte = reg ? fatte >= reg.serie.filter((x) => !x.stripping).length : false;
+  const recupero = impostazioni.value.recuperi[es.ruolo];
+  const inCorso = s.stato === 'in_corso';
+  const vaiDettaglio = () => vai(`/seduta/${s.id}/es/${es.slot}`);
   return (
-    <div class="esercizio-riga">
-      <span class={`spunta ${tutte ? 'fatta' : fatte ? 'parziale' : ''}`} onClick={() => vai(`/seduta/${s.id}/es/${es.slot}`)}>{tutte ? '✓' : fatte ? fatte : ''}</span>
-      <div class="cresce" onClick={() => vai(`/seduta/${s.id}/es/${es.slot}`)}>
-        <div class="nome">{def?.nome ?? es.esercizio_id}</div>
-        <div class="dettaglio">
-          <Badge ruolo={es.ruolo} />
-          <span>{pr.serie}×{pr.rip} @ {pr.kg !== undefined ? formatoKg(pr.kg) : es.senza_carico ? 'a scelta' : 'senza test'}{pr.corrente ? ' ✎' : ''}</span>
-          {pr.scalaRM ? <span class="piccolo">{pr.scalaRM}RM · {Math.round(percentualeRM(pr.scalaRM) * 100)}%</span> : null}
-          {pr.percentuale ? <span class="piccolo">{Math.round(pr.percentuale * 100)}%</span> : null}
-          {pr.rest_pause ? <span class="piccolo">rest-pause</span> : null}
+    <div class={`gruppo-esercizio ${aperto ? 'aperto' : ''}`}>
+      <div class={`esercizio-riga ${aperto ? 'aperto' : ''}`} onClick={inCorso ? onApri : vaiDettaglio}>
+        <IconaEsercizio def={def} />
+        <div class="cresce">
+          <div class="riga spazio" style="gap:8px;align-items:baseline">
+            <div class="nome">{def?.nome ?? es.esercizio_id}</div>
+            <Badge ruolo={es.ruolo} />
+          </div>
+          <div class="dettaglio">
+            <span>{pr.serie} × {pr.rip}</span>
+            <span>·</span>
+            <span>{pr.kg !== undefined ? formatoKg(pr.kg) : es.senza_carico ? 'carico a scelta' : 'senza test'}{pr.corrente ? ' (tuo)' : ''}</span>
+            <span>·</span>
+            <span>recupero {recuperoTesto(recupero)}</span>
+            {pr.scalaRM ? <span class="piccolo">· {pr.scalaRM}RM · {Math.round(percentualeRM(pr.scalaRM) * 100)} %</span> : null}
+            {pr.percentuale ? <span class="piccolo">· {Math.round(pr.percentuale * 100)} %</span> : null}
+            {pr.rest_pause ? <span class="piccolo">· rest-pause</span> : null}
+            {reg ? <span class="piccolo">· {fatte}/{reg.serie.filter((x) => !x.stripping).length} fatte</span> : null}
+          </div>
         </div>
+        {tutte ? <span class="spunta fatta"><Icona nome="spunta" dimensione={16} /></span> : null}
       </div>
-      {s.stato !== 'completata' ? <button class="icona-bottone" aria-label="Sostituisci esercizio" onClick={onSostituisci}>⇄</button> : null}
+      {aperto && inCorso && reg ? (
+        <>
+          <SerieEspanse s={s} es={es} reg={reg} campi={campi} setCampi={setCampi} soloLettura={false} />
+          <div class="riga spazio" style="padding:8px 0 10px">
+            <button class="bottone piccolo fantasma" onClick={vaiDettaglio}>Scheda, note e ciclo scorso →</button>
+            <button class="bottone piccolo fantasma" onClick={onSostituisci}>Sostituisci</button>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** Barra fissa in basso: recupero a sinistra, "Serie fatta" a destra (§11c punto 4). */
+function BarraSeduta({ testo, disabilitato, onFatta, secondario }: { testo: string; disabilitato?: boolean; onFatta: () => void; secondario?: boolean }) {
+  const t = timer.value;
+  const inTimer = attivo.value;
+  const finito = !inTimer && t !== null && t.fine > Date.now() - 20000;
+  return (
+    <div class="barra-seduta">
+      <div>
+        <div class="recupero">
+          <span class="eyebrow">Recupero</span>
+          <span class={`tempo ${finito ? 'finito' : ''}`}>{inTimer ? formatoMMSS(rimanente.value) : finito ? 'Vai' : '–:––'}</span>
+          {inTimer ? (
+            <div class="azioni-timer">
+              <button type="button" onClick={() => aggiungiSecondi(-15)}>−15″</button>
+              <button type="button" onClick={() => aggiungiSecondi(30)}>+30″</button>
+              <button type="button" onClick={fermaTimer}>Salta</button>
+            </div>
+          ) : null}
+        </div>
+        <button class={`bottone ${secondario ? '' : 'primario'}`} disabled={disabilitato} onClick={onFatta}>{testo}</button>
+      </div>
     </div>
   );
 }
@@ -240,20 +370,33 @@ export function Seduta({ id }: { id: string }) {
   const [confermaCompleta, setConfermaCompleta] = useState(false);
   const [confermaAnnulla, setConfermaAnnulla] = useState(false);
   const [congratulazioni, setCongratulazioni] = useState(false);
+  const [apertoScelto, setApertoScelto] = useState<number | null>(null);
+  const [campi, setCampi] = useState<CampiSerie | null>(null);
   if (!s || !b || !p) return <div class="pagina"><Testata /><p class="muto">Seduta non trovata.</p></div>;
 
   const puoIniziare = avviabile(s);
   const anteprima = inAnteprima(s);
   const prova = Boolean(impostazioni.value.modalita_prova);
   const reg = registroDi(s.id);
-  const fatte = s.esercizi.filter((e) => {
+  const info = infoCiclo(b, s);
+  const serieTotali = s.fase === 'test' ? 0 : s.esercizi.reduce((a, e) => a + (reg?.esercizi[e.slot]?.serie.filter((x) => !x.stripping).length ?? prescrizioneDi(e, s).serie), 0);
+  const serieFatte = reg ? Object.values(reg.esercizi).reduce((a, e) => a + e.serie.filter((x) => x.fatta && !x.stripping).length, 0) : 0;
+  const esercizioCompleto = (e: EsercizioSeduta) => {
     const r = reg?.esercizi[e.slot];
-    return r && r.serie.filter((x) => !x.stripping).every((x) => x.fatta);
-  }).length;
+    return Boolean(r && r.serie.filter((x) => !x.stripping).every((x) => x.fatta));
+  };
+  const fatte = s.esercizi.filter(esercizioCompleto).length;
   const durata = s.fase === 'test' ? 0 : durataStimata(s.esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieRip(e.ruolo, s.fase as Exclude<Fase, 'test'>, s.cicloFase, e)[0], superserie: e.superserie })), impostazioni.value.recuperi);
   const testMancanti = s.fase === 'test' ? s.esercizi.filter((e) => !b.test[e.esercizio_id]).length : 0;
   const testFatti = s.esercizi.length - testMancanti;
   const tuttiTestDelBlocco = b.sedute.filter((x) => x.fase === 'test').every((x) => x.stato === 'completata' || x.id === s.id);
+  const gruppiSeduta = gruppi(s);
+  const primoIncompleto = s.esercizi.find((e) => !esercizioCompleto(e));
+  const apertoSlot = s.stato === 'in_corso' ? (apertoScelto !== null && s.esercizi.some((e) => e.slot === apertoScelto) ? apertoScelto : primoIncompleto?.slot ?? null) : null;
+  const esAperto = apertoSlot !== null ? s.esercizi.find((e) => e.slot === apertoSlot) : undefined;
+  const regAperto = esAperto ? reg?.esercizi[esAperto.slot] : undefined;
+  const serieCorrente = regAperto?.serie.find((x) => !x.fatta);
+  const tuttoFatto = s.esercizi.every(esercizioCompleto);
 
   const completa = async () => {
     await completaSeduta(s.id);
@@ -262,18 +405,34 @@ export function Seduta({ id }: { id: string }) {
     else vai('/');
   };
 
+  const serieFatta = () => {
+    if (!esAperto || !serieCorrente) return;
+    if (serieCorrente.rest_pause) {
+      vai(`/seduta/${s.id}/es/${esAperto.slot}`);
+      return;
+    }
+    const kg = campi && campi.slot === esAperto.slot && campi.n === serieCorrente.n ? parseFloat(campi.kg.replace(',', '.')) : undefined;
+    const rip = campi && campi.slot === esAperto.slot && campi.n === serieCorrente.n ? parseInt(campi.rip, 10) : undefined;
+    void aggiornaSerie(s.id, esAperto.slot, serieCorrente.n, { kg: Number.isFinite(kg) ? kg : undefined, rip: Number.isFinite(rip) ? rip : undefined, fatta: true });
+    const def = trovaEsercizio(esAperto.esercizio_id, p.esercizi_personalizzati);
+    avviaTimer(impostazioni.value.recuperi[esAperto.ruolo], def?.nome ?? '');
+    // Ultima serie dell'esercizio: si passa al prossimo incompleto.
+    const rimaste = regAperto!.serie.filter((x) => !x.fatta && !x.stripping && x.n !== serieCorrente.n).length;
+    if (rimaste === 0) setApertoScelto(null);
+  };
+
   if (congratulazioni) {
     return (
       <div class="pagina" style="justify-content:center">
-        <div class="carta centrato" style="gap:14px;padding:28px 20px">
-          <div style="font-size:52px">🏁</div>
-          <h1 style="font-size:32px">{tuttiTestDelBlocco ? 'Test completati al 100%' : 'Seduta di test completata'}</h1>
+        <div class="carta centrato" style="gap:14px;padding:28px 20px;align-items:center">
+          <span style="color:var(--accento)"><Icona nome="bandiera" dimensione={44} /></span>
+          <h1 style="font-size:32px">{tuttiTestDelBlocco ? 'Test completati' : 'Seduta di test completata'}</h1>
           <p class="muto">
             {tuttiTestDelBlocco
-              ? 'Da questi carichi l’app ha calcolato tutte le sedute del blocco. Da ora si lavora.'
+              ? 'Da questi carichi l’app ha calcolato tutte le sedute del programma. Da ora si lavora.'
               : 'I carichi salvati precompilano già le sedute future. Avanti con la prossima seduta di test.'}
           </p>
-          <button class="bottone primario pieno" onClick={() => vai('/')}>{tuttiTestDelBlocco ? 'Inizia la Fase 1' : 'Torna al programma'}</button>
+          <button class="bottone primario pieno" onClick={() => vai('/')}>{tuttiTestDelBlocco ? 'Vai al Percorso' : 'Torna al programma'}</button>
         </div>
       </div>
     );
@@ -281,16 +440,21 @@ export function Seduta({ id }: { id: string }) {
 
   return (
     <div class="pagina">
-      <Testata sopratitolo={infoCiclo(b, s).testata} />
+      <Testata sopratitolo={info.testata} accento />
       <div class="colonna" style="gap:8px">
         <h1>{s.nome}</h1>
-        <p class="muto">{s.etichetta}</p>
-        <div class="riga" style="gap:16px">
-          <span class="muto"><b style="color:var(--testo)">{s.fase === 'test' ? testFatti : fatte}</b> di {s.esercizi.length} esercizi</span>
-          {s.fase !== 'test' ? <span class="muto"><b style="color:var(--testo)">~{minuti(durata)}</b> min</span> : null}
-          {s.data ? <span class="muto">{formatoData(s.data)}</span> : null}
-        </div>
-        <div class="progresso"><div style={`width:${s.esercizi.length ? ((s.fase === 'test' ? testFatti : fatte) / s.esercizi.length) * 100 : 0}%`} /></div>
+        <p class="muto">{s.etichetta}{s.fase !== 'test' ? ` · circa ${minuti(durata)} min` : ''}{s.data ? ` · ${formatoData(s.data)}` : ''}</p>
+        {s.fase === 'test' ? (
+          <>
+            <div class="riga" style="gap:8px;align-items:baseline"><b>{testFatti}</b><span class="muto">di {s.esercizi.length} esercizi testati</span></div>
+            <div class="progresso sottile"><div style={`width:${s.esercizi.length ? (testFatti / s.esercizi.length) * 100 : 0}%`} /></div>
+          </>
+        ) : (
+          <>
+            <div class="riga" style="gap:8px;align-items:baseline"><b>{serieFatte} / {serieTotali}</b><span class="muto">serie</span></div>
+            <div class="progresso sottile"><div style={`width:${serieTotali ? (serieFatte / serieTotali) * 100 : 0}%`} /></div>
+          </>
+        )}
       </div>
 
       {anteprima ? (
@@ -301,42 +465,44 @@ export function Seduta({ id }: { id: string }) {
       ) : null}
       {s.stato === 'completata' ? <Avviso tipo="info">Seduta completata. Puoi riaprirla per correggere i dati, o annullarla per cancellarla del tutto.</Avviso> : null}
       {s.fase === 'test' && s.stato !== 'completata' && puoIniziare ? (
-        <Avviso tipo="info">Testa i carichi di tutti gli esercizi di questa seduta: da questi l'app calcola con precisione con quanto peso lavorare dalla settimana prossima. Fondamentali con la stima del massimale, gli altri con una serie unica a cedimento.</Avviso>
+        <Avviso tipo="info">Testa i carichi di tutti gli esercizi di questa seduta: da questi l'app calcola con quanto peso lavorare. Fondamentali con la stima del massimale, gli altri con una serie unica a cedimento.</Avviso>
       ) : null}
 
       {s.stato === 'futura' && s.fase !== 'test' ? (
         <button class="bottone primario pieno" disabled={!puoIniziare} onClick={() => void iniziaSeduta(s.id)}>{anteprima ? (prova ? 'Inizia fuori ordine (prova)' : 'Inizia (dopo le precedenti)') : 'Inizia la seduta'}</button>
       ) : null}
 
-      {gruppi(s).map((g) => (
-        <div class="carta" style="gap:0;padding-top:6px;padding-bottom:4px">
-          <div class="riga spazio" style="padding:10px 0 6px">
-            <h2>{NOMI_GRUPPI[g.gruppo]}</h2>
+      {gruppiSeduta.map((g) => (
+        <div class="gruppo-blocco">
+          <div class="gruppo-testata">
+            <span class="eyebrow">{NOMI_GRUPPI[g.gruppo]}</span>
             <span class="piccolo">{g.esercizi.length} {g.esercizi.length === 1 ? 'esercizio' : 'esercizi'}</span>
           </div>
           {g.esercizi.map((e) =>
-            s.fase === 'test' ? <RigaTest key={e.slot + e.esercizio_id} s={s} es={e} /> : <RigaEsercizio key={e.slot + e.esercizio_id} s={s} es={e} onSostituisci={() => setSost(e)} />,
+            s.fase === 'test' ? (
+              <RigaTest key={e.slot + e.esercizio_id} s={s} es={e} />
+            ) : (
+              <RigaEsercizio key={e.slot + e.esercizio_id} s={s} es={e} aperto={apertoSlot === e.slot} onApri={() => setApertoScelto(apertoSlot === e.slot ? -1 : e.slot)} onSostituisci={() => setSost(e)} campi={campi} setCampi={setCampi} />
+            ),
           )}
         </div>
       ))}
 
-      {s.stato !== 'completata' && (s.fase === 'test' ? puoIniziare : s.stato === 'in_corso') ? (
-        <>
-          {!confermaCompleta ? (
-            <button class="bottone pieno" disabled={s.fase === 'test' && testMancanti > 0} onClick={() => (s.fase === 'test' ? completa() : setConfermaCompleta(true))}>
-              {s.fase === 'test' ? (testMancanti > 0 ? `Manca ancora ${testMancanti} ${testMancanti === 1 ? 'esercizio' : 'esercizi'}` : 'Completa seduta') : 'Completa seduta'}
-            </button>
-          ) : (
-            <div class="carta">
-              <p>{fatte < s.esercizi.length ? `Hai completato ${fatte} esercizi su ${s.esercizi.length}. Chiudere comunque la seduta?` : 'Confermi di aver finito?'}</p>
-              <div class="griglia2">
-                <button class="bottone" onClick={() => setConfermaCompleta(false)}>No</button>
-                <button class="bottone primario" onClick={completa}>Sì, completa</button>
-              </div>
-            </div>
-          )}
-        </>
+      {s.stato !== 'completata' && s.fase === 'test' && puoIniziare ? (
+        <button class="bottone pieno" disabled={testMancanti > 0} onClick={completa}>
+          {testMancanti > 0 ? `Manca ancora ${testMancanti} ${testMancanti === 1 ? 'esercizio' : 'esercizi'}` : 'Completa seduta di test'}
+        </button>
       ) : null}
+      {s.stato === 'in_corso' && confermaCompleta ? (
+        <div class="carta">
+          <p>{fatte < s.esercizi.length ? `Hai completato ${fatte} esercizi su ${s.esercizi.length}. Chiudere comunque la seduta?` : 'Confermi di aver finito?'}</p>
+          <div class="griglia2">
+            <button class="bottone" onClick={() => setConfermaCompleta(false)}>No</button>
+            <button class="bottone primario" onClick={completa}>Sì, completa</button>
+          </div>
+        </div>
+      ) : null}
+      {s.stato === 'in_corso' && !confermaCompleta && !tuttoFatto ? <button class="bottone fantasma pieno" onClick={() => setConfermaCompleta(true)}>Completa la seduta senza finire</button> : null}
       {s.stato === 'completata' ? <button class="bottone fantasma pieno" onClick={() => void riapriSeduta(s.id)}>Riapri la seduta</button> : null}
       {s.stato !== 'futura' && s.fase !== 'test' ? (
         !confermaAnnulla ? (
@@ -349,6 +515,16 @@ export function Seduta({ id }: { id: string }) {
               <button class="bottone pericolo" onClick={async () => { await annullaSeduta(s.id); setConfermaAnnulla(false); vai('/'); }}>Sì, annulla</button>
             </div>
           </div>
+        )
+      ) : null}
+
+      {s.stato === 'in_corso' && !confermaCompleta ? (
+        tuttoFatto ? (
+          <BarraSeduta testo="Completa seduta" onFatta={() => void completa()} />
+        ) : esAperto && serieCorrente ? (
+          <BarraSeduta testo={serieCorrente.rest_pause ? 'Apri rest-pause' : 'Serie fatta'} onFatta={serieFatta} />
+        ) : (
+          <BarraSeduta testo="Prossimo esercizio" secondario onFatta={() => setApertoScelto(null)} />
         )
       ) : null}
 

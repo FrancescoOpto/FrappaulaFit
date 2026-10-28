@@ -1,9 +1,10 @@
 import { useState } from 'preact/hooks';
 import { aggiungiCheckin, profilo, rimuoviCheckin, stato } from '../../store/stato';
 import { Avviso, Scelte, Testata, formatoData } from '../componenti/comuni';
+import { Icona } from '../componenti/IconaEsercizio';
 import { mediePesoSettimanali } from '../../motore/coach';
 
-const SENSAZIONI: Record<string, string> = { 1: '😩', 2: '😕', 3: '😐', 4: '🙂', 5: '💪' };
+const SENSAZIONI: Record<string, string> = { 1: 'A terra', 2: 'Giù', 3: 'Normale', 4: 'Bene', 5: 'Al top' };
 
 function oggi(): string {
   const d = new Date();
@@ -77,7 +78,7 @@ export function Checkin() {
           </div>
         ) : null}
         {sugg ? <Avviso tipo="info">{sugg} <span class="piccolo">(Suggerimento, non prescrizione: il libro dice che i programmi basati solo sul ciclo sono più marketing che scienza.)</span></Avviso> : null}
-        <button type="button" class="bottone fantasma" onClick={() => setMostraCirc(!mostraCirc)}>Circonferenze (facoltative) {mostraCirc ? '▲' : '▼'}</button>
+        <button type="button" class="bottone fantasma" onClick={() => setMostraCirc(!mostraCirc)}>Circonferenze (facoltative) <Icona nome={mostraCirc ? 'su' : 'giu'} dimensione={18} /></button>
         {mostraCirc ? (
           <div class="griglia3">
             <div class="campo"><label>Vita (cm)</label><input type="number" inputMode="decimal" step="0.5" value={vita} onInput={(e) => setVita((e.target as HTMLInputElement).value)} /></div>
@@ -86,7 +87,7 @@ export function Checkin() {
           </div>
         ) : null}
         <div class="campo"><label>Nota</label><textarea value={nota} onInput={(e) => setNota((e.target as HTMLTextAreaElement).value)} placeholder="Sonno, stress, dolori…" /></div>
-        <button class="bottone primario pieno" onClick={salva}>{salvato ? 'Salvato ✓' : 'Salva check-in'}</button>
+        <button class="bottone primario pieno" onClick={salva}>{salvato ? 'Salvato' : 'Salva check-in'}</button>
       </div>
 
       {medie.length ? (
@@ -107,8 +108,8 @@ export function Checkin() {
                 <tr>
                   <td>{formatoData(c.data)}</td>
                   <td class="num">{c.peso ?? '—'}{c.vita ? <span class="piccolo"> · vita {c.vita}</span> : ''}</td>
-                  <td>{c.sensazioni ? SENSAZIONI[c.sensazioni] : ''} <span class="piccolo">{c.nota ?? ''}</span></td>
-                  <td class="num"><button class="bottone piccolo fantasma" onClick={() => void rimuoviCheckin(c.data)} aria-label="Elimina">✕</button></td>
+                  <td class="piccolo">{c.sensazioni ? SENSAZIONI[c.sensazioni] : ''} {c.nota ?? ''}</td>
+                  <td class="num"><button class="bottone piccolo fantasma" onClick={() => void rimuoviCheckin(c.data)} aria-label="Elimina">Elimina</button></td>
                 </tr>
               ))}
             </tbody>
