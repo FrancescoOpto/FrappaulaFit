@@ -12,3 +12,10 @@
 - Libro letto: cap. 1-7 gia' in note; cap. 8-9 in cap8_9.md; cap. 10 in cap10.md (mancano pp. 362-365 Grow Bi-Split). Resta un libro/ebook al femminile (glutei) da ricevere.
 - Test (da utente): settimana test iniziale 4 sedute A-D con gli stessi esercizi delle fasi; fondamentali = massimale, Target = test ERM, complementari = peso inserito; alternative equivalenti (1-2 per esercizio) sostituibili in fase test; cambio esercizio in fasi avanzate senza ritest (si riusa peso dell'esercizio simile); nuova settimana di test prima di ogni blocco.
 - DECISIONE TEST CORRETTA (28/10, dai video): fondamentali = stima Brzycki da reps+carico qualsiasi (consiglio 3-5 reps), altri esercizi = serie unica 10/12/14RM (= reps Fase 1 + 2); test a inizio blocco 1, 2, 3. Vedi specs/TEST_INIZIO_BLOCCO.md. [SUPERATO] versione 27/10: fondamentali = 3RM (1RM = carico/0,944); Target/complementari = 10 rip (multiarticolari) o 12 rip (macchine/isolamento/unilaterali) a cedimento tecnico, = rip di lavoro Fase 1 + 2; carico usato com'e' per tutto il blocco. Dettagli in MEMORIA_GENERALE.md.
+
+## 28/10 — Blocco 2 completo (A–D)
+- I carichi RM si calcolano su 0,9 × stima 1RM (parametro `fattore_lavoro`); verificato su panca, squat, stacco.
+- Progressione serie×rip per slot (R1, R2, R3, R3b, R3c, AB), non per ruolo; dati in `BLOCCO2_programma.md`.
+- Nessun ruolo L nel Blocco 2 a 4 giorni; i fondamentali compaiono una volta a settimana come R1.
+- Carico modificato dall'utente resta salvato per le sedute successive (SPEC §9.2b).
+- Obiettivi futuri: motore coach a regole (SPEC §14) e pianificatore a obiettivo (SPEC §15).

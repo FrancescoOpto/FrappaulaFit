@@ -93,7 +93,7 @@ Sintesi [Certo, dai video dei test dell'app di riferimento]:
 - Istruzione di carico per attrezzo (campo `carico_modo`) e tabella reale dei 34 test del Blocco 2: vedi il file dedicato.
 
 ### 6.2 Formula
-`carico(n RM) = fattore_lavoro × 1RM_stimato × (37 − n) / 36`, con **`fattore_lavoro = 0,90`** (parametro modificabile, default 0,90), arrotondato a **0,5 kg** (arrotondamento configurabile: 0,5 / 1 / 2,5). [Certo: verificato nel Blocco 2 su panca (stima 87,5 → carichi da 78,75), squat (stima 56,5 → 9RM 39,5, 7RM 42,5, 5RM 45, 3RM 48, 11RM 36,5) e stacco (stima 90 → 81). Vedi `docs/note_elaborate/blocco2_giorno_B.md` §3. Non è noto se il 0,9 valga anche dal Blocco 3 o se dipenda da un'impostazione: tenerlo come parametro.]
+`carico(n RM) = fattore_lavoro × 1RM_stimato × (37 − n) / 36`, con **`fattore_lavoro = 0,90`** (parametro modificabile, default 0,90), arrotondato a **0,5 kg** (arrotondamento configurabile: 0,5 / 1 / 2,5). [Certo: verificato nel Blocco 2 su panca (stima 87,5 → carichi da 78,75), squat (stima 56,5 → 9RM 39,5, 7RM 42,5, 5RM 45, 3RM 48, 11RM 36,5) e stacco (stima 90 → 81). Vedi `docs/note_elaborate/BLOCCO2_programma.md` §A3. Non è noto se il 0,9 valga anche dal Blocco 3 o se dipenda da un'impostazione: tenerlo come parametro.]
 Il massimale mostrato/salvato resta la stima di Brzycki (non scontata); lo sconto si applica solo al calcolo dei carichi RM.
 
 ### 6.3 Scale RM per ruolo e fase (R1 = fondamentale; L = fondamentale alla 2ª esposizione settimanale o ospitato in seduta jolly)
@@ -109,7 +109,7 @@ Il massimale mostrato/salvato resta la stima di Brzycki (non scontata); lo scont
 R2, R3, C, AB: **carico fisso del test** per tutto il blocco; cambia solo il volume.
 
 ### 6.4 Casi di verifica (test automatici) [Certo, dati reali del Blocco 1]
-**Attenzione al coefficiente 0,9 (§6.2): i valori sotto sono già scontati. Con stime di test: panca 87,5 → 1RM di lavoro 78,75; squat 56,5 → 50,85 (9RM 39,5, 7RM 42,5, 5RM 45, 3RM 48, 11RM 36,5); stacco 90 → 81.** Blocco 2 giorno A (panca): 1RM di lavoro 78,75 → 9RM 61,5 · 7RM 65,5 · 5RM 70 · 3RM 74,5 · 11RM 57 (vedi `docs/note_elaborate/blocco2_giorno_A.md`). Con 1RM panca = 81 kg: 9RM = 63, 7RM = 67,5, 5RM = 72, 3RM = 76,5, 11RM = 58,5, 13RM = 54 (tutti uguali ai carichi dell'app di riferimento). Con 1RM squat = 78,75: 9RM = 61,5, 7RM = 65,5, 5RM = 70, 3RM = 74,5, 11RM = 57. Dati reali dell'utente (Blocco 2): panca 3 rip × 97,5 kg → 1RM ≈ 103,3.
+**Attenzione al coefficiente 0,9 (§6.2): i valori sotto sono già scontati. Con stime di test: panca 87,5 → 1RM di lavoro 78,75; squat 56,5 → 50,85 (9RM 39,5, 7RM 42,5, 5RM 45, 3RM 48, 11RM 36,5); stacco 90 → 81.** Blocco 2 giorno A (panca): 1RM di lavoro 78,75 → 9RM 61,5 · 7RM 65,5 · 5RM 70 · 3RM 74,5 · 11RM 57 (vedi `docs/note_elaborate/BLOCCO2_programma.md`). Con 1RM panca = 81 kg: 9RM = 63, 7RM = 67,5, 5RM = 72, 3RM = 76,5, 11RM = 58,5, 13RM = 54 (tutti uguali ai carichi dell'app di riferimento). Con 1RM squat = 78,75: 9RM = 61,5, 7RM = 65,5, 5RM = 70, 3RM = 74,5, 11RM = 57. Dati reali dell'utente (Blocco 2): panca 3 rip × 97,5 kg → 1RM ≈ 103,3.
 
 ## 7. Tabelle serie × ripetizioni (cicli 1→5) [Certo, ricavate dai video; identiche tra giorni A–D]
 | Ruolo | Fase 1 | Fase 2 | Fase 3 | Scarico |
@@ -119,8 +119,8 @@ R2, R3, C, AB: **carico fisso del test** per tutto il blocco; cambia solo il vol
 | R3 | 3×8, 3×8, 3×8, 4×8, 4×8 | 3×9, 3×9, 4×9, 4×9, 3×10 | 3×8, 4×8, 4×8, 3×9, 3×10 | 2×10 |
 | L | 3×9, 3×9, 3×9, 3×10, 3×10 | 3×8, 3×8, 3×8, 3×9, 3×10 | 3×10, 3×10, 3×8, 3×8, 3×8 | 3×10 |
 | AB | 3×12 fisso | 3×13, 3×13, 3×14, 3×14, 3×15 | 3×12, 3×12, 3×13, 3×13, 3×14 | 3×15 (= ultima settimana di Fase 2; Blocco 2 giorno A) |
-| C | serie/rip dello slot, fissi | **invariati** rispetto alla Fase 1 (Blocco 2 giorni A e B: nessun +1; nelle note del Blocco 1 si leggeva +1 rip: da verificare sui giorni C–D) | serie/rip del nuovo slot della variante | serie −1 (min 2), rip invariate |
-- **Giorno B (Blocco 2)**, tutte e 15 le settimane lette: squat = R1 e stacco rumeno = R2 seguono le righe sopra. **Military press (Target spalle del giorno B) NON segue la riga R3**: la progressione completa (R3b) è **F1 3×8, 3×8, 3×8, 3×9, 3×9 · F2 4×9, 4×9, 3×10, 3×10, 4×10 · F3 3×8, 3×8, 4×8, 3×9, 4×9 · Scarico 3×10**. Non assumere che la progressione dipenda solo dal ruolo: va tenuta **per slot**, come dato (tabella nel file di dati), non nel codice. Dettagli in `docs/note_elaborate/blocco2_giorno_B.md`.
+| C | serie/rip dello slot, fissi | **invariati** rispetto alla Fase 1 (Blocco 2, giorni A–D: nessun +1, confermato; nelle note Keep del Blocco 1 si leggeva +1 rip: ignorare) | serie/rip del nuovo slot della variante | serie −1 (min 2), rip invariate |
+- **Blocco 2 (4 giorni A–D, tutte le settimane lette): vedi `docs/note_elaborate/BLOCCO2_programma.md` §A2, che prevale su questa tabella.** Esistono 5 tabelle Target (R1, R2, R3, R3b military, R3c spinte piana) più AB; la tabella dipende dall'**esercizio nello slot**, non dal ruolo né dal gruppo: va tenuta come dato (`tabella_prog` per slot), non nel codice. Nel Blocco 2 non c'è nessun ruolo L (ogni fondamentale compare una volta a settimana come R1).
 - In Fase 1 il passaggio ciclo 3 → 4 di R1 **cambia carico** (da 9RM a 7RM) e riporta le rip a 5. In Fase 2 R1 tiene il carico 7RM e lavora sul volume.
 - In Fase 2/3 si cambiano alcune **varianti** dei complementari (es. croci manubri → croci ai cavi, curl 60° → 45°) senza cambiare la logica; i complementari nuovi non hanno carico prescritto: lo sceglie l'utente (o eredita quello dell'esercizio simile).
 - **Dubbio aperto [Probabile]**: 4×5@5RM e 4×3@3RM in Fase 3 non sono sostenibili al 100% con recuperi normali. Soluzione adottata: **autocorrezione** — se in una serie le ripetizioni fatte < prescritte, il peso della serie successiva è precompilato a −5%; se succede per 2 sedute di fila sullo stesso esercizio, il carico del ciclo successivo scende del 2,5% (modificabile dall'utente). 
@@ -162,6 +162,22 @@ Esporta/importa JSON completo; promemoria periodico.
 `profilo(id, nome, sesso, impostazioni, parametri_generatore{N, T, priorità[], esclusi[], esperienza, preset})` · `contenitore(id, N, sessioni[{gruppi, slot[{gruppo, ruolo, classe}]}])` · `blocco(id, profilo, numero, stato)` · `test(blocco, esercizio_id, kg, rip, rm1_stimato)` · `seduta(id, blocco, fase, ciclo, giorno, numero, stato, data)` · `esercizio_seduta(seduta, slot, esercizio_id, ruolo)` · `serie(seduta, slot, n, kg_prev, rip_prev, kg, rip, fatta, nota)` · `carico_corrente(profilo, blocco, esercizio_id, kg, fattore_correzione, aggiornato)` · `sostituzione(profilo, esercizio_id, alternativa_id)`.
 Sync [Probabile come soluzione semplice]: tabella `kv(user_id uuid, chiave text, valore jsonb, aggiornato timestamptz)` con RLS `user_id = auth.uid()`, last-write-wins per chiave; coda offline in IndexedDB.
 
+## 14. Motore "coach" (regole esplicite, offline, spiegabili) [Mia decisione, discutibile]
+L'app contiene un motore a regole che propone e spiega, senza AI esterna. Ogni decisione mostra il "perché" in una riga.
+1. **Dati, non codice**: tabelle di progressione per slot, scale RM, `fattore_lavoro`, coefficienti reps = test − 2, regole di scarico, tabella dei volumi per gruppo stanno in file di dati versionati (`data/*.json`).
+2. **Regole di carico**: stima Brzycki dal test (§6), carichi RM (§6.2–6.3), persistenza (§9.2b), autocorrezione (−5% sulla serie successiva se reps < prescritte; −2,5% al ciclo dopo se succede per 2 sedute di fila).
+3. **Regole di struttura**: generatore sedute (§4), controllo del volume settimanale per gruppo, scelta delle varianti (stessa classe, alternativa equivalente), rotazione della guida a ogni blocco, scarico a fine fase.
+4. **Stato dell'utente**: storico serie, aderenza (sedute fatte/saltate), peso corporeo (check-in), pause lunghe → dopo una pausa il motore propone nuovo test e una settimana di ripresa a carichi ridotti (soglia da definire).
+5. **Separazione fonti**: ogni regola ha etichetta `fonte = metodo V Athlete (video/libro)` oppure `fonte = mia ipotesi`; le seconde sono disattivabili in Impostazioni. Regole riscritte con parole nostre, niente testi copiati.
+6. **Assistente con AI (facoltativo, fase successiva)**: richiede rete, costo per uso e un piccolo server intermedio (la chiave API non può stare nel codice pubblico). Da valutare solo dopo il motore a regole.
+
+## 15. Pianificatore a obiettivo [Ipotesi, da validare]
+Input: data di inizio, data obiettivo (es. "in forma a giugno"), giorni a settimana, tempo a seduta. Blocco completo = 17 settimane (1 test + 15 fasi + 1 scarico); 3 blocchi ≈ 1 anno.
+- Calcola le settimane disponibili e propone più opzioni con il "perché": blocchi completi + blocco accorciato (12 cicli, togliendo cicli alle fasi) + ultimo scarico allineato alla data obiettivo.
+- Le versioni accorciate sono una **scelta nostra** non vista nell'app di riferimento: marcarle come tali.
+- Fasi "massa/definizione": dal lato allenamento (volume/intensità) e con andamento del peso corporeo; **calorie e macro non sono nei libri elaborati**: se servono vanno da fonti verificate, come indicazioni generali, non come dieta personalizzata (per la moglie meglio un nutrizionista).
+- Pausa lunga: rilevata dalle sedute mancanti → nuovo test + settimana di ripresa, poi riprogrammazione verso la data obiettivo.
+
 ## 11. Cosa NON fare
 Niente codice che copi grafica/testi/video di V Athlete; niente dati su server oltre il minimo; niente video incorporati; nessuna dipendenza a pagamento.
 
@@ -174,7 +190,7 @@ Niente codice che copi grafica/testi/video di V Athlete; niente dati su server o
 
 ## 13. Parti aperte (da non inventare: chiedere o segnalare)
 - Libri glutei e allenamento femminile (profilo moglie, §8) — **non ancora ricevuti**.
-- Materiale del Blocco 2 oltre alle note Keep (`appunti_keep_utente.md`: panca 4×5@75% = 10RM in Fase 1).
+- Blocco 2 è completo (`BLOCCO2_programma.md`); Blocco 3 non ancora visto. Note Keep (`appunti_keep_utente.md`: panca 4×5@75% = 10RM in Fase 1) non coincidono con l'app: fa fede l'app.
 - Contenitore a 5 giorni e algoritmo di priorità (§4.1 punto 3, §4.2): [Ipotesi], da validare con l'uso.
 - Durata del blocco: completo 17 cicli vs breve 12 cicli (§3): decidere con l'utente dopo aver visto l'anteprima.
 - Stripping −30% (§7), notifiche iPhone (§9.4), volumi settimanali vs tabella 10.21 (§4).

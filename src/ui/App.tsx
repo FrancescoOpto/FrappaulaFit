@@ -33,7 +33,7 @@ function TimerBarra() {
   return (
     <div class="timer-barra">
       <div>
-        <span class="piccolo" style="color:#fff;opacity:.85">{timer.value?.etichetta}</span>
+        <span class="piccolo" style="color:#1a0d04;opacity:.85">{timer.value?.etichetta}</span>
         <span class="tempo">{formatoMMSS(rimanente.value)}</span>
         <button onClick={() => aggiungiSecondi(30)}>+30</button>
         <button onClick={fermaTimer} aria-label="Ferma">✕</button>
