@@ -13,7 +13,7 @@ export function Setup() {
   const esiste = profilo.value;
   const [nome, setNome] = useState(esiste?.nome ?? '');
   const [sesso, setSesso] = useState<'M' | 'F'>(esiste?.sesso ?? 'M');
-  const [N, setN] = useState(3);
+  const [N, setN] = useState(4);
   const [T, setT] = useState(60);
   const [esperienza, setEsperienza] = useState<Esperienza>('intermedio');
   const [priorita, setPriorita] = useState<Gruppo[]>([]);
@@ -80,6 +80,7 @@ export function Setup() {
           <label>Quante sedute a settimana?</label>
           <Scelte valori={[2, 3, 4, 5]} valore={N} onCambia={setN} />
           {N === 5 ? <p class="piccolo">Il libro sconsiglia 5 sedute: il recupero diventa critico.</p> : null}
+          {N === 4 && sesso === 'M' ? <p class="piccolo">A 4 giorni l'app usa il programma dell'app di riferimento letto dai video (giorni A–D). Se una settimana fai 3 sedute, la quarta slitta alla settimana dopo: la sequenza non cambia.</p> : null}
         </div>
         <div class="campo">
           <label>Quanto tempo hai per seduta?</label>

@@ -38,7 +38,7 @@ export type Ruolo = 'R1' | 'R2' | 'R3' | 'L' | 'C' | 'AB';
  * Tabella di progressione serie×rip (BLOCCO2_programma.md §A2): dipende dall'esercizio nello slot, non dal ruolo.
  * R3b = military press (giorno B), R3c = spinte manubri piana (giorno C). C usa serie/rip fissi dello slot.
  */
-export type TabellaProg = 'R1' | 'R2' | 'R3' | 'R3b' | 'R3c' | 'L' | 'AB';
+export type TabellaProg = 'R1' | 'R2' | 'R3' | 'R3b' | 'R3c' | 'R3d' | 'L' | 'AB';
 
 /** Come si inserisce il carico nel test (TEST_INIZIO_BLOCCO §4). */
 export type CaricoModo = 'bilanciere_totale' | 'manubrio_singolo' | 'macchina' | 'cavo' | 'solo_dischi' | 'carico_sul_corpo' | 'corpo_libero';
@@ -85,8 +85,14 @@ export interface Slot {
   evita_guida?: Gruppo;
   /** Tabella di progressione dello slot; se assente si usa quella con il nome del ruolo. */
   tabella?: TabellaProg;
-  /** Varianti dell'esercizio per fase (complementari): Fase 2 e Fase 3; lo scarico usa la Fase 2. */
-  varianti?: Partial<Record<'fase2' | 'fase3', string>>;
+  /** Varianti dell'esercizio per fase (complementari): Fase 2 e Fase 3; lo scarico usa la Fase 2. Con serie/rip proprie se cambiano. */
+  varianti?: Partial<Record<'fase2' | 'fase3', string | VarianteSlot>>;
+}
+
+export interface VarianteSlot {
+  id: string;
+  serie?: number;
+  rip?: number;
 }
 
 export interface SessioneContenitore {

@@ -186,7 +186,7 @@ export function generaSettimana(parametri: ParametriGeneratore, profilo?: Profil
   const avvisi: string[] = [];
   const contenitore = contenitorePer(parametri.N, parametri.preset, numeroBlocco);
   if (contenitore.avviso) avvisi.push(contenitore.avviso);
-  if (numeroBlocco >= 2 && !contenitore.fisso) avvisi.push(`Blocco ${numeroBlocco} con ${parametri.N} sedute: struttura generica con rotazione della guida; il programma letto dai video esiste solo a 4 giorni (uomo). [Da definire]`);
+  if (!contenitore.fisso && parametri.preset === 'uomo_base') avvisi.push(`Con ${parametri.N} sedute la struttura è generica (regole nostre): il programma letto dai video esiste solo a 4 giorni. [Da definire]`);
   const recuperi = profilo?.impostazioni?.recuperi ?? RECUPERI_DEFAULT;
 
   const sessioni = contenitore.sessioni.map((s) => generaSessione(s, parametri, profilo, recuperi, avvisi, numeroBlocco, contenitore.fisso));
@@ -279,11 +279,15 @@ export function eserciziPerFase(sessione: SessioneGenerata, contenitoreSessione:
     const base: EsercizioSeduta = { ...e };
     if (!faseVarianti || e.slot < 0) return base;
     const slot = contenitoreSessione?.slot[e.slot];
-    const variante = slot?.varianti?.[faseVarianti];
-    if (!variante || parametri.esclusi.includes(variante)) return base;
+    const v = slot?.varianti?.[faseVarianti];
+    if (!v) return base;
+    const variante = typeof v === 'string' ? v : v.id;
+    const serie = typeof v === 'string' ? e.serie : (v.serie ?? e.serie);
+    const rip = typeof v === 'string' ? e.rip : (v.rip ?? e.rip);
+    if (parametri.esclusi.includes(variante)) return base;
     const id = sostituzioni[variante] && !parametri.esclusi.includes(sostituzioni[variante]) ? sostituzioni[variante] : variante;
-    if (id === e.esercizio_id) return base;
-    return { ...base, esercizio_id: id, eredita_da: e.esercizio_id };
+    if (id === e.esercizio_id) return { ...base, serie, rip };
+    return { ...base, esercizio_id: id, serie, rip, eredita_da: e.esercizio_id };
   });
 }
 

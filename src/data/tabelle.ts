@@ -53,6 +53,13 @@ export const TABELLE: Record<TabellaProg, Record<FaseLavoro, SerieRip[]>> = {
     fase3: [[3, 8], [3, 8], [4, 8], [3, 9], [4, 9]],
     scarico: [[3, 10]],
   },
+  // Alzate laterali Target (Blocco 1 giorno C): isolamento a 10–12 ripetizioni.
+  R3d: {
+    fase1: [[3, 10], [3, 10], [3, 10], [4, 10], [4, 10]],
+    fase2: [[3, 11], [3, 11], [4, 11], [3, 12], [3, 12]],
+    fase3: [[3, 8], [3, 8], [4, 8], [3, 9], [4, 9]],
+    scarico: [[2, 12]],
+  },
   // Spinte manubri panca piana (Blocco 2 giorno C): come R3b ma Fase 2 ciclo 5 = 3×10 e scarico 2×10.
   R3c: {
     fase1: [[3, 8], [3, 8], [3, 8], [3, 9], [3, 9]],

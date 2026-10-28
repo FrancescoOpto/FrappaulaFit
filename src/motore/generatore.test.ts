@@ -73,7 +73,8 @@ describe('generaSettimana — N=3 uomo, T=75 (tutto nei limiti)', () => {
   it('gruppi grandi ≥ 10, nessuna seduta oltre T+2, nessun avviso', () => {
     for (const g of ['petto', 'dorso', 'spalle', 'gambe'] as const) expect(r.volume[g], g).toBeGreaterThanOrEqual(10);
     for (const s of r.sessioni) expect(s.durataS, s.nome).toBeLessThanOrEqual(77 * 60);
-    expect(r.avvisi).toEqual([]);
+    // Resta solo l'avviso "struttura generica" (a 3 giorni non esiste il programma dei video).
+    expect(r.avvisi.filter((a) => !/Da definire/.test(a))).toEqual([]);
   });
   it('sedute attese (SPEC §4.6): S1 panca/manubri/squat/pressa + braccia; S2 military/lat/rematore/stacco; S3 inclinata/T-bar', () => {
     const ids = (i: number) => r.sessioni[i].esercizi.map((e) => e.esercizio_id);
@@ -140,8 +141,10 @@ describe('preset donna (PROVVISORIO, SPEC §8)', () => {
 describe('esercizio guida per blocco (TEST_INIZIO_BLOCCO §1b)', () => {
   it('Blocco 1 (generico): military guida in B1 e spinte in B2; Blocco 2 a 4 giorni uomo usa il programma fisso; la rotazione vale nei contenitori generici', () => {
     const b1 = generaSettimana({ ...base, N: 4, T: 90 }, profilo, 1);
-    expect(b1.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.tabella === 'R3b')?.esercizio_id).toBe('military_press');
-    expect(b1.sessioni[3].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R3')?.esercizio_id).toBe('spinte_manubri_seduto');
+    expect(b1.contenitore.id).toBe('b1u4');
+    expect(b1.sessioni[2].esercizi.find((e) => e.esercizio_id === 'military_press')?.tabella).toBe('R2');
+    const d1 = generaSettimana({ ...base, N: 4, T: 90, preset: 'donna_glutei' }, profilo, 1);
+    expect(d1.sessioni[2].esercizi.find((e) => e.gruppo === 'spalle' && e.tabella === 'R3b')?.esercizio_id).toBe('military_press');
     const b2 = generaSettimana({ ...base, N: 4, T: 90 }, profilo, 2);
     expect(b2.contenitore.id).toBe('b2u4');
     expect(b2.sessioni[3].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R2')?.esercizio_id).toBe('spinte_manubri_seduto');
