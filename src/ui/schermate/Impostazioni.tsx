@@ -30,7 +30,7 @@ import { avviaTimer, chiediPermessoNotifiche, sbloccaAudio } from '../timer';
 import { vai } from '../router';
 
 const GRUPPI: Gruppo[] = ['petto', 'dorso', 'spalle', 'gambe', 'bicipiti', 'tricipiti', 'addome'];
-const RUOLI: Ruolo[] = ['R1', 'R2', 'R3', 'R3b', 'L', 'C', 'AB'];
+const RUOLI: Ruolo[] = ['R1', 'R2', 'R3', 'L', 'C', 'AB'];
 const CLASSI: Classe[] = ['spinta_orizzontale', 'spinta_inclinata', 'spinta_verticale', 'trazione_verticale', 'trazione_orizzontale', 'squat', 'cerniera_anca', 'hip_thrust', 'quadricipiti_isolamento', 'femorali_isolamento', 'bicipiti', 'tricipiti', 'spalle_laterali', 'spalle_posteriori', 'petto_isolamento', 'addome'];
 
 function Sezione({ id, titolo, aperta, onToggle, children }: { id: string; titolo: string; aperta: boolean; onToggle: () => void; children: preact.ComponentChildren }) {

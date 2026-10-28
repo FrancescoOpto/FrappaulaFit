@@ -92,7 +92,7 @@ function etichettaSlot(slot: Slot): string {
 }
 
 /** Genera una sessione dal contenitore: scelta esercizi, priorità, capacità in tempo. */
-function generaSessione(sessione: SessioneContenitore, parametri: ParametriGeneratore, profilo: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati' | 'fondamentali_promossi'> | undefined, recuperi: Record<Ruolo, number>, avvisi: string[], numeroBlocco: number): SessioneGenerata {
+function generaSessione(sessione: SessioneContenitore, parametri: ParametriGeneratore, profilo: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati' | 'fondamentali_promossi'> | undefined, recuperi: Record<Ruolo, number>, avvisi: string[], numeroBlocco: number, fisso = false): SessioneGenerata {
   const usati = new Set<string>();
   const esercizi: EsercizioSeduta[] = [];
   const promossi = profilo?.fondamentali_promossi ?? [];
@@ -105,8 +105,10 @@ function generaSessione(sessione: SessioneContenitore, parametri: ParametriGener
     usati.add(id);
     // Guida promossa a fondamentale dall'utente: scala RM piena se c'è posto (max 2 R1), altrimenti scala leggera.
     let ruolo: Ruolo = slot.ruolo;
-    if ((slot.ruolo === 'R2' || slot.ruolo === 'R3' || slot.ruolo === 'R3b') && promossi.includes(id)) {
+    let tabella = slot.tabella;
+    if ((slot.ruolo === 'R2' || slot.ruolo === 'R3') && promossi.includes(id)) {
       ruolo = esercizi.filter((e) => e.ruolo === 'R1').length < 2 ? 'R1' : 'L';
+      tabella = ruolo;
     }
     esercizi.push({
       slot: i,
@@ -116,8 +118,13 @@ function generaSessione(sessione: SessioneContenitore, parametri: ParametriGener
       serie: slot.serie,
       rip: slot.rip,
       superserie: slot.superserie,
+      tabella,
     });
   });
+  if (fisso) {
+    // Programma letto dai video: nessun taglio, solo l'avviso sulla durata (in generaSettimana).
+    return { nome: sessione.nome, etichetta: sessione.etichetta, esercizi, durataS: durataStimata(esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieBase(e), superserie: e.superserie })), recuperi) };
+  }
 
   // Priorità (SPEC §4.1 punto 3) [Ipotesi]: +1 serie ai complementari dei gruppi prioritari.
   for (const e of esercizi) {
@@ -177,11 +184,12 @@ export type ProfiloGen = Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati
 
 export function generaSettimana(parametri: ParametriGeneratore, profilo?: ProfiloGen, numeroBlocco = 1): RisultatoGenerazione {
   const avvisi: string[] = [];
-  const contenitore = contenitorePer(parametri.N, parametri.preset);
+  const contenitore = contenitorePer(parametri.N, parametri.preset, numeroBlocco);
   if (contenitore.avviso) avvisi.push(contenitore.avviso);
+  if (numeroBlocco >= 2 && !contenitore.fisso) avvisi.push(`Blocco ${numeroBlocco} con ${parametri.N} sedute: struttura generica con rotazione della guida; il programma letto dai video esiste solo a 4 giorni (uomo). [Da definire]`);
   const recuperi = profilo?.impostazioni?.recuperi ?? RECUPERI_DEFAULT;
 
-  const sessioni = contenitore.sessioni.map((s) => generaSessione(s, parametri, profilo, recuperi, avvisi, numeroBlocco));
+  const sessioni = contenitore.sessioni.map((s) => generaSessione(s, parametri, profilo, recuperi, avvisi, numeroBlocco, contenitore.fisso));
 
   // Copertura dei sottogruppi (SPEC §4.3): prima rialza le serie di un C esistente che copre il sottogruppo
   // (nella seduta con più spazio), poi, se non c'è, aggiunge lo slot di riserva.
@@ -191,7 +199,7 @@ export function generaSettimana(parametri: ParametriGeneratore, profilo?: Profil
   const copertura = coperturaSettimanale(sessioni, contenitore);
   for (const sg of Object.keys(copertura) as Sottogruppo[]) {
     let guardia = 0;
-    while (copertura[sg] < COPERTURA_MINIMA && guardia++ < 4) {
+    while (!contenitore.fisso && copertura[sg] < COPERTURA_MINIMA && guardia++ < 4) {
       const fb = COPERTURA_FALLBACK[sg];
       const esistenti = sessioni
         .flatMap((s, si) => s.esercizi.map((e) => ({ s, e, slot: contenitore.sessioni[si]?.slot[e.slot] })))
@@ -233,7 +241,7 @@ export function generaSettimana(parametri: ParametriGeneratore, profilo?: Profil
     if (s.durataS > parametri.T * 60 + 120) avvisi.push(`${s.nome}: durata stimata ${minuti(s.durataS)}’ oltre il limite di ${parametri.T}’.`);
   }
   for (const sg of Object.keys(copertura) as Sottogruppo[]) {
-    if (copertura[sg] < COPERTURA_MINIMA) avvisi.push(`${NOMI_SOTTOGRUPPI[sg]}: solo ${copertura[sg]} serie dirette a settimana.`);
+    if (!contenitore.fisso && copertura[sg] < COPERTURA_MINIMA) avvisi.push(`${NOMI_SOTTOGRUPPI[sg]}: solo ${copertura[sg]} serie dirette a settimana.`);
   }
 
   const fasi = parametri.bloccoBreve ? FASI_BLOCCO_BREVE : FASI_BLOCCO;
@@ -261,6 +269,24 @@ export function cicliDelBlocco(bloccoBreve: boolean): { fase: Fase; ciclo: numbe
   return out;
 }
 
+/**
+ * Esercizi di una seduta in una data fase: applica le varianti per fase dei complementari (BLOCCO2 §A4).
+ * Lo scarico usa le varianti della Fase 2. La variante senza test eredita il carico dall'esercizio di Fase 1.
+ */
+export function eserciziPerFase(sessione: SessioneGenerata, contenitoreSessione: SessioneContenitore | undefined, fase: Fase, parametri: ParametriGeneratore, sostituzioni: Record<string, string> = {}): EsercizioSeduta[] {
+  const faseVarianti = fase === 'scarico' ? 'fase2' : fase === 'fase2' || fase === 'fase3' ? fase : undefined;
+  return sessione.esercizi.map((e) => {
+    const base: EsercizioSeduta = { ...e };
+    if (!faseVarianti || e.slot < 0) return base;
+    const slot = contenitoreSessione?.slot[e.slot];
+    const variante = slot?.varianti?.[faseVarianti];
+    if (!variante || parametri.esclusi.includes(variante)) return base;
+    const id = sostituzioni[variante] && !parametri.esclusi.includes(sostituzioni[variante]) ? sostituzioni[variante] : variante;
+    if (id === e.esercizio_id) return base;
+    return { ...base, esercizio_id: id, eredita_da: e.esercizio_id };
+  });
+}
+
 function nomeSeduta(fase: Fase, numeroNellaFase: number): string {
   switch (fase) {
     case 'test':
@@ -273,7 +299,7 @@ function nomeSeduta(fase: Fase, numeroNellaFase: number): string {
 }
 
 /** Genera tutte le sedute del blocco (SPEC §12.2: N=3 → 51, N=4 → 68). */
-export function generaSedute(parametri: ParametriGeneratore, settimana: RisultatoGenerazione, bloccoId: string): Seduta[] {
+export function generaSedute(parametri: ParametriGeneratore, settimana: RisultatoGenerazione, bloccoId: string, profiloSost: Record<string, string> = {}): Seduta[] {
   const sedute: Seduta[] = [];
   const cicli = cicliDelBlocco(parametri.bloccoBreve);
   let numero = 0;
@@ -293,7 +319,7 @@ export function generaSedute(parametri: ParametriGeneratore, settimana: Risultat
         nome: nomeSeduta(c.fase, contaFase[c.fase]!),
         etichetta: `${s.nome} · ${s.etichetta}`,
         stato: 'futura',
-        esercizi: s.esercizi.map((e) => ({ ...e })),
+        esercizi: eserciziPerFase(s, settimana.contenitore.sessioni[g], c.fase, parametri, profiloSost),
       });
     }
   }
@@ -308,7 +334,7 @@ export function nuovoBlocco(parametri: ParametriGeneratore, profilo: ProfiloGen,
     numero,
     stato: 'test',
     contenitore_id: settimana.contenitore.id,
-    sedute: generaSedute(parametri, settimana, id),
+    sedute: generaSedute(parametri, settimana, id, profilo.sostituzioni),
     test: {},
     correzioni: {},
     parametri: { ...parametri, priorita: [...parametri.priorita], esclusi: [...parametri.esclusi] },
@@ -335,6 +361,8 @@ export function rigeneraSeduteFuture(blocco: Blocco, nuovi: ParametriGeneratore,
   const contaFase: Partial<Record<Fase, number>> = {};
   for (const s of conservate) contaFase[s.fase] = (contaFase[s.fase] ?? 0) + 1;
   const nuove: Seduta[] = [];
+  const profiloSost = profilo.sostituzioni;
+  const parametri = nuovi;
   for (const c of cicli) {
     for (let g = 0; g < nuovi.N; g++) {
       numero++;
@@ -350,7 +378,7 @@ export function rigeneraSeduteFuture(blocco: Blocco, nuovi: ParametriGeneratore,
         nome: nomeSeduta(c.fase, contaFase[c.fase]!),
         etichetta: `${s.nome} · ${s.etichetta}`,
         stato: 'futura',
-        esercizi: s.esercizi.map((e) => ({ ...e })),
+        esercizi: eserciziPerFase(s, settimana.contenitore.sessioni[g], c.fase, parametri, profiloSost),
       });
     }
   }
@@ -361,6 +389,7 @@ export function rigeneraSeduteFuture(blocco: Blocco, nuovi: ParametriGeneratore,
 export function eserciziDaTestare(blocco: Blocco): EsercizioSeduta[] {
   const visti = new Map<string, EsercizioSeduta>();
   for (const s of blocco.sedute) {
+    if (s.fase !== 'test' && blocco.sedute.some((x) => x.fase === 'test')) continue;
     for (const e of s.esercizi) {
       const prec = visti.get(e.esercizio_id);
       // R1 prevale su L (stesso esercizio testato una volta sola).

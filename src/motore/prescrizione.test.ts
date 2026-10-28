@@ -11,7 +11,8 @@ const manubri: EsercizioSeduta = { slot: 1, esercizio_id: 'panca_manubri', ruolo
 const spinteAlto: EsercizioSeduta = { slot: 2, esercizio_id: 'spinte_manubri_seduto', ruolo: 'R3', gruppo: 'spalle' };
 const crunch: EsercizioSeduta = { slot: 3, esercizio_id: 'crunch_cavo', ruolo: 'AB', gruppo: 'addome' };
 const croci: EsercizioSeduta = { slot: 4, esercizio_id: 'croci_manubri', ruolo: 'C', gruppo: 'petto', serie: 3, rip: 10 };
-const military: EsercizioSeduta = { slot: 5, esercizio_id: 'military_press', ruolo: 'R3b', gruppo: 'spalle' };
+const military: EsercizioSeduta = { slot: 5, esercizio_id: 'military_press', ruolo: 'R3', tabella: 'R3b', gruppo: 'spalle' };
+const spinteC: EsercizioSeduta = { slot: 3, esercizio_id: 'panca_manubri', ruolo: 'R3', tabella: 'R3c', gruppo: 'petto' };
 
 const test: Record<string, RisultatoTest> = {
   // Stime reali del Blocco 2: stacco 5×80 → 90 (×0,9 = 81, il 1RM di SPEC §6.4) e panca 4×80 → 87,5 (×0,9 = 78,75).
@@ -79,6 +80,23 @@ describe('Guida R3b — military press 22 kg (blocco2_giorno_B.md §2.4)', () =>
     expect([1, 2, 3, 4, 5].map((c) => fmt(military, 'fase3', c))).toEqual(['3x8@22', '3x8@22', '4x8@22', '3x9@22', '4x9@22']);
     expect(fmt(military, 'scarico', 1)).toBe('3x10@22');
     expect(ripetizioniTest(military)).toBe(10);
+  });
+  it('R3c spinte manubri piana 26 kg (giorno C): F2 c5 3×10 e scarico 2×10', () => {
+    expect([1, 2, 3, 4, 5].map((c) => fmt(spinteC, 'fase2', c))).toEqual(['4x9@26', '4x9@26', '3x10@26', '3x10@26', '3x10@26']);
+    expect(fmt(spinteC, 'scarico', 1)).toBe('2x10@26');
+    expect([1, 5].map((c) => fmt(spinteC, 'fase3', c))).toEqual(['3x8@26', '4x9@26']);
+  });
+  it('stacco stima 90 → 63 · 67,5 · 72 · 76,5 · 58,5 (giorno D, fattore 0,9)', () => {
+    const t = { stacco_da_terra: { esercizio_id: 'stacco_da_terra', kg: 80, rip: 5, modo: 'stima' as const, rm1: 90 } };
+    const stacco: EsercizioSeduta = { slot: 3, esercizio_id: 'stacco_da_terra', ruolo: 'R1', tabella: 'R1', gruppo: 'gambe' };
+    const kg = (fase: 'fase1' | 'fase2' | 'fase3' | 'scarico', c: number) => prescrizione(stacco, { fase, cicloFase: c }, t, imp).kg;
+    expect([kg('fase1', 1), kg('fase1', 4), kg('fase3', 1), kg('fase3', 5), kg('scarico', 1)]).toEqual([63, 67.5, 72, 76.5, 58.5]);
+  });
+  it('variante senza test eredita il carico dall\u2019esercizio di Fase 1 dello slot', () => {
+    const v: EsercizioSeduta = { slot: 1, esercizio_id: 'croci_cavi_alti', ruolo: 'C', gruppo: 'petto', serie: 3, rip: 10, eredita_da: 'croci_manubri' };
+    const r = prescrizione(v, { fase: 'fase2', cicloFase: 1 }, test, imp);
+    expect(r.kg).toBe(12);
+    expect(r.ereditatoDa).toBe('croci_manubri');
   });
 });
 

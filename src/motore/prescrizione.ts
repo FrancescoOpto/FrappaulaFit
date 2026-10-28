@@ -1,4 +1,4 @@
-import type { CaricoCorrente, EsercizioSeduta, Fase, Impostazioni, RisultatoTest, Ruolo, Seduta, TestMode } from '../tipi';
+import type { CaricoCorrente, EsercizioSeduta, Fase, Impostazioni, RisultatoTest, Ruolo, Seduta, TabellaProg, TestMode } from '../tipi';
 import { ESECUZIONE_SERIE_S, FATTORE_LAVORO_DEFAULT, RISCALDAMENTO_S, SCALE_RM, TABELLE, type SerieRip } from '../data/tabelle';
 import { ESERCIZI_PER_ID } from '../data/esercizi';
 import { arrotonda, caricoRM, rm1DaTest } from './carichi';
@@ -19,6 +19,8 @@ export interface Prescrizione {
   kgPiano?: number;
   /** Carico corrente applicato, se presente. */
   corrente?: CaricoCorrente;
+  /** Variante senza test: id dell'esercizio da cui eredita il carico. */
+  ereditatoDa?: string;
 }
 
 /** Tipo di test (TEST_INIZIO_BLOCCO §2): stima per i fondamentali permanenti e per i promossi, serie unica per gli altri. */
@@ -36,8 +38,11 @@ export function ripetizioniTest(es: EsercizioSeduta): 10 | 12 | 14 {
   return (n % 2 === 1 ? n + 1 : n) as 10 | 12 | 14;
 }
 
-/** Serie × rip per ruolo, fase e ciclo (SPEC §7). Per C usa i valori dello slot con le regole di fase. */
-export function serieRip(ruolo: Ruolo, fase: Exclude<Fase, 'test'>, cicloFase: number, slot?: { serie?: number; rip?: number }): SerieRip {
+/**
+ * Serie × rip per fase e ciclo (SPEC §7, BLOCCO2 §A2). La tabella viene dallo slot (`tabella`), altrimenti dal ruolo.
+ * Per C usa i valori dello slot con le regole di fase.
+ */
+export function serieRip(ruolo: Ruolo, fase: Exclude<Fase, 'test'>, cicloFase: number, slot?: { serie?: number; rip?: number; tabella?: TabellaProg }): SerieRip {
   if (ruolo === 'C') {
     const serie = slot?.serie ?? 3;
     const rip = slot?.rip ?? 10;
@@ -52,7 +57,7 @@ export function serieRip(ruolo: Ruolo, fase: Exclude<Fase, 'test'>, cicloFase: n
         return [Math.max(2, serie - 1), rip];
     }
   }
-  const tab = TABELLE[ruolo][fase];
+  const tab = TABELLE[slot?.tabella ?? ruolo][fase];
   const idx = Math.min(Math.max(cicloFase, 1), tab.length) - 1;
   return tab[idx];
 }
@@ -84,7 +89,9 @@ export function prescrizione(
   promossi: string[] = [],
   corrente?: CaricoCorrente,
 ): Prescrizione {
-  const t = test[es.esercizio_id];
+  // Variante di fase senza test: eredita il carico dall'esercizio di Fase 1 dello stesso slot (BLOCCO2 §A3).
+  const ereditatoDa = !test[es.esercizio_id] && es.eredita_da && test[es.eredita_da] ? es.eredita_da : undefined;
+  const t = test[es.esercizio_id] ?? (ereditatoDa ? test[ereditatoDa] : undefined);
 
   if (seduta.fase === 'test') {
     const modo = modoTest(es, promossi);
@@ -104,12 +111,12 @@ export function prescrizione(
     // Carico RM = fattore di lavoro × massimale stimato × (37−n)/36 (blocco2_giorno_B.md §3).
     const fattore = impostazioni.fattore_lavoro ?? FATTORE_LAVORO_DEFAULT;
     const kgPiano = rm1 ? caricoRM(rm1 * fattore * (1 + correzione), n, passo) : undefined;
-    return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, scalaRM: n, corrente };
+    return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, scalaRM: n, corrente, ereditatoDa };
   }
 
   // R2, R3, C, AB: carico fisso del test per tutto il blocco (SPEC §6.3), salvo carico corrente scelto dall'utente (§9.2b).
   const kgPiano = t && t.kg > 0 ? arrotonda(t.kg * (1 + correzione), passo) : undefined;
-  return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, corrente };
+  return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, corrente, ereditatoDa };
 }
 
 /** Durata stimata in secondi (SPEC §9.5): riscaldamento + Σ serie × (45 s + recupero); superserie condividono il recupero. */

@@ -60,7 +60,7 @@ describe('generaSettimana — N=3 uomo, T=60', () => {
     expect(r.sessioni[1].esercizi.map((e) => e.esercizio_id)).toContain('military_press');
     expect(r.sessioni[1].esercizi.map((e) => e.esercizio_id)).toContain('stacco_da_terra');
     // Il military è la guida delle spalle: Target R2 a carico fisso, non fondamentale (TEST_INIZIO_BLOCCO §1b).
-    expect(r.sessioni[1].esercizi.find((e) => e.esercizio_id === 'military_press')?.ruolo).toBe('R3b');
+    expect(r.sessioni[1].esercizi.find((e) => e.esercizio_id === 'military_press')?.tabella).toBe('R3b');
     // I complementari di copertura restano (almeno 2 serie), gli altri possono sparire.
     expect(r.sessioni[1].esercizi.some((e) => e.esercizio_id === 'leg_curl')).toBe(true);
     const sfora = r.sessioni.filter((s) => s.durataS > 62 * 60);
@@ -132,21 +132,26 @@ describe('preset donna (PROVVISORIO, SPEC §8)', () => {
     expect(ids(1)).toContain('hip_thrust');
     expect(ids(1)).toContain('stacco_da_terra');
     const mil = r.sessioni[2].esercizi.find((e) => e.esercizio_id === 'military_press');
-    expect(mil?.ruolo).toBe('R3b');
+    expect(mil?.tabella).toBe('R3b');
     expect(r.copertura.glutei).toBeGreaterThanOrEqual(12);
   });
 });
 
 describe('esercizio guida per blocco (TEST_INIZIO_BLOCCO §1b)', () => {
-  it('Blocco 1: military guida (R2) in B1 e spinte manubri in B2; Blocco 2: ruotano', () => {
+  it('Blocco 1 (generico): military guida in B1 e spinte in B2; Blocco 2 a 4 giorni uomo usa il programma fisso; la rotazione vale nei contenitori generici', () => {
     const b1 = generaSettimana({ ...base, N: 4, T: 90 }, profilo, 1);
-    expect(b1.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R3b')?.esercizio_id).toBe('military_press');
+    expect(b1.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.tabella === 'R3b')?.esercizio_id).toBe('military_press');
     expect(b1.sessioni[3].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R3')?.esercizio_id).toBe('spinte_manubri_seduto');
     const b2 = generaSettimana({ ...base, N: 4, T: 90 }, profilo, 2);
-    expect(b2.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R3b')?.esercizio_id).toBe('spinte_manubri_seduto');
-    expect(b2.sessioni[3].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R3')?.esercizio_id).toBe('military_press');
+    expect(b2.contenitore.id).toBe('b2u4');
+    expect(b2.sessioni[3].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R2')?.esercizio_id).toBe('spinte_manubri_seduto');
+    expect(b2.sessioni[1].esercizi.find((e) => e.esercizio_id === 'military_press')?.tabella).toBe('R3b');
+    // Contenitore generico nel blocco 2 (es. 3 giorni): la guida ruota.
+    const b2gen = generaSettimana({ ...base, N: 3, T: 90 }, profilo, 2);
+    expect(b2gen.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.tabella === 'R3b')?.esercizio_id).toBe('spinte_manubri_seduto');
+    expect(b2gen.avvisi.some((a) => /Da definire/.test(a))).toBe(true);
     const b3 = generaSettimana({ ...base, N: 4, T: 90 }, profilo, 3);
-    expect(b3.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R3b')?.esercizio_id).toBe('military_press');
+    expect(b3.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.tabella === 'R3b')?.esercizio_id).toBe('military_press');
   });
   it('la guida non è mai R1/L di default; promossa dall’utente diventa R1 (o L se ci sono già 2 R1)', () => {
     const r = generaSettimana(base, profilo, 1);
@@ -159,7 +164,7 @@ describe('esercizio guida per blocco (TEST_INIZIO_BLOCCO §1b)', () => {
   });
   it('la sostituzione del profilo prevale sulla rotazione', () => {
     const r = generaSettimana(base, { ...profilo, sostituzioni: { military_press: 'shoulder_press_macchina' } }, 2);
-    expect(r.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.ruolo === 'R3b')?.esercizio_id).toBe('shoulder_press_macchina');
+    expect(r.sessioni[1].esercizi.find((e) => e.gruppo === 'spalle' && e.tabella === 'R3b')?.esercizio_id).toBe('shoulder_press_macchina');
   });
 });
 

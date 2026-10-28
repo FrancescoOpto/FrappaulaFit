@@ -1,4 +1,5 @@
 import type { Contenitore, Preset, SessioneContenitore, Slot } from '../tipi';
+import { BLOCCO2_4G } from './blocco2';
 
 // Contenitori (SPEC §4.2–4.3): per ogni N, quali gruppi/slot stanno in quale seduta.
 // Il contenitore definisce i ruoli; i singoli esercizi sono "default" sostituibili per classe.
@@ -27,7 +28,7 @@ const SPLIT_B: SessioneContenitore = {
   nome: 'Split B',
   etichetta: 'Spalle · Dorso · Stacco',
   slot: [
-    s({ gruppo: 'spalle', ruolo: 'R3b', classe: 'spinta_verticale', default: 'military_press', guida: 'spalle' }),
+    s({ gruppo: 'spalle', ruolo: 'R3', tabella: 'R3b', classe: 'spinta_verticale', default: 'military_press', guida: 'spalle' }),
     s({ gruppo: 'spalle', ruolo: 'C', classe: 'spalle_laterali', default: 'alzate_laterali', serie: 3, rip: 12, superserie: 'spalle', copre: 'spalle_laterali' }),
     s({ gruppo: 'spalle', ruolo: 'C', classe: 'spalle_posteriori', default: 'alzate_posteriori', serie: 3, rip: 12, superserie: 'spalle', copre: 'spalle_posteriori' }),
     s({ gruppo: 'dorso', ruolo: 'R2', classe: 'trazione_verticale', default: 'lat_machine' }),
@@ -99,7 +100,7 @@ const FULL_B: SessioneContenitore = {
   nome: 'Full B',
   etichetta: 'Tutto il corpo',
   slot: [
-    s({ gruppo: 'spalle', ruolo: 'R3b', classe: 'spinta_verticale', default: 'military_press', guida: 'spalle' }),
+    s({ gruppo: 'spalle', ruolo: 'R3', tabella: 'R3b', classe: 'spinta_verticale', default: 'military_press', guida: 'spalle' }),
     s({ gruppo: 'gambe', ruolo: 'R1', classe: 'cerniera_anca', default: 'stacco_da_terra', copre: 'glutei' }),
     s({ gruppo: 'petto', ruolo: 'R2', classe: 'spinta_inclinata', default: 'panca_inclinata_manubri' }),
     s({ gruppo: 'dorso', ruolo: 'R3', classe: 'trazione_orizzontale', default: 'rematore_manubrio' }),
@@ -162,7 +163,7 @@ const DONNA_S3: SessioneContenitore = {
   nome: 'Full C',
   etichetta: 'Spalle · Glutei · Dorso (jolly)',
   slot: [
-    s({ gruppo: 'spalle', ruolo: 'R3b', classe: 'spinta_verticale', default: 'military_press', guida: 'spalle' }),
+    s({ gruppo: 'spalle', ruolo: 'R3', tabella: 'R3b', classe: 'spinta_verticale', default: 'military_press', guida: 'spalle' }),
     s({ gruppo: 'gambe', ruolo: 'R3', classe: 'cerniera_anca', default: 'stacco_rumeno', copre: 'glutei' }),
     s({ gruppo: 'gambe', ruolo: 'C', classe: 'hip_thrust', default: 'abductor', serie: 3, rip: 15, copre: 'glutei' }),
     s({ gruppo: 'dorso', ruolo: 'R3', classe: 'trazione_orizzontale', default: 'rematore_manubrio' }),
@@ -209,7 +210,7 @@ const DONNA_FULL_B: SessioneContenitore = {
     s({ gruppo: 'gambe', ruolo: 'R1', classe: 'cerniera_anca', default: 'stacco_da_terra', copre: 'glutei' }),
     s({ gruppo: 'gambe', ruolo: 'R2', classe: 'hip_thrust', default: 'hip_thrust_macchina', copre: 'glutei' }),
     s({ gruppo: 'gambe', ruolo: 'C', classe: 'femorali_isolamento', default: 'leg_curl', serie: 3, rip: 12, copre: 'femorali' }),
-    s({ gruppo: 'spalle', ruolo: 'R3b', classe: 'spinta_verticale', default: 'military_press', guida: 'spalle' }),
+    s({ gruppo: 'spalle', ruolo: 'R3', tabella: 'R3b', classe: 'spinta_verticale', default: 'military_press', guida: 'spalle' }),
     s({ gruppo: 'dorso', ruolo: 'R3', classe: 'trazione_orizzontale', default: 'rematore_manubrio' }),
     s({ gruppo: 'petto', ruolo: 'C', classe: 'spinta_inclinata', default: 'chest_press_inclinata', serie: 3, rip: 12 }),
     s({ gruppo: 'spalle', ruolo: 'C', classe: 'spalle_posteriori', default: 'alzate_posteriori', serie: 2, rip: 12, copre: 'spalle_posteriori' }),
@@ -227,7 +228,12 @@ export const CONTENITORI: Contenitore[] = [
   { id: 'd5', N: 5, nome: 'Bi-Split + richiamo (glutei)', descrizione: 'Bi-Split più una quinta seduta di soli complementari.', sessioni: [DONNA_S1, DONNA_S2, DONNA_S3, DONNA_S4, RICHIAMO], avviso: 'Il libro sconsiglia 5 sedute: il recupero diventa critico. [Ipotesi da validare]' },
 ];
 
-export function contenitorePer(N: number, preset: Preset): Contenitore {
+/**
+ * Contenitore per N giorni, preset e numero di blocco. Il Blocco 2 a 4 giorni (preset uomo) è il programma
+ * letto dai video; negli altri casi si usa il contenitore generico con la rotazione della guida.
+ */
+export function contenitorePer(N: number, preset: Preset, numeroBlocco = 1): Contenitore {
+  if (numeroBlocco === 2 && N === 4 && preset === 'uomo_base') return BLOCCO2_4G;
   const prefisso = preset === 'donna_glutei' ? 'd' : 'u';
   const c = CONTENITORI.find((x) => x.id === prefisso + N);
   if (!c) throw new Error(`Nessun contenitore per N=${N}, preset=${preset}`);

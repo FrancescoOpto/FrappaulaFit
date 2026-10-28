@@ -31,8 +31,14 @@ export type Classe =
   | 'addome';
 
 /** Ruolo dello slot (SPEC §4.3): decide tabella serie×rip e scala RM. */
-/** R3b = esercizio guida del gruppo (es. military): Target con progressione propria (blocco2_giorno_B.md §2.4). */
-export type Ruolo = 'R1' | 'R2' | 'R3' | 'R3b' | 'L' | 'C' | 'AB';
+/** Ruolo dello slot (SPEC §4.3): badge, recupero e tipo di test. La progressione serie×rip è decisa dalla tabella. */
+export type Ruolo = 'R1' | 'R2' | 'R3' | 'L' | 'C' | 'AB';
+
+/**
+ * Tabella di progressione serie×rip (BLOCCO2_programma.md §A2): dipende dall'esercizio nello slot, non dal ruolo.
+ * R3b = military press (giorno B), R3c = spinte manubri piana (giorno C). C usa serie/rip fissi dello slot.
+ */
+export type TabellaProg = 'R1' | 'R2' | 'R3' | 'R3b' | 'R3c' | 'L' | 'AB';
 
 /** Come si inserisce il carico nel test (TEST_INIZIO_BLOCCO §4). */
 export type CaricoModo = 'bilanciere_totale' | 'manubrio_singolo' | 'macchina' | 'cavo' | 'solo_dischi' | 'carico_sul_corpo' | 'corpo_libero';
@@ -77,6 +83,10 @@ export interface Slot {
   guida?: Gruppo;
   /** Slot che non deve ripetere la guida corrente del gruppo (prende l'altra della rotazione). */
   evita_guida?: Gruppo;
+  /** Tabella di progressione dello slot; se assente si usa quella con il nome del ruolo. */
+  tabella?: TabellaProg;
+  /** Varianti dell'esercizio per fase (complementari): Fase 2 e Fase 3; lo scarico usa la Fase 2. */
+  varianti?: Partial<Record<'fase2' | 'fase3', string>>;
 }
 
 export interface SessioneContenitore {
@@ -93,6 +103,8 @@ export interface Contenitore {
   sessioni: SessioneContenitore[];
   /** Indice (0-based) della seduta "jolly" da saltare quando si salta una seduta. */
   jolly?: number;
+  /** Programma fisso letto dai video: niente tagli per tempo né aggiunte di copertura. */
+  fisso?: boolean;
   /** Avviso da mostrare (es. N=5 sconsigliato). */
   avviso?: string;
 }
@@ -133,6 +145,8 @@ export interface Profilo {
   esercizi_personalizzati: Esercizio[];
   /** Esercizi guida promossi a fondamentale dall'utente (stima + scala RM). Default: nessuno. */
   fondamentali_promossi?: string[];
+  /** Regole del motore coach (solo `ipotesi`) disattivate dall'utente (SPEC §14.5). */
+  regole_disattivate?: string[];
 }
 
 export interface EsercizioSeduta {
@@ -144,6 +158,10 @@ export interface EsercizioSeduta {
   serie?: number;
   rip?: number;
   superserie?: string;
+  /** Tabella di progressione (dallo slot). */
+  tabella?: TabellaProg;
+  /** Variante senza test: eredita il carico dall'esercizio di Fase 1 dello stesso slot. */
+  eredita_da?: string;
 }
 
 export interface Seduta {
@@ -247,4 +265,35 @@ export interface Stato {
   blocchiPassati: Blocco[];
   registro: Record<string, RegistroSeduta>;
   checkin: Checkin[];
+}
+
+// ---------- Motore coach (SPEC §14) e pianificatore a obiettivo (SPEC §15): solo strutture dati ----------
+
+export type FonteRegola = 'metodo' | 'ipotesi';
+
+export interface RegolaCoach {
+  id: string;
+  sezione: 'test' | 'carichi' | 'struttura' | 'stato';
+  fonte: FonteRegola;
+  titolo: string;
+  /** Il "perché" in una riga, mostrato accanto a ogni decisione. */
+  perche: string;
+}
+
+export interface OpzionePiano {
+  id: string;
+  titolo: string;
+  settimane: number;
+  blocchi: { numero: number; cicli: Partial<Record<Fase, number>> }[];
+  /** Versione accorciata: scelta nostra, non vista nell'app di riferimento. */
+  nostraScelta: boolean;
+  perche: string;
+}
+
+export interface PianoObiettivo {
+  dataInizio: string;
+  dataObiettivo: string;
+  N: number;
+  T: number;
+  opzioneScelta?: string;
 }

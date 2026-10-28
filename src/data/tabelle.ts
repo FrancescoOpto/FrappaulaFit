@@ -1,4 +1,4 @@
-import type { Fase, Gruppo, Ruolo, Sottogruppo } from '../tipi';
+import type { Fase, Gruppo, Ruolo, Sottogruppo, TabellaProg } from '../tipi';
 
 /** Struttura del blocco in cicli (SPEC §3). */
 export const FASI_BLOCCO: { fase: Fase; cicli: number; nome: string }[] = [
@@ -24,10 +24,10 @@ type FaseLavoro = Exclude<Fase, 'test'>;
 export type SerieRip = [serie: number, rip: number];
 
 /**
- * Tabelle serie × ripetizioni per ruolo e fase, cicli 1→5 (SPEC §7).
- * Lo scarico ha un solo ciclo. C è gestito a regola (vedi motore/tabelle.ts).
+ * Tabelle serie × ripetizioni per tabella di progressione e fase, cicli 1→5 (SPEC §7, BLOCCO2_programma.md §A2).
+ * La tabella è un dato dello slot. Lo scarico ha un solo ciclo. C usa serie/rip fissi dello slot (motore/prescrizione.ts).
  */
-export const TABELLE: Record<Exclude<Ruolo, 'C'>, Record<FaseLavoro, SerieRip[]>> = {
+export const TABELLE: Record<TabellaProg, Record<FaseLavoro, SerieRip[]>> = {
   R1: {
     fase1: [[4, 5], [4, 5], [4, 6], [4, 5], [4, 5]],
     fase2: [[3, 6], [3, 6], [4, 6], [4, 6], [3, 7]],
@@ -46,12 +46,19 @@ export const TABELLE: Record<Exclude<Ruolo, 'C'>, Record<FaseLavoro, SerieRip[]>
     fase3: [[3, 8], [4, 8], [4, 8], [3, 9], [3, 10]],
     scarico: [[2, 10]],
   },
-  // Esercizio guida del gruppo (military press nel Blocco 2 giorno B): progressione propria, carico fisso.
+  // Military press (Blocco 2 giorno B): progressione propria, carico fisso.
   R3b: {
     fase1: [[3, 8], [3, 8], [3, 8], [3, 9], [3, 9]],
     fase2: [[4, 9], [4, 9], [3, 10], [3, 10], [4, 10]],
     fase3: [[3, 8], [3, 8], [4, 8], [3, 9], [4, 9]],
     scarico: [[3, 10]],
+  },
+  // Spinte manubri panca piana (Blocco 2 giorno C): come R3b ma Fase 2 ciclo 5 = 3×10 e scarico 2×10.
+  R3c: {
+    fase1: [[3, 8], [3, 8], [3, 8], [3, 9], [3, 9]],
+    fase2: [[4, 9], [4, 9], [3, 10], [3, 10], [3, 10]],
+    fase3: [[3, 8], [3, 8], [4, 8], [3, 9], [4, 9]],
+    scarico: [[2, 10]],
   },
   L: {
     fase1: [[3, 9], [3, 9], [3, 9], [3, 10], [3, 10]],
@@ -89,7 +96,6 @@ export const RECUPERI_DEFAULT: Record<Ruolo, number> = {
   R1: 150,
   R2: 120,
   R3: 120,
-  R3b: 120,
   L: 120,
   C: 90,
   AB: 60,

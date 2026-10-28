@@ -113,6 +113,7 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
             {!soloLettura || s.stato === 'futura' ? <button class="bottone piccolo fantasma" onClick={() => void ripristinaCaricoPiano(es.esercizio_id, s.stato === 'in_corso' ? s.id : undefined)}>Ripristina carico del piano</button> : null}
           </div>
         ) : null}
+        {pr.ereditatoDa ? <p class="piccolo">Variante di fase: carico ereditato da {trovaEsercizio(pr.ereditatoDa, p.esercizi_personalizzati)?.nome ?? pr.ereditatoDa}; il kg che scrivi diventa il suo.</p> : null}
         {pr.kg === undefined && s.fase !== 'test' ? <Avviso>Nessun test per questo esercizio: inserisci il carico a mano o aggiungi il test da Impostazioni → Test.</Avviso> : null}
       </div>
 
