@@ -158,6 +158,7 @@ function Test() {
   const [modifica, setModifica] = useState<string | null>(null);
   const [kg, setKg] = useState('');
   const [rip, setRip] = useState('');
+  const [rir, setRir] = useState(0);
   if (!b) return null;
   const promossi = p.fondamentali_promossi ?? [];
   const lista = eserciziDaTestare(b).sort((x, y) => GRUPPI.indexOf(x.gruppo) - GRUPPI.indexOf(y.gruppo));
@@ -165,7 +166,7 @@ function Test() {
   const salva = async (id: string, modo: TestMode, ripFisse: number) => {
     const k = parseFloat(kg.replace(',', '.'));
     const r = modo === 'stima' ? parseInt(rip, 10) : ripFisse;
-    if (k >= 0 && r > 0) await salvaTest(id, k, r, modo);
+    if (k >= 0 && r > 0) await salvaTest(id, k, r, modo, modo === 'stima' ? rir : 0);
     setModifica(null);
   };
   return (
@@ -196,7 +197,7 @@ function Test() {
                 <div class="piccolo">{NOMI_RUOLI[e.ruolo]} · {modo === 'stima' ? 'stima' : `serie unica ${ripFisse}RM`} · {t ? (t.modo === 'stima' ? `1@${t.rm1} kg (${t.rip}×${t.kg})` : `${t.rip}@${t.kg} kg`) : 'nessun test'}{corr ? ` · correzione ${Math.round(corr * 1000) / 10}%` : ''}{cc ? ` · scelto da te: ${cc.kg !== undefined ? `${cc.kg} kg` : `×${cc.fattore}`}` : ''}</div>
                 {cc ? <button class="bottone piccolo fantasma" style="align-self:flex-start;margin-top:4px" onClick={() => void ripristinaCaricoPiano(e.esercizio_id)}>Ripristina carico del piano</button> : null}
               </div>
-              <button class="bottone piccolo" onClick={() => { setModifica(e.esercizio_id); setKg(t ? String(t.kg) : ''); setRip(t?.modo === 'stima' ? String(t.rip) : '3'); }}>Modifica</button>
+              <button class="bottone piccolo" onClick={() => { setModifica(e.esercizio_id); setKg(t ? String(t.kg) : ''); setRip(t?.modo === 'stima' ? String(t.rip) : '3'); setRir(t?.rir ?? 0); }}>Modifica</button>
             </div>
             {modifica === e.esercizio_id ? (
               <div class="colonna" style="gap:8px">
@@ -209,6 +210,7 @@ function Test() {
                   <input type="number" inputMode="decimal" step="0.5" value={kg} onInput={(ev) => setKg((ev.target as HTMLInputElement).value)} placeholder="kg" />
                   <button class="bottone primario piccolo" style="min-height:46px" onClick={() => salva(e.esercizio_id, modo, ripFisse)}>Salva</button>
                 </div>
+                {modo === 'stima' ? <div class="campo"><label>Ripetizioni di riserva</label><Scelte valori={[0, 1, 2, 3, 4]} valore={rir} onCambia={setRir} /></div> : null}
                 <div class="riga" style="gap:8px">
                   {corr ? <button class="bottone piccolo fantasma" onClick={() => void impostaCorrezione(e.esercizio_id, 0)}>Azzera correzione</button> : null}
                   {t ? <button class="bottone piccolo fantasma pericolo" onClick={() => { void rimuoviTest(e.esercizio_id); setModifica(null); }}>Elimina test</button> : null}

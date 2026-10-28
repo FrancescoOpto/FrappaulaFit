@@ -3,6 +3,7 @@ import { contenitorePer } from '../data/contenitori';
 import { eserciziPerFase, generaSettimana, nuovoBlocco, primoCicloModificabile, type ProfiloGen } from './generatore';
 import { faseDelCiclo, sequenzaPreservazione, trasformaPreservazione } from './preservazione';
 import { ENERGIA_PER_OBIETTIVO } from './pianificatore';
+import { RECUPERI_DEFAULT } from '../data/tabelle';
 
 // Moduli di programma (SPEC_PIANIFICATORE §4, §6, §7): Preservazione come blocco, cambio obiettivo
 // senza test, profilo carichi come fonte dei moduli. Funzioni pure.
@@ -42,7 +43,8 @@ export function nuovoBloccoPreservazione(parametri: ParametriGeneratore, profilo
   const settimana = generaSettimana(parametri, profilo, numeroSorgente);
   const id = `p${numero}-${Date.now().toString(36)}`;
   const seq = sequenzaPreservazione(Math.max(1, cicli));
-  const opz = { preferisciMacchine: profilo.obiettivoAttivo?.preferisciMacchine, resistenza: profilo.obiettivoAttivo?.resistenza };
+  // v2 §4.3/§4.7: stesse serie del blocco; la scala per tempo interviene solo se la seduta stimata supera T.
+  const opz = { preferisciMacchine: profilo.obiettivoAttivo?.preferisciMacchine, resistenza: profilo.obiettivoAttivo?.resistenza, T: parametri.T, recuperi: profilo.impostazioni?.recuperi ?? RECUPERI_DEFAULT };
   const sedute: Seduta[] = [];
   let numeroSeduta = 0;
   let ciclo = 0;
@@ -53,7 +55,8 @@ export function nuovoBloccoPreservazione(parametri: ParametriGeneratore, profilo
       numeroSeduta++;
       contaFase[fase] = (contaFase[fase] ?? 0) + 1;
       const s = settimana.sessioni[g];
-      const base = eserciziPerFase(s, settimana.contenitore.sessioni[g], fase === 'test' ? 'test' : 'fase1', parametri, profilo.sostituzioni);
+      // Lo scarico della Preservazione è lo scarico del blocco di riferimento, senza modifiche (v2 §4.3).
+      const base = eserciziPerFase(s, settimana.contenitore.sessioni[g], fase === 'test' ? 'test' : fase === 'scarico' ? 'scarico' : 'fase1', parametri, profilo.sostituzioni);
       sedute.push({
         id: `${id}-${numeroSeduta}`,
         numero: numeroSeduta,

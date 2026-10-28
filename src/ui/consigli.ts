@@ -18,7 +18,7 @@ export function consigli(stato: Stato): Consiglio[] {
     if (e && !ob.avvisoDeficitIgnorato) out.push(e);
     const d = p.datiCorporei;
     if (d?.pesoKg && d.altezzaCm && d.eta) {
-      const st = stimeTdee(p.sesso, d.pesoKg, d.altezzaCm, d.eta, d.attivita, d.bfPct, d.tdeeEmpirico);
+      const st = stimeTdee({ sesso: p.sesso, pesoKg: d.pesoKg, altezzaCm: d.altezzaCm, eta: d.eta, passiGiorno: d.passiGiorno, allenamentiSettimana: d.allenamentiSettimana ?? p.parametri.N, durataMin: d.durataSedutaMin ?? p.parametri.T, bfPct: d.bfPct, tdeeEmpirico: d.tdeeEmpirico });
       const cal = calorieObiettivo({ obiettivo: ob.tipo, sesso: p.sesso, pesoKg: d.pesoKg, tdee: st.partenza, bmr: st.bmr, bfPct: d.bfPct, esperienza: p.parametri.esperienza, kgTarget: ob.kgTarget, settimane: ob.settimane });
       const peso = valutaPeso(mediePesoSettimanali(stato.checkin), ob.tipo, cal.ritmoPct, cal.tettoPct);
       if (peso) out.push(peso);

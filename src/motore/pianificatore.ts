@@ -99,14 +99,14 @@ export function proponiPiano(r: RichiestaPiano): OpzionePiano[] {
     const seq = sequenzaPreservazione(cicli);
     const tappe: Tappa[] = [];
     if (conTest) tappe.push({ modulo: 'test', obiettivo: r.obiettivo, cicli: 1, energia });
-    tappe.push({ modulo: 'preservazione', obiettivo: r.obiettivo, cicli, energia, cicliPreservazione: seq, perche: 'In deficit l\u2019allenamento mantiene il muscolo: intensità alta sui fondamentali, volume ridotto di un terzo, niente tecniche.' });
+    tappe.push({ modulo: 'preservazione', obiettivo: r.obiettivo, cicli, energia, cicliPreservazione: seq, perche: 'In deficit l\u2019allenamento mantiene il muscolo: fondamentali al 77–82 % mai a cedimento, stesse serie del blocco, niente tecniche.' });
     return [{
       id: 'preservazione',
       titolo: `Preservazione · ${cicli} ${cicli === 1 ? 'ciclo' : 'cicli'}${conTest ? ' + test' : ''}`,
       settimane: cicli + (conTest ? 1 : 0),
       blocchi: [],
       nostraScelta: true,
-      perche: cicli < 3 ? 'Meno di 3 cicli non valgono la pena: allunga a 4 settimane o più.' : `Sequenza ${seq.join(' · ')}: scarico ogni 5 cicli e chiusura con scarico. ${conTest ? 'Prima una settimana di test, perché mancano i carichi.' : 'Nessun nuovo test: si usano i carichi del profilo.'}`,
+      perche: cicli < 3 ? 'Meno di 3 cicli non valgono la pena: allunga a 4 settimane o più.' : `${seq.filter((c) => c === 'S').length} ${seq.filter((c) => c === 'S').length === 1 ? 'ciclo di scarico' : 'cicli di scarico'}: uno ogni 4 di lavoro e sempre in chiusura. ${conTest ? 'Prima una settimana di test, perché mancano i carichi.' : 'Nessun nuovo test: si usano i carichi del profilo.'}`,
       tappe,
     }];
   }

@@ -63,6 +63,11 @@ describe('stimaMassimale — TEST_INIZIO_BLOCCO §2.1 (casi reali Blocco 2)', ()
     expect(stimaMassimale(3, 97.5, 2.5)).toBe(102.5);
   });
   it('rifiuta reps fuori da 1–12 e carichi non validi', () => {
+    // SPEC_PIANIFICATORE §12.11: 60 kg × 3 → 63,5 (passo 0,5); con 2 ripetizioni di riserva → 67,5.
+    expect(stimaMassimale(3, 60)).toBe(63.5);
+    expect(stimaMassimale(3, 60, 0.5, 0)).toBe(63.5);
+    expect(stimaMassimale(3, 60, 0.5, 2)).toBe(67.5);
+    expect(() => stimaMassimale(11, 60, 0.5, 2)).toThrow();
     expect(() => stimaMassimale(0, 80)).toThrow();
     expect(() => stimaMassimale(13, 80)).toThrow();
     expect(() => stimaMassimale(5, 0)).toThrow();

@@ -1,20 +1,19 @@
 import { useMemo, useState } from 'preact/hooks';
-import type { Attivita, DatiCorporei, Esperienza, Gruppo, Obiettivo, ObiettivoAttivo, ParametriGeneratore, Preset, StatoEnergetico } from '../../tipi';
+import type { DatiCorporei, Esperienza, Gruppo, Obiettivo, ObiettivoAttivo, ParametriGeneratore, Preset, StatoEnergetico } from '../../tipi';
 import { ESERCIZI, ESERCIZI_PER_ID, NOMI_GRUPPI } from '../../data/esercizi';
 import { generaSettimana, targetVolume } from '../../motore/generatore';
 import { minuti } from '../../motore/prescrizione';
-import { DURATA_DEFAULT } from '../../motore/energia';
+import { DURATA_DEFAULT, PASSI_DEFAULT, PASSI_MAX, PASSI_MIN, PASSO_STEPPER } from '../../motore/energia';
 import { avvisoEnergia } from '../../motore/coach';
 import { ENERGIA_PER_OBIETTIVO, proponiPiano, settimaneCalendario } from '../../motore/pianificatore';
 import { creaProfilo, profilo, IMPOSTAZIONI_DEFAULT } from '../../store/stato';
-import { Avviso, Scelte } from '../componenti/comuni';
+import { Avviso, Scelte, Stepper } from '../componenti/comuni';
 import { vai } from '../router';
 
 const GRUPPI: Gruppo[] = ['petto', 'dorso', 'spalle', 'gambe', 'bicipiti', 'tricipiti', 'addome'];
 export const NOMI_OBIETTIVO: Record<Obiettivo, string> = { massa: 'Massa', mantenimento: 'Mantenimento', definizione: 'Dimagrimento' };
 export const NOMI_ENERGIA: Record<StatoEnergetico, string> = { deficit: 'Deficit', mantenimento: 'Calorie di mantenimento', surplus: 'Surplus' };
 export const NOMI_MODULO: Record<string, string> = { test: 'Test', rientro: 'Rientro', ipertrofia: 'Ipertrofia con forza', mantenimento: 'Ipertrofia accorciata', preservazione: 'Preservazione', scarico: 'Scarico' };
-const NOMI_ATTIVITA: Record<Attivita, string> = { sedentario: 'Sedentario', leggero: 'Leggero', moderato: 'Moderato', alto: 'Alto' };
 
 export function Setup() {
   const esiste = profilo.value;
@@ -34,7 +33,7 @@ export function Setup() {
   const [altezza, setAltezza] = useState('');
   const [peso, setPeso] = useState('');
   const [bf, setBf] = useState('');
-  const [attivita, setAttivita] = useState<Attivita>('moderato');
+  const [passi, setPassi] = useState<number>(PASSI_DEFAULT);
   const [tdeeEmp, setTdeeEmp] = useState('');
   const [priorita, setPriorita] = useState<Gruppo[]>([]);
   const [esclusi, setEsclusi] = useState<string[]>([]);
@@ -84,7 +83,7 @@ export function Setup() {
       avvisoDeficitIgnorato: avviso ? true : undefined,
     };
     const corpo: DatiCorporei | undefined = mostraCorpo
-      ? { eta: parseInt(eta, 10) || undefined, altezzaCm: parseFloat(altezza) || undefined, pesoKg: parseFloat(peso.replace(',', '.')) || undefined, bfPct: parseFloat(bf.replace(',', '.')) || undefined, attivita, tdeeEmpirico: parseInt(tdeeEmp, 10) || undefined }
+      ? { eta: parseInt(eta, 10) || undefined, altezzaCm: parseFloat(altezza) || undefined, pesoKg: parseFloat(peso.replace(',', '.')) || undefined, bfPct: parseFloat(bf.replace(',', '.')) || undefined, passiGiorno: passi, allenamentiSettimana: N, durataSedutaMin: T, tdeeEmpirico: parseInt(tdeeEmp, 10) || undefined }
       : undefined;
     await creaProfilo(nome.trim(), sesso, parametri, ob, corpo);
     setSalvando(false);
@@ -159,7 +158,8 @@ export function Setup() {
               <div class="campo"><label>% grasso (facoltativo)</label><input type="number" inputMode="decimal" step="0.5" value={bf} onInput={(e) => setBf((e.target as HTMLInputElement).value)} placeholder="—" /></div>
               <div class="campo"><label>TDEE misurato (facoltativo)</label><input type="number" inputMode="numeric" value={tdeeEmp} onInput={(e) => setTdeeEmp((e.target as HTMLInputElement).value)} placeholder="kcal" /></div>
             </div>
-            <div class="campo"><label>Attività quotidiana</label><Scelte valori={['sedentario', 'leggero', 'moderato', 'alto'] as Attivita[]} valore={attivita} onCambia={setAttivita} etichette={NOMI_ATTIVITA} /></div>
+            <div class="campo"><label>Passi al giorno (quelli reali)</label><Stepper valore={passi} min={PASSI_MIN} max={PASSI_MAX} passo={PASSO_STEPPER} onCambia={setPassi} formato={(v) => v.toLocaleString('it-IT')} etichettaAria="Passi al giorno" /></div>
+            <p class="piccolo">Gli allenamenti a settimana e la durata della seduta li prende dal programma ({N} × {T}′); si cambiano poi in Impostazioni → Energia.</p>
           </>
         ) : null}
       </div>
@@ -235,7 +235,7 @@ export function Setup() {
               ))}
             </tbody>
           </table>
-          {obiettivo === 'definizione' ? <p class="piccolo">In Preservazione le serie scendono di circa un terzo rispetto a questi valori (fondamentali invariati).</p> : null}
+          {obiettivo === 'definizione' ? <p class="piccolo">In Preservazione restano le stesse serie del blocco, senza tecniche (rest-pause, seconde righe); i fondamentali al 77–82 % mai a cedimento. Le seconde righe tolte abbassano un po' i totali qui sopra.</p> : null}
           <button type="button" class="bottone fantasma" onClick={() => setMostraDettagli(!mostraDettagli)}>
             {mostraDettagli ? 'Nascondi le sedute' : 'Vedi le sedute del programma'}
           </button>

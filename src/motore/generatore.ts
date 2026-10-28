@@ -29,6 +29,7 @@ import {
   TARGET_SETTIMANALE,
 } from '../data/tabelle';
 import { durataStimata, minuti, serieRip } from './prescrizione';
+import { scalaPerTempo } from './preservazione';
 
 // Generatore delle sedute (SPEC §4). Le sedute non sono fisse: escono dal contenitore + parametri.
 
@@ -138,34 +139,12 @@ function generaSessione(sessione: SessioneContenitore, parametri: ParametriGener
     if (e.ruolo === 'C' && parametri.priorita.includes(e.gruppo) && e.serie) e.serie = Math.min(e.serie + 1, 4);
   }
 
-  const durata = () => durataStimata(esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieBase(e), superserie: e.superserie })), recuperi);
-  const limite = parametri.T * 60;
-
-  // Riempimento (SPEC §4.4): se si sfora, togli 1 serie ai C (prima i non prioritari), poi i C meno prioritari. Mai R1.
-  // Decisione: i C che coprono un sottogruppo (leg curl, alzate...) non si rimuovono, al massimo scendono a 2 serie;
-  // se la seduta resta sopra T l'utente riceve un avviso invece di una seduta monca.
-  const nonPrioritario = (e: EsercizioSeduta) => !parametri.priorita.includes(e.gruppo);
-  const copre = (e: EsercizioSeduta) => Boolean(sessione.slot[e.slot]?.copre);
-  const riduciSerie = (filtro: (e: EsercizioSeduta) => boolean) => {
-    for (let i = esercizi.length - 1; i >= 0 && durata() > limite; i--) {
-      const e = esercizi[i];
-      if (e.ruolo === 'C' && filtro(e) && (e.serie ?? 3) > 2) e.serie = (e.serie ?? 3) - 1;
-    }
-  };
-  const rimuovi = (filtro: (e: EsercizioSeduta) => boolean) => {
-    for (let i = esercizi.length - 1; i >= 0 && durata() > limite; i--) {
-      const e = esercizi[i];
-      if (e.ruolo === 'C' && filtro(e)) esercizi.splice(i, 1);
-    }
-  };
-  riduciSerie((e) => nonPrioritario(e) && !copre(e));
-  riduciSerie((e) => !copre(e));
-  rimuovi((e) => nonPrioritario(e) && !copre(e));
-  riduciSerie(nonPrioritario);
-  riduciSerie(() => true);
-  rimuovi((e) => !copre(e));
-
-  return { nome: sessione.nome, etichetta: sessione.etichetta, esercizi, durataS: durata() };
+  // Scala per tempo (SPEC_PIANIFICATORE v2 §4.7, sostituisce il riempimento di SPEC §4.4): T è un tetto.
+  // Se la seduta sta dentro T non si tocca nulla; altrimenti complementari dal 2° gruppo a 2 serie, poi via
+  // il complementare meno prioritario (quelli che coprono un sottogruppo per ultimi), mai sotto 2 esercizi per gruppo.
+  const copre = (e: EsercizioSeduta) => Boolean(sessione.slot[e.slot]?.copre) || parametri.priorita.includes(e.gruppo);
+  const esito = scalaPerTempo(esercizi, parametri.T, recuperi, 'fase1', copre);
+  return { nome: sessione.nome, etichetta: sessione.etichetta, esercizi: esito.esercizi, durataS: esito.durataS };
 }
 
 function volumeSettimanale(sessioni: SessioneGenerata[]): Record<Gruppo, number> {

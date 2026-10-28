@@ -725,3 +725,39 @@ input[type='radio'] {
     font-size: 48px;
   }
 }
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--bordo);
+  border-radius: 12px;
+  background: var(--carta2);
+  padding: 2px;
+}
+
+.stepper-bottone {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--testo);
+  font-size: 22px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stepper-bottone:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.stepper-valore {
+  min-width: 72px;
+  text-align: center;
+  font-family: var(--font-titolo);
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

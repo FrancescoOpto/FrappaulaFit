@@ -239,16 +239,20 @@ export async function nuovoBloccoSuccessivo(): Promise<void> {
  * Salva un test (TEST_INIZIO_BLOCCO §2): `stima` = reps e carico della prova → 1RM Brzycki arrotondato;
  * `serie_unica` = N RM fisso e carico di lavoro, usato com'è per tutto il blocco.
  */
-export async function salvaTest(esercizio_id: string, kg: number, rip: number, modo: TestMode): Promise<void> {
+export async function salvaTest(esercizio_id: string, kg: number, rip: number, modo: TestMode, rir = 0): Promise<void> {
   const b = stato.value.blocco;
   const p = stato.value.profilo;
   if (!b || !p) return;
   const r: RisultatoTest = { esercizio_id, kg, rip, modo };
-  if (modo === 'stima') r.rm1 = stimaMassimale(rip, kg, impostazioniDi(p).arrotondamento);
+  // Stima con ripetizioni di riserva (SPEC_PIANIFICATORE §7.4): reps effettive = reps + RIR.
+  if (modo === 'stima') {
+    r.rm1 = stimaMassimale(rip, kg, impostazioniDi(p).arrotondamento, rir);
+    if (rir > 0) r.rir = rir;
+  }
   // Un nuovo test è un nuovo carico base: il carico corrente scelto prima non vale più.
   const carichiCorrenti = { ...(b.carichiCorrenti ?? {}) };
   delete carichiCorrenti[esercizio_id];
-  const profiloNuovo = aggiornaProfiloCarichi(p, { esercizio_id, kg, rip, modo, massimale: r.rm1, data: new Date().toISOString(), origine: 'test' });
+  const profiloNuovo = aggiornaProfiloCarichi(p, { esercizio_id, kg, rip, modo, massimale: r.rm1, rir: r.rir, data: new Date().toISOString(), origine: 'test' });
   await aggiorna({ profilo: profiloNuovo, blocco: { ...b, test: { ...b.test, [esercizio_id]: r }, carichiCorrenti } }, ['profilo', 'blocco']);
 }
 
@@ -403,7 +407,7 @@ export async function aggiornaSerie(sedutaId: string, slot: number, n: number, m
     const rir = corrente.rir ?? (corrente.sforzo === 'facile' ? 2 : corrente.sforzo === 'giusto' ? 1 : 0);
     const esito = valutaRicalcolo(t?.rm1, corrente.kg, corrente.rip, rir);
     if (esito.aggiorna && t) {
-      test = { ...b.test, [es.esercizio_id]: { ...t, rm1: esito.stima } };
+      test = { ...b.test, [es.esercizio_id]: { ...t, rm1: esito.stima, rm1_test: t.rm1_test ?? t.rm1 } };
       carichiCorrenti = { ...(carichiCorrenti ?? {}) };
       delete carichiCorrenti[chiaveCorrente(esSedutaRiga!)];
       profiloNuovo = aggiornaProfiloCarichi(profiloNuovo, { esercizio_id: es.esercizio_id, kg: corrente.kg, rip: corrente.rip, modo: 'stima', massimale: esito.stima, data: new Date().toISOString(), origine: 'ricalcolo' });

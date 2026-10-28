@@ -21,7 +21,7 @@ import {
   stato,
   testBloccoPrecedente,
 } from '../../store/stato';
-import { Avviso, Badge, Modale, Testata, formatoData, formatoKg } from '../componenti/comuni';
+import { Avviso, Badge, Modale, Scelte, Testata, formatoData, formatoKg } from '../componenti/comuni';
 import { vai } from '../router';
 
 const ORDINE_GRUPPI: Gruppo[] = ['petto', 'dorso', 'spalle', 'gambe', 'bicipiti', 'tricipiti', 'addome'];
@@ -97,6 +97,7 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
   const [aperta, setAperta] = useState(!t);
   const [kg, setKg] = useState(t ? String(t.kg) : '');
   const [rip, setRip] = useState(t ? String(t.rip) : precedente?.modo === 'stima' ? String(precedente.rip) : '3');
+  const [rir, setRir] = useState<number>(t?.rir ?? 0);
   const [risultato, setRisultato] = useState<number | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [riscaldamento, setRiscaldamento] = useState(false);
@@ -106,18 +107,18 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
   const k = parseFloat(kg.replace(',', '.'));
   const r = parseInt(rip, 10);
   const kgOk = Number.isFinite(k) && k >= 0;
-  const ripOk = Number.isFinite(r) && r >= 1 && r <= 12;
+  const ripOk = Number.isFinite(r) && r >= 1 && r + rir <= 12;
 
   const calcola = () => {
     try {
-      setRisultato(stimaMassimale(r, k, impostazioni.value.arrotondamento));
+      setRisultato(stimaMassimale(r, k, impostazioni.value.arrotondamento, rir));
       setErrore(null);
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Valori non validi');
     }
   };
   const salvaStima = async () => {
-    await salvaTest(es.esercizio_id, k, r, 'stima');
+    await salvaTest(es.esercizio_id, k, r, 'stima', rir);
     setAperta(false);
     setRisultato(null);
   };
@@ -125,7 +126,7 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
     await salvaTest(es.esercizio_id, k, pr.rip, 'serie_unica');
     setAperta(false);
   };
-  const riferimento = risultato ?? t?.rm1 ?? precedente?.rm1 ?? (kgOk && ripOk && k > 0 ? Math.round(k * 36 / (37 - r)) : 0);
+  const riferimento = risultato ?? t?.rm1 ?? precedente?.rm1 ?? (kgOk && ripOk && k > 0 ? Math.round(k * 36 / (37 - r - rir)) : 0);
 
   return (
     <div class="colonna" style="padding:12px 0;border-top:1px solid var(--bordo);gap:8px">
@@ -135,7 +136,7 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
           <div class="nome" style="font-size:17px;font-weight:500">{def?.nome ?? es.esercizio_id}</div>
           <div class="dettaglio" style="margin-top:3px">
             <Badge ruolo={es.ruolo} />
-            {t ? <span>{t.modo === 'stima' ? `1@${t.rm1} kg (${t.rip}×${t.kg})` : `${t.rip}@${t.kg} kg`}</span> : <span class="piccolo">{stima ? 'stima del massimale' : `serie unica ${pr.rip}RM`}</span>}
+            {t ? <span>{t.modo === 'stima' ? `1@${t.rm1} kg (${t.rip}×${t.kg}${t.rir ? ` +${t.rir} RIR` : ''})` : `${t.rip}@${t.kg} kg`}</span> : <span class="piccolo">{stima ? 'stima del massimale' : `serie unica ${pr.rip}RM`}</span>}
           </div>
         </div>
         {t && !aperta ? <button class="bottone piccolo" onClick={() => setAperta(true)}>Modifica</button> : null}
@@ -155,6 +156,10 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
                     <div class="campo cresce"><label>Reps</label><input type="number" inputMode="numeric" min="1" max="12" value={rip} onInput={(e) => setRip((e.target as HTMLInputElement).value)} /></div>
                     <div class="campo cresce"><label>Carico (kg)</label><input type="number" inputMode="decimal" step="0.5" min="0" value={kg} onInput={(e) => setKg((e.target as HTMLInputElement).value)} placeholder="0" /></div>
                   </div>
+                  <div class="campo">
+                    <label>Ripetizioni di riserva (0 = a cedimento)</label>
+                    <Scelte valori={[0, 1, 2, 3, 4]} valore={rir} onCambia={setRir} />
+                  </div>
                   {Number.isFinite(r) && r > 8 && r <= 12 ? <Avviso>Oltre 8 ripetizioni la stima diventa imprecisa: meglio una prova più pesante con 3–5 ripetizioni.</Avviso> : null}
                   {Number.isFinite(r) && r > 12 ? <Avviso tipo="errore">Oltre 12 ripetizioni la formula perde senso: ripeti la prova con più carico.</Avviso> : null}
                   {errore ? <Avviso tipo="errore">{errore}</Avviso> : null}
@@ -167,7 +172,7 @@ function RigaTest({ s, es }: { s: TSeduta; es: EsercizioSeduta }) {
                 <>
                   <div class="timer-grande" style="padding:4px 0">
                     <div class="tempo" style="font-size:52px">{formatoKg(risultato)}</div>
-                    <div class="piccolo">Carico stimato (1RM) da {r} × {k} kg</div>
+                    <div class="piccolo">Carico stimato (1RM) da {r} × {k} kg{rir ? ` con ${rir} di riserva (${r + rir} ripetizioni effettive)` : ''}</div>
                   </div>
                   <div class="griglia2">
                     <button class="bottone" onClick={() => setRisultato(null)}>Non mi torna, ricalcola</button>

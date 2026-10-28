@@ -59,8 +59,15 @@ export interface DatiCorporei {
   altezzaCm?: number;
   pesoKg?: number;
   bfPct?: number;
-  attivita: Attivita;
-  /** TDEE misurato con 10–14 giorni di conteggio a peso stabile: prevale sulla formula. */
+  /** Livello di attività della v1: non più usato dal calcolo, resta per i profili vecchi. */
+  attivita?: Attivita;
+  /** Passi reali al giorno (stepper da 1.000; default 8.000). */
+  passiGiorno?: number;
+  /** Allenamenti a settimana (default N). */
+  allenamentiSettimana?: number;
+  /** Durata di una seduta in minuti (default T). */
+  durataSedutaMin?: number;
+  /** TDEE misurato con 10–14 giorni di conteggio a peso stabile: prevale sul modello. */
   tdeeEmpirico?: number;
 }
 
@@ -90,6 +97,8 @@ export interface CaricoProfilo {
   massimale?: number;
   /** Ultimo carico scelto dall'utente per i ruoli a carico fisso. */
   caricoCorrente?: number;
+  /** Ripetizioni di riserva dichiarate nel test di stima. */
+  rir?: number;
   data: string;
   origine: 'test' | 'manuale' | 'ricalcolo' | 'proposta';
 }
@@ -135,9 +144,32 @@ export interface Esercizio {
   carico_modo: CaricoModo;
   /** Versione al multipower: il carico inserito esclude il bilanciere; niente stima del massimale. */
   esclude_bilanciere?: boolean;
+  /** Pittogramma dello schema di movimento (SPEC_PIANIFICATORE §11c); se manca si usa quello del gruppo. */
+  icona?: IconaId;
   query_youtube: string;
   personalizzato?: boolean;
 }
+
+/** Icone per schema di movimento (una per schema, non per esercizio). */
+export type IconaId =
+  | 'squat'
+  | 'pressa'
+  | 'stacco'
+  | 'hip_thrust'
+  | 'leg_extension'
+  | 'leg_curl'
+  | 'polpacci'
+  | 'panca'
+  | 'croci'
+  | 'military'
+  | 'alzate_laterali'
+  | 'alzate_posteriori'
+  | 'lat'
+  | 'rematore'
+  | 'curl'
+  | 'tricipiti'
+  | 'addome'
+  | 'affondi';
 
 export interface Slot {
   gruppo: Gruppo;
@@ -222,6 +254,8 @@ export interface Impostazioni {
   vibrazione: boolean;
   notifiche: boolean;
   stripping: boolean;
+  /** Modalità prova (SPEC_PIANIFICATORE §11b): qualsiasi seduta si può avviare fuori ordine. Attiva di default nel collaudo. */
+  modalita_prova?: boolean;
 }
 
 export interface Profilo {
@@ -316,6 +350,10 @@ export interface RisultatoTest {
   modo: TestMode;
   /** Solo stima: 1RM stimato con Brzycki, arrotondato. Salvato come "1@rm1". */
   rm1?: number;
+  /** Ripetizioni di riserva dichiarate nella prova (SPEC_PIANIFICATORE §7.4). */
+  rir?: number;
+  /** Massimale del test originale, conservato quando il ricalcolo in seduta lo sostituisce. */
+  rm1_test?: number;
 }
 
 export interface SerieRegistrata {
@@ -350,6 +388,16 @@ export interface RegistroSeduta {
   iniziata: string;
   completata?: string;
   esercizi: Record<number, RegistroEsercizio>;
+  /** Stato dei carichi all'avvio, per "Annulla seduta" (SPEC_PIANIFICATORE §11b). */
+  snapshot?: SnapshotCarichi;
+}
+
+export interface SnapshotCarichi {
+  carichiCorrenti?: Record<string, CaricoCorrente>;
+  test: Record<string, RisultatoTest>;
+  correzioni: Record<string, number>;
+  carichi?: Record<string, CaricoProfilo>;
+  note?: Blocco['note'];
 }
 
 export interface Blocco {

@@ -62,3 +62,19 @@ export function Scelte<T extends string | number>({ valori, valore, onCambia, et
     </div>
   );
 }
+
+/** Stepper − / + con area toccabile ≥ 44 px (passi, allenamenti, kg). */
+export function Stepper({ valore, min, max, passo, onCambia, formato, etichettaAria }: { valore: number; min: number; max: number; passo: number; onCambia: (v: number) => void; formato?: (v: number) => string; etichettaAria?: string }) {
+  const f = formato ?? ((v: number) => String(v));
+  const cambia = (delta: number) => {
+    const nuovo = Math.min(max, Math.max(min, Math.round((valore + delta) / passo) * passo));
+    if (nuovo !== valore) onCambia(nuovo);
+  };
+  return (
+    <div class="stepper" role="group" aria-label={etichettaAria}>
+      <button type="button" class="stepper-bottone" aria-label="Meno" disabled={valore <= min} onClick={() => cambia(-passo)}>−</button>
+      <span class="stepper-valore">{f(valore)}</span>
+      <button type="button" class="stepper-bottone" aria-label="Più" disabled={valore >= max} onClick={() => cambia(passo)}>+</button>
+    </div>
+  );
+}

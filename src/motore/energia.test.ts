@@ -1,22 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { bmr, calorieObiettivo, macro, stimeTdee, tdeeRegolaLibro } from './energia';
+import { bmr, bmrKatch, calorieObiettivo, macro, stimeTdee, tdeeRegolaLibro } from './energia';
 
-// SPEC_PIANIFICATORE §12.1–12.3
-describe('energia: BMR e TDEE (§12.1)', () => {
-  it('uomo 80 kg, 180 cm, 30 anni → BMR 1780, TDEE ×1,55 = 2759, regola del libro 2560–2720', () => {
+// SPEC_PIANIFICATORE v2 §12.1–12.3
+describe('energia: BMR e TDEE con passi e allenamenti (§3.1, §12.1)', () => {
+  const uomo = { sesso: 'M' as const, pesoKg: 80, altezzaCm: 180, eta: 30, allenamentiSettimana: 4, durataMin: 60 };
+  it('uomo 80 kg, 180 cm, 30 anni: BMR 1780; 4.000 passi → 2461, 8.000 → 2593, 12.000 → 2724 (±1)', () => {
     expect(bmr('M', 80, 180, 30)).toBe(1780);
-    const s = stimeTdee('M', 80, 180, 30, 'moderato');
-    expect(s.formula).toBe(2759);
+    expect(Math.abs(stimeTdee({ ...uomo, passiGiorno: 4000 }).modello - 2461)).toBeLessThanOrEqual(1);
+    expect(Math.abs(stimeTdee({ ...uomo, passiGiorno: 8000 }).modello - 2593)).toBeLessThanOrEqual(1);
+    expect(Math.abs(stimeTdee({ ...uomo, passiGiorno: 12000 }).modello - 2724)).toBeLessThanOrEqual(1);
     expect(tdeeRegolaLibro('M', 80)).toEqual([2560, 2720]);
-    expect(s.partenza).toBe(Math.round((2759 + 2640) / 2));
-    expect(stimeTdee('M', 80, 180, 30, 'moderato', undefined, 2800).partenza).toBe(2800);
   });
-  it('donna 55 kg, 165 cm, 30 anni → BMR 1270 (±1)', () => {
+  it('donna 55 kg, 165 cm, 30 anni, 8.000 passi, 4 sedute → BMR 1270, TDEE 1824 (±1)', () => {
     expect(Math.abs(bmr('F', 55, 165, 30) - 1270)).toBeLessThanOrEqual(1);
+    expect(Math.abs(stimeTdee({ sesso: 'F', pesoKg: 55, altezzaCm: 165, eta: 30, passiGiorno: 8000, allenamentiSettimana: 4, durataMin: 60 }).modello - 1824)).toBeLessThanOrEqual(1);
+  });
+  it('il TDEE misurato prevale sul modello; senza passi dichiarati si usano 8.000', () => {
+    expect(stimeTdee({ ...uomo, passiGiorno: 8000, tdeeEmpirico: 2800 }).partenza).toBe(2800);
+    expect(stimeTdee({ ...uomo, passiGiorno: 8000 }).partenza).toBe(stimeTdee({ ...uomo }).modello);
+  });
+  it('con la % di grasso il BMR è Katch-McArdle (370 + 21,6 × massa magra)', () => {
+    expect(bmrKatch(80, 15)).toBe(Math.round(370 + 21.6 * 68));
+    expect(stimeTdee({ ...uomo, bfPct: 15 }).bmr).toBe(bmrKatch(80, 15));
+    expect(stimeTdee({ ...uomo, bfPct: 20 }).avvisoLibro).toBeDefined();
   });
 });
 
 describe('energia: deficit da obiettivo (§12.2)', () => {
+  // TDEE 2759 (come negli esempi di §12.2): con 2593 il taglio da 880 finirebbe sotto il BMR e scatterebbe il pavimento.
   const base = { obiettivo: 'definizione' as const, sesso: 'M' as const, pesoKg: 80, tdee: 2759, bmr: 1780 };
   it('−2 kg in 4 settimane → 550 kcal/die (0,625 %/sett, entro il tetto)', () => {
     const r = calorieObiettivo({ ...base, kgTarget: 2, settimane: 4 });
@@ -40,16 +51,18 @@ describe('energia: deficit da obiettivo (§12.2)', () => {
   it('mantenimento = TDEE; massa = surplus per livello', () => {
     expect(calorieObiettivo({ ...base, obiettivo: 'mantenimento' }).kcal).toBe(2759);
     expect(calorieObiettivo({ ...base, obiettivo: 'massa', esperienza: 'principiante' }).kcal).toBe(2759 + 400);
+    // Pavimento al BMR: con TDEE 2593 il taglio di 880 si ferma a 1780 kcal.
+    expect(calorieObiettivo({ ...base, tdee: 2593, kgTarget: 6, settimane: 4 }).kcal).toBe(1780);
     expect(calorieObiettivo({ ...base, obiettivo: 'massa', esperienza: 'avanzato' }).delta).toBe(-150);
   });
 });
 
 describe('energia: macro (§12.3)', () => {
-  it('dimagrimento, 80 kg, 2259 kcal → P 160 g, G 64 g, CHO 260,75 g', () => {
-    const m = macro('definizione', 80, 2259);
+  it('dimagrimento, 80 kg, TDEE 2593 − 500 = 2093 kcal → P 160 g, G 64 g, CHO ≈ 219 g', () => {
+    const m = macro('definizione', 80, 2093);
     expect(m.proteine).toBe(160);
     expect(m.grassi).toBe(64);
-    expect(m.carboidrati).toBe(260.75);
+    expect(m.carboidrati).toBe(219);
   });
   it('massa 80 kg: 1,8 g/kg proteine, 1,0 grassi', () => {
     const m = macro('massa', 80, 3000);

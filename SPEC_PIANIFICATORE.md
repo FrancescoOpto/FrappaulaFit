@@ -1,5 +1,5 @@
 # SPEC_PIANIFICATORE — Obiettivi, bilancio energetico e moduli di programma (Frappaula Fit)
-Versione 1 · 28/10/2026 · per Claude Code. Lingua dell'app e dei testi: italiano.
+Versione 2 · 28/10/2026 (dopo le prove sull'app) · per Claude Code. Sostituisce la v1 (già consegnata): le modifiche sono elencate in §0b. Lingua dell'app e dei testi: italiano.
 Etichette come in `SPEC.md`: **[Certo]** dedotto da dati/libro/video, **[Probabile]** inferenza forte, **[Ipotesi]** scelta nostra da verificare, **[Utente]** deciso da Francesco, **[Mia decisione]** scelta da trainer delegata.
 Fonti: `Libro` = Project Bodybuilding (note in `docs/note_elaborate/cap*.md`), `Schoenfeld` = *Science and Development of Muscle Hypertrophy*, 2ª ed. (2021), `Video` = app di riferimento (test, Fase 1–3, Scarico, guide "Gestione carichi" e "Tecnica Back off"), `Doc` = report "Basi scientifiche" (fonte secondaria, poco affidabile: usare solo dove indicato).
 
@@ -8,6 +8,19 @@ Fonti: `Libro` = Project Bodybuilding (note in `docs/note_elaborate/cap*.md`), `
 - **Il codice esistente non va riscritto.** Esistono già: `Obiettivo = 'massa' | 'mantenimento' | 'definizione'` in `tipi.ts` (solo dato), `motore/pianificatore.ts` (solo blocchi completi/accorciati), `data/regole_coach.ts` (struttura), `data/blocco1–3.ts`, `motore/correnti.ts`, `Setup.tsx`. Si **estendono**; i test esistenti devono restare verdi.
 - **Fuori ambito di questo file:** profilo e programma della moglie (spec separata, in arrivo), Anno 2–3 del programma di riferimento (esercizi e tabelle non ancora noti), Blocco 4. Il **sesso** però è un input (serve alle formule).
 - Il nome interno `definizione` resta (tipo esistente); nell'interfaccia l'etichetta è **"Dimagrimento"**.
+
+## 0b. Cosa cambia nella v2 (da applicare al codice già scritto)
+1. **Home:** la barra di progresso mostra le **sedute completate su totali** (es. "1/28"); via le etichette 77/82/S (§11).
+2. **Testate:** in Preservazione "Preservazione · Ciclo 3 di 6", mai "Blocco 1 · Fase 1" (§11).
+3. **Sequenza cicli Preservazione:** con 6–7 cicli lo scarico va in fondo (§4.4).
+4. **Test dei fondamentali:** campo opzionale "ripetizioni di riserva"; verificare che 60 kg × 3 dia **63,5** con passo 0,5 (l'utente ha visto 63) (§7.4).
+5. **Serie minime e scala per tempo** (§4.7): sostituisce `SPEC.md` §4.4 "Riempimento".
+6. **Preservazione rivista** (§4.3): niente "serie −1"; stessa struttura e stesse serie del blocco, senza tecniche. Sostituisce l'idea di un taglio del 30 %.
+7. **Durata:** T (60') è un **tetto**, non un obiettivo; l'app non accorcia oltre T (§4.7).
+8. **Mini calcolatore TDEE** con passi e allenamenti (§3.1): sostituisce il fattore di attività 1,55.
+9. **Anteprima di tutte le sedute future e modalità prova** (§11b): sostituisce "sedute future non avviabili" di `SPEC.md` §3 e §12 punto 2.
+10. **Piano per esercizio** per controllare le progressioni (§11b).
+11. **Restyle grafico** (§11c): direzione scelta (bozza A + griglia dei cicli), con icone-pittogramma degli esercizi.
 
 ## 1. Il ragionamento in una pagina [Mia decisione]
 Quando l'utente entra (primo avvio, reset dati, o "Cambia obiettivo") l'app decide **in questo ordine**:
@@ -21,14 +34,14 @@ Quando l'utente entra (primo avvio, reset dati, o "Cambia obiettivo") l'app deci
 |---|---|---|
 | Massa | surplus | **Ipertrofia con forza** (blocchi di riferimento, come oggi) |
 | Mantenimento | calorie di mantenimento | **Ipertrofia accorciata** (Test/rientro + Fase 1 + Fase 2 + Scarico), senza Fase 3 e senza tecniche avanzate |
-| Dimagrimento | deficit | **Preservazione** (§4.3): intensità alta, volume ridotto |
+| Dimagrimento | deficit | **Preservazione** (§4.3): intensità alta, struttura e serie invariate, senza tecniche avanzate |
 
 **Blocco bloccante morbido:** se l'utente sceglie *Massa* ma dichiara *deficit* → avviso: "In deficit non si costruisce muscolo in modo efficace. Scegli: Mantenimento / Dimagrimento, oppure indica che sei in surplus." L'utente può ignorarlo (lo registriamo). Eccezione dal Libro: chi si allena da poco (principiante) può migliorare la composizione a calorie di mantenimento (ricomposizione) → per i principianti l'avviso è solo informativo. [Probabile]
 
 ## 2. Dati da raccogliere (onboarding e Impostazioni)
 Esistenti: nome, sesso, N giorni/settimana (**default 4**), durata seduta, priorità, esclusioni, esperienza, preset. **Nuovi:**
 - Età, altezza (cm), peso (kg), % grasso (opzionale).
-- Livello di attività quotidiana: sedentario · leggero · moderato · alto.
+- **Passi al giorno** (stepper da 1.000 in 1.000) e **allenamenti a settimana**: sostituiscono il livello di attività (§3.1).
 - **TDEE noto** (opzionale): "L'ho misurato con 10–14 giorni di conteggio calorie a peso stabile" → prevale sulla formula (Libro, cap. 2 §2.3).
 - Obiettivo, durata in settimane (default per obiettivo: dimagrimento 4, mantenimento 12, massa 17), **kg da perdere/prendere** (opzionale), flag **"Allenare anche la resistenza"** (§4.5).
 - Mai chiedere cose non usate: se l'utente salta la parte energia, l'app funziona lo stesso (solo allenamento, nessun calcolo calorico).
@@ -36,11 +49,16 @@ Esistenti: nome, sesso, N giorni/settimana (**default 4**), durata seduta, prior
 ## 3. Modulo Energia (calcolatore, opzionale) [Libro + Schoenfeld]
 **Ambito:** calcolo e controllo del bilancio energetico. **L'app non è un contacalorie e non propone pasti.** Le indicazioni sono generali, non una dieta personalizzata (una riga di avviso, non un discorso). Il Libro rimanda a un professionista con BMI > 29: mostrare quella riga una volta, chiudibile.
 
-### 3.1 TDEE (tre stime, mostrate insieme)
-1. **Empirico** (se noto): vale quello.
-2. **Mifflin-St Jeor × attività** [formula: Libro cap. 2 §2.6; fattori: Probabile, non nel Libro]. BMR uomo = 10·kg + 6,25·cm − 5·età + 5; donna = … − 161. Fattore: 1,2 / 1,375 / 1,55 / 1,725. Esempio uomo 80 kg, 180 cm, 30 anni: BMR 1780 (valore del Libro), TDEE 1780×1,55 = **2759**.
-3. **Regola del Libro** (cap. 2 §2.5): kg × 32–34 (uomo) o × 30–32 (donna); valida solo fino a ~12–15 % di grasso (uomo) e 22–24 % (donna): sopra sovrastima. Mostrare l'intervallo.
-La stima ha un errore tipico di ±10 %: il **valore di partenza** è la media tra 2 e 3, poi lo corregge il peso reale (§3.4). [Ipotesi]
+### 3.1 TDEE — mini calcolatore con passi e allenamenti [Utente, 28/10]
+**Input:** peso (kg), altezza (cm), età, sesso, **passi al giorno** (stepper da 1.000 in 1.000, da 1.000 a 30.000, default 8.000; vanno inseriti i passi **reali**, non l'obiettivo), **allenamenti a settimana** (0–7, default N), durata seduta (default T, modificabile). Opzionali: % di grasso, TDEE misurato.
+**Modello:**
+1. **BMR:** Mifflin-St Jeor. Uomo = 10·kg + 6,25·cm − 5·età + 5; donna = … − 161. Se è nota la % di grasso: Katch-McArdle = 370 + 21,6 × massa magra (kg). [Mifflin è la più validata per adulti sani: Frankenfield 2005, circa 8 su 10 non obesi entro ±10 % del misurato; Probabile, non riverificato in questa sessione]
+2. **Vita quotidiana senza camminare:** +10 % del BMR [Probabile].
+3. **Passi:** `passi × (0,415 × altezza_m) × 0,5 × kg / 1000` kcal. Costo netto della camminata ≈ 0,5 kcal/kg/km (Compendium of Physical Activities) [Probabile].
+4. **Allenamento:** `sedute_a_settimana × 3,5 × kg × (durata_min/60) / 7` kcal al giorno (3,5 MET·h netti a seduta) [Ipotesi].
+5. **TDEE = (BMR + vita quotidiana + passi + allenamento) × 1,10** (effetto termico del cibo, 10 %, come nel Libro cap. 2).
+**Mostrare:** BMR, TDEE e, accanto, la regola del Libro (kg × 32–34 uomo, × 30–32 donna; valida solo fino a ~12–15 % di grasso U / 22–24 % D). **Precedenza:** TDEE misurato (10–14 giorni di conteggio calorie a peso stabile) > modello. L'errore tipico è ±10–15 %: il valore si corregge con l'andamento del peso (§3.4).
+**Esempi (test, tolleranza ±1):** uomo 80 kg, 180 cm, 30 anni, 4 sedute da 60': 4.000 passi → **2461**; 8.000 → **2593**; 12.000 → **2724**. Donna 55 kg, 165 cm, 30 anni, 8.000 passi, 4 sedute → **1824**.
 
 ### 3.2 Calorie obiettivo
 - **Dimagrimento:** deficit base **500 kcal (uomo) / 350 (donna)** [Libro tab. 2.1]. Se l'utente indica **kg da perdere** in N settimane: `deficit_die = kg × 7700 / (settimane × 7)` [Probabile: 7700 kcal/kg di grasso è un'approssimazione, non nel Libro].
@@ -72,24 +90,24 @@ Come oggi: Test → Fase 1 → Fase 2 → Scarico → Fase 3 (17 cicli), Blocchi
 ### 4.2 Mantenimento
 Sequenza: [Rientro o Test se serve] + Fase 1 + Fase 2 + Scarico (blocco accorciato già esistente, `nostraScelta`). Nessuna tecnica avanzata. Lunghezza adattata alla durata richiesta con la logica di `bloccoAccorciato`. [Ipotesi]
 
-### 4.3 Preservazione (Dimagrimento) [Libro Shred + Schoenfeld; parametri Ipotesi]
-**Principio:** mantenere intensità sui fondamentali, ridurre volume e fatica, niente novità. Si ricava dai dati del **Blocco 3** (o del blocco in corso) con queste regole:
-- **Fondamentali** (panca, squat, stacco): % del massimale vigente, mai a cedimento. Ciclo "77": **3×5 @77 %**; ciclo "82": **3×4 @82 %**; scarico: **2×4 @77 %**.
-- **Target non fondamentali:** carico = `carico_corrente` del profilo; ripetizioni come Fase 1 nel ciclo "77" e come Fase 2 nel ciclo "82" (reps test −2, poi +1); **serie = serie − 1 (minimo 2)**. L'ultima serie può arrivare al cedimento.
-- **Complementari:** serie − 1 (minimo 2); carico = `carico_corrente`.
+### 4.3 Preservazione (Dimagrimento) [Libro Shred + Schoenfeld; v2]
+**Principio:** mantenere intensità e struttura, evitare fatica inutile. Non si taglia il volume a priori: in definizione il Libro tiene le serie settimanali per gruppo vicine a quelle delle altre fasi (tab. 10.21: petto 16,5, dorso 14,0, spalle 13,5, braccia 12,0, gambe 15,5) e abbassa invece fondamentali e novità [Certo, `cap10.md`]. Il −30–50 % del `Doc` non è adottato (fonte debole). Si ricava dai dati del blocco in corso (default **Blocco 3**):
+- **Fondamentali** (panca, squat, stacco): % del massimale vigente, mai a cedimento. Ciclo "77": **3×5 @77 %**; ciclo "82": **3×4 @82 %**. Mai sotto 3 serie.
+- **Target e complementari:** **serie e ripetizioni del blocco di riferimento** (nessuna serie tolta); carico = `carico_corrente` del profilo; ripetizioni come Fase 1 nel ciclo "77" e come Fase 2 nel ciclo "82" (reps test −2, poi +1).
 - **Addome:** invariato.
 - **Tolti:** seconda riga Target ×12, rest-pause (`1×40`, `1×10`), back-off, stripping, drop set.
+- **Scarico:** come lo Scarico del blocco di riferimento, senza modifiche.
+- **Tempo:** si applica la scala di §4.7 se la durata stimata supera T. Il coach può proporre di ridurre il volume solo se i carichi calano (§8, `trend_carichi`).
 - **Preferenze:** opzione `preferisci_macchine` (default **off**; consigliata se la forza cala > 10 % o in "definizione estrema"): sostituisce i multiarticolari liberi non fondamentali con l'alternativa guidata della stessa classe (Libro, Shred).
-- **Verifica sul Blocco 3, Fase 1 settimana 1: 97 serie → 68 (−30 %)** [Certo, calcolato su `BLOCCO3_programma.md` §B2].
-- **Scarico:** ogni esercizio non fondamentale −1 serie (minimo 1); fondamentali 2×4 @77 %; niente tecniche.
+- **Verifica:** Code riporta (non assume) il totale di serie a settimana prima/dopo la trasformazione sul Blocco 3 W1 (97 serie nel riferimento).
 
 ### 4.4 Sequenza dei cicli della Preservazione
-Dati `N` cicli (≥ 3; con meno l'app dice che non vale la pena e propone di allungare): per `p = 1..N`:
-- `p % 5 == 0` → **scarico**;
-- se `p == N`, `N % 5 != 0` e `N ≥ 4` → ultimo ciclo = **scarico** (chiusura), salvo che il precedente sia già scarico;
-- altrimenti: primo ciclo dopo l'inizio o dopo uno scarico → **"77"**; tutti gli altri → **"82"**.
-Esempi (test): `N=4 → [77, 82, 82, S]` · `N=5 → [77, 82, 82, 82, S]` · `N=8 → [77, 82, 82, 82, S, 77, 82, S]` · `N=3 → [77, 82, 82]` (senza scarico).
-Il ritmo "4 di lavoro + 1 di scarico" viene dalle indicazioni di scarico in deficit (3–5 settimane; Doc e Schoenfeld 3:1 come punto di partenza) [Probabile]; il coach può anticipare lo scarico (§8).
+Dati N cicli (≥ 3), lo scarico cade **ogni 5 cicli** (4 di lavoro + 1 di scarico) e **chiude il programma** se N ≥ 4. Regola:
+- Posizioni candidate: 5, 10, 15, …; uno scarico intermedio **salta** se dopo di lui restano 1 o 2 cicli (si allunga il tratto di lavoro e lo scarico va in fondo).
+- Se N ≥ 4, l'ultimo ciclo è scarico.
+- Primo ciclo del programma o dopo uno scarico = "77"; gli altri = "82". **Le etichette 77/82 sono interne: non si mostrano** (§11).
+Esempi (test): `N=3 → [77,82,82]` · `N=4 → [77,82,82,S]` · `N=5 → [77,82,82,82,S]` · `N=6 → [77,82,82,82,82,S]` · `N=7 → [77,82,82,82,82,82,S]` · `N=8 → [77,82,82,82,S,77,82,S]` · `N=11 → [77,82,82,82,S,77,82,82,82,82,S]`.
+Il ritmo "4 + 1" viene dalle indicazioni di scarico in deficit (3–5 settimane; Schoenfeld 3:1 come punto di partenza) [Probabile]; il coach può anticipare lo scarico (§8).
 
 ### 4.5 "Allenare anche la resistenza" (opzione, default off) [Ipotesi]
 Aggiunge, come **ultimo esercizio di ogni seduta**, un complementare su macchina/cavo con **2 serie da 15–20 ripetizioni** a carico = `carico_testRM × (37 − 15)/(37 − RM_test)` (Brzycki, stesso modello del test) arrotondato al passo dell'attrezzo. Base: Schoenfeld (carichi leggeri, ≥ 30 % del massimale, vicino al cedimento, allenano Tipo I e capacità tampone). Non cambia fondamentali né Target.
@@ -101,6 +119,15 @@ Aggiunge, come **ultimo esercizio di ogni seduta**, un complementare su macchina
 - **`back_off`** (Anno 2 e programmi personalizzati): `serie_pesanti` (es. 2×7 al carico X) seguite da 1–2 serie **al massimo** a −10/−20 % (esempio dal video: T-bar 2×7@50 + 1×max@40; poi 2×7 + 1×max −10 % + 1×max −10 %). Arrotondamento libero; manubri a passi di 2/2,5 kg (14 −20 % = 11,2 → 12 o 10; se con 10 si fanno 15–20 ripetizioni, usa 12). La nota nella serie indica la tecnica. [Certo, Video]
   - Libro (TS-BO): 1 top set (RIR 1–3) + 4 serie a ×0,85, stesse ripetizioni; per principianti/intermedi con carichi moderati. [Certo, Libro; è l'**unica fonte** teorica: Schoenfeld non lo tratta]
   - **Regola di posizionamento [Ipotesi]:** mai in Fase 1 né nello Scarico; in Fase 2 solo su Target a macchina; in Fase 3 sui fondamentali senza cedimento a −10/−15 %; **quasi mai nella Preservazione**. **Non va inserito nelle tabelle dei Blocchi 1–3** (l'app di riferimento non lo usa nel primo anno): serve solo come tipo di serie + opzione nei programmi personalizzati.
+
+### 4.7 Serie minime e adattamento al tempo (tutti i moduli) [Utente + Mia decisione]
+**T è un tetto (default 60'), non un obiettivo.** Se la durata stimata ≤ T non si tocca nulla e non si aggiunge nulla: se l'utente vuole accorciare, riduce i recuperi. Il programma letto dai video non si taglia mai in anticipo: solo avviso se la durata supera T (già così nel generatore).
+**Regole fisse:** Target e fondamentali **mai sotto 3 serie** (le tabelle di progressione partono da 3). Bicipiti e tricipiti possono scendere a 2 serie. Addome invariato.
+**Scala di riduzione**, solo se durata stimata > T, un passo alla volta fino a rientrare:
+1. I **complementari dei gruppi dal secondo in poi** della seduta scendono a 2 serie (partendo dall'ultimo gruppo); il primo gruppo della seduta resta a 3.
+2. Si toglie il **complementare meno prioritario** di un gruppo (da 3 a 2 esercizi) e i complementari rimasti di quel gruppo tornano a 3 serie.
+3. Mai sotto 2 esercizi per gruppo grande.
+Sostituisce `SPEC.md` §4.4 "Riempimento". Stima durata come ora (`durataStimata`: 8' riscaldamento + serie × (45 s + recupero)).
 
 ## 5. Ciclo di sedute ≠ settimana di calendario [Utente]
 - Un **ciclo** = un giro completo del contenitore (N sedute: A, B, C, D). **La progressione si indicizza sul numero di ciclo/sedute completate, mai sulla data.** Se in una settimana si fanno 3 sedute su 4, la quarta è la prima della settimana successiva e la sequenza non cambia (già in `SPEC.md` §3, rendere esplicito nel codice e nei test).
@@ -133,6 +160,7 @@ Un **piano** è una lista ordinata di **tappe**: `{ modulo, obiettivo, cicli, en
 - Inizio di un **Blocco 1/2/3 di massa**: test come nell'app di riferimento, **ma saltabile** ("Usa i carichi del profilo") se i valori hanno ≤ 6 settimane e l'utente arriva da un altro modulo. [Ipotesi]
 - Pausa > 3 settimane: kick-off del Libro (regola `rientro_pausa`, già presente).
 - **Mai** per passare a Preservazione o tra moduli.
+- **Test dei fondamentali con riserva (RIR):** campo opzionale "ripetizioni di riserva" (0–4, default 0 = cedimento). `reps_effettive = reps + RIR`, poi Brzycki. Esempi (passo 0,5): 60 kg × 3, RIR 0 → **63,5**; RIR 2 → 60·36/(37−5) = **67,5**. La stima è affidabile con 3–5 ripetizioni (Libro: con 10–15 molto meno; Schoenfeld: le formule sono approssimazioni).
 - Dopo Preservazione verso Massa: ciclo ponte; sui fondamentali l'app confronta le ripetizioni fatte al 77 % con quelle prescritte e, se superano di ≥ 2, propone il ricalcolo del massimale (nessun test completo).
 
 ## 8. Motore coach: regole nuove (dati in `regole_coach.ts`, con il "perché" in una riga)
@@ -158,8 +186,7 @@ Anno 1 = Blocchi 1–3 (dati completi). **Anno 2–3** dell'app di riferimento: 
 
 ## 10. Modello dati (aggiunte indicative a `tipi.ts`)
 ```ts
-type Attivita = 'sedentario' | 'leggero' | 'moderato' | 'alto';
-interface DatiCorporei { sesso: 'M'|'F'; eta: number; altezzaCm: number; pesoKg: number; bfPct?: number; attivita: Attivita; tdeeEmpirico?: number; }
+interface DatiCorporei { sesso: 'M'|'F'; eta: number; altezzaCm: number; pesoKg: number; bfPct?: number; passiGiorno: number; allenamentiSettimana: number; durataSedutaMin?: number; tdeeEmpirico?: number; }
 type StatoEnergetico = 'deficit' | 'mantenimento' | 'surplus';
 type Modulo = 'test'|'rientro'|'ipertrofia'|'mantenimento'|'preservazione'|'scarico';
 interface Tappa { modulo: Modulo; obiettivo: Obiettivo; cicli: number; energia: StatoEnergetico; ciclo77o82?: (77|82|'S')[]; }
@@ -171,22 +198,67 @@ profilo_carichi: Record<string, { massimale?: number; caricoCorrente: number; da
 
 ## 11. Interfaccia
 - **Setup / "Cambia obiettivo"**: passi §2; anteprima con piano a tappe, serie/gruppo/settimana, durata in cicli e in calendario, e il "perché" della scelta.
-- **Energia** (Impostazioni → Energia): BMR, TDEE (tre stime), calorie obiettivo, macro in grammi; campi sovrascrivibili.
+- **Energia** (Impostazioni → Energia): mini calcolatore di §3.1 (passi con stepper da 1.000, allenamenti a settimana, età, altezza, peso, sesso), BMR, TDEE (modello e regola del Libro), calorie obiettivo, macro in grammi; campi sovrascrivibili.
 - **Check-in**: peso (con media settimanale e grafico), circonferenze opzionali.
-- **Seduta**: sull'ultima serie, tocco "Facile / Giusto / Al limite"; etichette "Preservazione" / "Ciclo ponte" / "Scarico" nella barra delle fasi.
+- **Home / Percorso:** la barra di progresso mostra **"completate/totali"** (es. "12/28") con una barra continua sottile; **nessuna etichetta 77/82/S**. Sotto il titolo: modulo e ciclo ("Preservazione · Ciclo 3 di 6"; per Massa "Blocco 1 · Fase 2 · Ciclo 3"). In Preservazione **mai** "Blocco 1 · Fase 1" nella testata della seduta.
+- **Seduta**: sull'ultima serie, tocco "Facile / Giusto / Al limite"; nei test dei fondamentali, campo "ripetizioni di riserva". Durata stimata in testata (come ora).
 - Tutti i testi in italiano, regole riscritte con parole nostre.
 
+## 11b. Anteprima, modalità prova e vista progressioni [Utente, 28/10]
+- **Ogni seduta del piano è apribile** dal Percorso, anche futura. Una seduta futura si apre in **anteprima** (banner "Anteprima: non ancora in programma") con esercizi, serie×ripetizioni@kg previsti e recuperi. I kg futuri sono calcolati con i carichi correnti di oggi e **si aggiornano** se cambiano (nota in piccolo). Aprire un'anteprima non modifica nessun dato.
+- **Modalità prova** (Impostazioni; **attiva di default in questa fase di collaudo**, da spegnere poi): permette di **avviare e completare qualsiasi seduta fuori ordine**. Il "prossimo allenamento" resta la prima seduta non completata. Le sedute fuori ordine aggiornano carichi correnti, autocorrezione e ricalcolo come quelle vere, quindi servono **"Annulla seduta"** (azzera i dati della seduta e ripristina i carichi correnti precedenti) e **"Azzera dati di prova"** (ripristina carichi e massimali all'ultimo test). Con la modalità prova spenta, "Inizia" è disattivato sulle sedute future. [Ipotesi]
+- **Piano per esercizio** (nuova scheda "Piano" in Progressi): scegliendo un esercizio si vede, per **tutti i cicli del programma**, la riga `serie×rip @kg` prevista (e quella fatta, se c'è), con **evidenziate le variazioni** rispetto al ciclo prima (carico, serie, ripetizioni). Vale per fondamentali, Target e complementari, in tutte le tappe. Serve a verificare a colpo d'occhio che le progressioni siano giuste.
+
+## 11c. Restyle grafico [Utente, 28/10; direzione scelta]
+**Solo aspetto: nessuna modifica a logica, dati, rotte o test.** Obiettivo: layout più pulito, elegante e rifinito, stesso tema scuro e accento arancione, nessuna copia di grafica, testi o immagini dell'app di riferimento. Direzione: **"A · Pulita"** (righe sottili, tipografia grande, niente riquadri inutili) con la **griglia dei cicli** della bozza "C · Registro" al posto della barra di progresso. [Mia decisione: Francesco ha approvato le bozze senza indicare la variante; se vuole B o C la sostituzione riguarda solo questa sezione.]
+
+### Token (aggiungi a `stile.css`, tieni quelli esistenti)
+- Colori invariati: `--sfondo #0e0f11`, `--carta #17181b`, `--carta2 #202226`, `--bordo #2a2c31`, `--testo #f3f4f6`, `--testo2 #a9adb5`, `--accento #f0761e`, `--verde #3ccf7a`. Nuovi: `--filo #1f2125` (separatore tra serie), `--accento-testo #140a02` (testo scuro su fondo arancione), `--verde-sfondo #12281c`.
+- Font: Barlow (testo) e Barlow Condensed (titoli e numeri grandi, peso 700). Eyebrow (etichette sopra i titoli): 12 px, peso 600, maiuscolo, spaziatura 0,18em.
+- Scala: titolo Percorso 60 px condensed; titolo Seduta 44 px; numero grande contatore 40 px; nome esercizio 17–18 px peso 600; meta 13–14 px `--testo2`.
+- Raggi: blocco prossima seduta 18 px, controlli 10–12 px, pulsante principale 12–14 px. Aree toccabili ≥ 44 px. Contrasto testo ≥ 4,5:1 (vale anche per le etichette piccole grigie).
+- Nessun gradiente decorativo, nessuna emoji, icone solo a tratto (stroke 1,7–1,8, estremi arrotondati).
+
+### Percorso (Home)
+1. Barra alta: nome app a sinistra in condensed grigio; a destra, se attiva, pastiglia **PROVA** (§11b) e pulsante impostazioni.
+2. Testata: eyebrow con il modulo ("PRESERVAZIONE"), sotto il titolo grande **"Ciclo 3 di 6"** (Massa: "Blocco 1 · Fase 2 · Ciclo 3"), poi una riga grigia (obiettivo e sedute per ciclo).
+3. Contatore: **"9 / 24 sedute completate"** (numero grande + testo grigio).
+4. **Griglia dei cicli** (sostituisce la barra a segmenti): una riga per ciclo (etichetta C1…Cn), una cella per seduta, numerata. Cella completata = piena arancione con numero scuro; **prossima** = bordo arancione 2 px; futura = `--carta` con numero grigio; cicli di scarico = celle `--verde-sfondo` con testo verde. La riga del ciclo corrente ha l'etichetta in grassetto. Ogni cella è un pulsante: apre la seduta (le future in anteprima, §11b). Con **più di 8 cicli** (Massa, 17 cicli) la griglia mostra solo il ciclo corrente e un link "Tutto il piano" (barra continua sottile come ora + elenco). [Ipotesi]
+5. **Blocco "Prossima seduta"**: fondo arancione, testo scuro: eyebrow, "Seduta 2", gruppi muscolari, "21 serie · circa 56 min", pulsante pieno scuro "Inizia seduta".
+6. Elenco "Questo ciclo": righe con filo sottile; cerchio con spunta (fatta, con data), cerchio con punto arancione (prossima, "Oggi"), cerchio vuoto (futura, "Anteprima").
+7. Barra di navigazione in basso: **le stesse voci che ci sono oggi**, solo rifinite (icona + etichetta 11 px, attiva in arancione, filo sopra).
+
+### Seduta
+1. Testata: indietro, eyebrow "PRESERVAZIONE · CICLO 3" in arancione, titolo "Seduta 2", riga grigia con gruppi e durata, barra sottile **"3 / 21 serie"**.
+2. Gruppo muscolare = eyebrow grigio sopra un filo. Ogni esercizio = riga con **icona (vedi sotto)**, nome, a destra l'etichetta del tipo in testo (FONDAMENTALE arancione; TARGET e COMPLEMENTARE grigi, con parole intere), sotto la riga meta "3 × 5 · 72,5 kg · recupero 3 min".
+3. L'esercizio in corso è **espanso**: una riga per serie. Fatta = cerchio arancione con spunta + "72,5 kg × 5"; corrente = cerchio con bordo arancione, e due controlli con − / + per peso e ripetizioni (area ≥ 44 px, passo di arrotondamento già in uso). Le altre righe restano compatte.
+4. **Barra fissa in basso:** a sinistra "RECUPERO" e il tempo in condensed 38 px; a destra il pulsante pieno arancione "Serie fatta". Il tocco "Facile / Giusto / Al limite" dell'ultima serie (§11) resta com'è, solo riadattato.
+5. Anteprima di sedute future (§11b): stesso layout in sola lettura, banner in testa, senza barra "Serie fatta".
+
+### Icone degli esercizi [Utente: "se si trovano micro immagini, sagome dell'esercizio"; Ipotesi sulla fattibilità]
+- **Niente immagini scaricate dal web né dall'app di riferimento** (diritti). Solo **pittogrammi nostri in SVG**, monocromatici (`currentColor`), viewBox 24×24, a tratto, sagoma stilizzata del movimento. Dimensione 28 px accanto al nome (Seduta), 24 px nell'elenco "Piano" e nella scheda dell'esercizio.
+- Una icona per **schema di movimento**, non per esercizio, così bastano circa 16: squat, pressa, stacco/cerniera d'anca, hip thrust, leg extension, leg curl, polpacci, spinta orizzontale (panca), croci, spinta verticale (military), alzate laterali, tirata verticale (lat machine/trazioni), rematore, curl bicipiti, tricipiti (pushdown/french press), addome. 
+- In `esercizi.ts` aggiungi il campo opzionale `icona?: IconaId`. **Se manca**, si usa l'icona del gruppo muscolare; se manca anche quella, nessuna icona e la riga resta ben allineata (spazio riservato).
+- Le icone sono un componente (`IconaEsercizio`) con un oggetto `IconaId → percorso SVG` in un file solo. Disegnale semplici: se una sagoma non viene leggibile a 24 px, usa l'icona del gruppo muscolare e **segnalamelo**; non è un blocco.
+
+### Cosa NON cambia
+Dati, motore, nomi delle voci del menu, flussi di Setup/Check-in/Energia (ricevono solo i token e i componenti sopra), regole del timer. Stesso comportamento su Android (Chrome PWA) e iPhone.
+
 ## 12. Test di accettazione (automatici, Vitest)
-1. **BMR/TDEE:** uomo 80 kg, 180 cm, 30 anni → BMR 1780; TDEE (×1,55) 2759; regola Libro 2560–2720. Donna 55 kg, 165 cm, 30 anni → BMR 1270 (±1).
+1. **TDEE (§3.1), tolleranza ±1:** uomo 80 kg, 180 cm, 30 anni, 4 sedute da 60': 4.000 passi → 2461; 8.000 → 2593; 12.000 → 2724. Donna 55 kg, 165 cm, 30 anni, 8.000 passi, 4 sedute → 1824. BMR uomo 1780, donna 1270 (±1). Con TDEE misurato inserito, vale quello.
 2. **Deficit da obiettivo:** 80 kg, −2 kg in 4 settimane → **550 kcal/die** (0,625 %/sett: entro il tetto). −6 kg in 4 settimane → richiesti 1650 kcal/die; con tetto 1 % → massimo **880 kcal/die**, durata minima **8 settimane**.
-3. **Macro (dimagrimento, 80 kg, 2259 kcal):** proteine 2,0 g/kg = 160 g (640 kcal); grassi 0,8 g/kg = 64 g (576 kcal); CHO = (2259 − 640 − 576)/4 = **260,75 g**.
-4. **Sequenza Preservazione:** `N=3,4,5,8` come in §4.4.
-5. **Fondamentali in Preservazione:** squat 1RM 90 → ciclo "77" 3×5 @69,5; ciclo "82" 3×4 @74; scarico 2×4 @69,5. Panca/stacco 1RM 101,5 → 78 · 83 · 78.
-6. **Trasformazione sul Blocco 3, Fase 1 W1:** totale serie 97 → 68; nessuna riga rest-pause, ×12 secondaria, back-off; nessun non-fondamentale sotto 2 serie (tranne scarico) né sopra le originali.
-7. **Cambio obiettivo senza test:** Massa → Dimagrimento a metà blocco: i carichi del profilo restano, le sedute passate non cambiano, la prima seduta nuova usa il ciclo ponte.
-8. **Ciclo ≠ settimana:** con 3 sedute fatte in una settimana, la quarta è la prima della settimana dopo e la progressione per ciclo non cambia.
-9. **Ricalcolo massimale:** panca 1RM 101,5; l'utente fa 5×85 completando le 5 ripetizioni → stima 85·36/32 = 95,6 (< vigente: nessun aggiornamento); 5×95 → 106,9 (≥ +2,5 %: aggiorna e ricalcola le % future).
-10. **Retrocompatibilità:** tutti i test esistenti (`blocco1–3`, `carichi`, `correnti`, `generatore`, `pianificatore`, `prescrizione`) restano verdi.
+3. **Macro (dimagrimento, uomo 80 kg, TDEE 2593, deficit 500 → 2093 kcal):** proteine 2,0 g/kg = 160 g (640 kcal); grassi 0,8 g/kg = 64 g (576 kcal); CHO = (2093 − 640 − 576)/4 ≈ **219 g**.
+4. **Sequenza Preservazione:** `N = 3…8` e `N = 11` come in §4.4 (6 → [77,82,82,82,82,S]; 7 → [77,82,82,82,82,82,S]).
+5. **Fondamentali in Preservazione:** squat 1RM 90 → ciclo "77" 3×5 @69,5; ciclo "82" 3×4 @74. Panca/stacco 1RM 101,5 → 78 · 83.
+6. **Trasformazione sul Blocco 3, Fase 1 W1:** nessuna riga rest-pause, ×12 secondaria o back-off; **ogni esercizio mantiene le serie originali** (con T abbastanza alto); Target e fondamentali ≥ 3 serie.
+7. **Scala per tempo (§4.7):** con T = 60' e una seduta stimata a 63' → prima i complementari dal 2° gruppo scendono a 2 serie; se ancora oltre T, si toglie un complementare e i rimasti tornano a 3 serie; **Target e fondamentali mai sotto 3**, bicipiti/tricipiti ammessi a 2; con durata ≤ T non cambia nulla.
+8. **Cambio obiettivo senza test:** Massa → Dimagrimento a metà blocco: carichi del profilo invariati, sedute passate invariate, prima seduta nuova = ciclo ponte.
+9. **Ciclo ≠ settimana:** con 3 sedute fatte in una settimana, la quarta è la prima della settimana dopo e la progressione per ciclo non cambia.
+10. **Ricalcolo massimale:** panca 1RM 101,5; 5×85 completando le 5 ripetizioni → stima 95,6 (< vigente: nessun aggiornamento); 5×95 → 106,9 (≥ +2,5 %: aggiorna e ricalcola le % future).
+11. **Test con RIR:** 60 kg × 3, RIR 0 → **63,5** (passo 0,5); RIR 2 → **67,5**.
+12. **Anteprima:** aprire una seduta futura non cambia carichi né stato; in modalità prova on si può completarla fuori ordine, "Annulla seduta" ripristina i carichi precedenti.
+13. **Piano per esercizio:** per la panca del Blocco 3 mostra i carichi per ciclo coerenti con 77/82/87 % e le variazioni evidenziate.
+14. **Retrocompatibilità:** tutti i test esistenti (`blocco1–3`, `carichi`, `correnti`, `generatore`, `pianificatore`, `prescrizione`, `energia`) restano verdi, salvo quelli che codificavano regole sostituite dalla v2 (serie −1, sequenza con scarico al 5°, fattore 1,55): vanno **aggiornati, non cancellati**.
 
 ## 13. Parti aperte (non inventare)
 - Profilo e programma della moglie: spec separata (foto/screen in arrivo).
@@ -195,13 +267,16 @@ profilo_carichi: Record<string, { massimale?: number; caricoCorrente: number; da
 - Se le percentuali 77/82/87 del Blocco 3 dipendono dalle ripetizioni del test.
 - Soglie di `taratura_calorie`, `trend_carichi`, aggiornamento massimale (2,5 %), validità dei blocchi accorciati: [Ipotesi], da regolare con l'uso.
 - `checkin_14gg` (Likert): non implementare nella prima versione.
+- Valori del calcolatore TDEE (10 % vita quotidiana, 0,5 kcal/kg/km, 3,5 MET·h per seduta): [Probabile/Ipotesi], da tarare sul peso reale.
+- Modalità prova: valutare se tenerla come opzione permanente o rimuoverla dopo il collaudo.
+- Scala per tempo (§4.7): se l'utente vuole 3 serie ovunque (anche sui complementari), il passo 1 sparisce.
 
-## 14. Ordine di lavoro per Code
-1. **Motore puro + test** (nessuna UI): `energia.ts` (BMR, TDEE, deficit, macro, tetti), `preservazione.ts` (trasformazione + sequenza cicli), `ricalcolo.ts` (massimale da peso/ripetizioni), estensione di `pianificatore.ts` a tappe.
-2. **Dati e UI**: tipi, store, onboarding "Obiettivo + energia", "Cambia obiettivo", schermata Energia, Check-in con circonferenze, tocco sforzo.
-3. **Coach**: regole di §8 e avvisi con il "perché".
-4. **Tipo di serie `back_off`** (solo dati e visualizzazione), disponibile nei programmi personalizzati.
-Prima di iniziare: **riassumi il piano in 10 righe** e segnala ogni conflitto con il codice esistente. Verifica con test e con l'app aperta in un browser headless prima di dichiarare finito.
+## 14. Ordine di lavoro per Code (aggiornamento v2)
+Il codice della v1 esiste già (commit `d5983c2`): **applica la v2 come differenza**, non riscrivere. Prima di iniziare **riassumi il piano in 10 righe** e segnala i conflitti col codice.
+1. **Motore + test:** `energia.ts` (nuovo modello TDEE §3.1), `preservazione.ts` (§4.3 senza serie −1; §4.4 sequenza; §4.7 scala per tempo), test con RIR (§7.4), aggiornare i test sostituiti.
+2. **Interfaccia:** barra "completate/totali", testate per modulo, anteprima e modalità prova, scheda "Piano", campo RIR nel test, stepper passi e allenamenti nel calcolatore.
+3. **Restyle** (§11c): ora applicabile. Prima token e componenti (`stile.css`, `comuni.tsx`), poi Percorso, poi Seduta, poi le altre schermate. Poi le icone (`IconaEsercizio`). Nessuna modifica a logica o dati; i test esistenti restano verdi.
+4. Verifica con test e con l'app aperta in un browser headless prima di dichiarare finito; riporta il totale di serie del Blocco 3 W1 prima e dopo la Preservazione.
 
 ## 15. Cosa NON fare
-Niente contacalorie né pasti; niente HIIT o cardio tracciato; niente tabelle nuove per la Preservazione; niente back-off nei Blocchi 1–3; niente aumenti forzati finché non si vedono le note; niente dati inventati per Anno 2–3; niente testi copiati.
+Niente contacalorie né pasti; niente HIIT o cardio tracciato; niente tabelle nuove per la Preservazione; niente tagli di serie a priori nella Preservazione; niente back-off nei Blocchi 1–3; niente aumenti forzati finché non si vedono le note; niente dati inventati per Anno 2–3; niente testi copiati.
