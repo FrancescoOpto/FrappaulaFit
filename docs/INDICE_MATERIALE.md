@@ -73,3 +73,9 @@ I nomi dei file originali sono quelli che hanno nell'ambiente (prefisso a 8 cara
 ## 6. Cosa NON c'è ancora
 - Libro sui glutei e libro sull'allenamento femminile (non ricevuti).
 - Eventuale materiale del Blocco 2 oltre alle tue note Keep.
+
+## Aggiunta 28/10/2026 — test di carico
+- Video: Screen_Recording_20261028_050729 (Test 1), _050915 (Test 2), _051055 (Test 3), _051231 (Test 4) — Blocco 2, app di riferimento.
+- Elaborazione: specs/TEST_INIZIO_BLOCCO.md (copia in note_elaborate/) — protocollo stima Brzycki + serie unica 10/12/14RM, schermate, istruzioni di carico, tabella reale dei 34 test.
+- Fonti della regola di stima: ebook Blocco 1 pag. 46 (tabella %1RM/ripetizioni) e libro cap. 5 Tabella 5.2 (Brzycki).
+- 28/10 (2): video Blocco 2 giorno A — Screen_Recording_20261028_052154 (Fase 1), _052515 (Fase 2), _052545 (Scarico), _052648 (Fase 3). Elaborazione: note_elaborate/blocco2_giorno_A.md.

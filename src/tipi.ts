@@ -33,6 +33,12 @@ export type Classe =
 /** Ruolo dello slot (SPEC §4.3): decide tabella serie×rip e scala RM. */
 export type Ruolo = 'R1' | 'R2' | 'R3' | 'L' | 'C' | 'AB';
 
+/** Come si inserisce il carico nel test (TEST_INIZIO_BLOCCO §4). */
+export type CaricoModo = 'bilanciere_totale' | 'manubrio_singolo' | 'macchina' | 'cavo' | 'solo_dischi' | 'carico_sul_corpo' | 'corpo_libero';
+
+/** Tipo di test a inizio blocco: stima Brzycki (fondamentali) o serie unica a N RM. */
+export type TestMode = 'stima' | 'serie_unica';
+
 export type Fase = 'test' | 'fase1' | 'fase2' | 'scarico' | 'fase3';
 
 export interface Esercizio {
@@ -43,10 +49,12 @@ export interface Esercizio {
   classe: Classe;
   tipo: 'multi' | 'isolamento';
   unilaterale: boolean;
-  /** Ripetizioni del test per Target/complementari (10 o 12). I fondamentali si testano a 3RM. */
-  ripetizioni_test: 10 | 12;
-  /** True per i fondamentali (panca, squat, military, stacco, hip thrust). */
+  /** Ripetizioni di test di riserva (10, 12 o 14): quelle vere vengono dalle rip di lavoro della Fase 1 + 2. */
+  ripetizioni_test: 10 | 12 | 14;
+  /** True per i fondamentali permanenti (panca, squat, stacco, hip thrust): test di stima + scala RM. */
   fondamentale?: boolean;
+  /** Istruzione di carico mostrata nel test. */
+  carico_modo: CaricoModo;
   query_youtube: string;
   personalizzato?: boolean;
 }
@@ -64,6 +72,10 @@ export interface Slot {
   superserie?: string;
   /** Il sottogruppo che questo slot copre (per la verifica di copertura). */
   copre?: Sottogruppo;
+  /** Esercizio guida del gruppo: ruota per blocco (ROTAZIONE_GUIDA), Target a carico fisso. */
+  guida?: Gruppo;
+  /** Slot che non deve ripetere la guida corrente del gruppo (prende l'altra della rotazione). */
+  evita_guida?: Gruppo;
 }
 
 export interface SessioneContenitore {
@@ -116,6 +128,8 @@ export interface Profilo {
   /** Sostituzioni permanenti scelte dall'utente: slot default → esercizio preferito. */
   sostituzioni: Record<string, string>;
   esercizi_personalizzati: Esercizio[];
+  /** Esercizi guida promossi a fondamentale dall'utente (stima + scala RM). Default: nessuno. */
+  fondamentali_promossi?: string[];
 }
 
 export interface EsercizioSeduta {
@@ -147,9 +161,12 @@ export interface Seduta {
 
 export interface RisultatoTest {
   esercizio_id: string;
+  /** Carico inserito (per la stima: il carico della prova; per la serie unica: il carico di lavoro). */
   kg: number;
+  /** Ripetizioni (per la stima: quelle della prova; per la serie unica: N fisso). */
   rip: number;
-  /** Solo fondamentali: 1RM stimato. */
+  modo: TestMode;
+  /** Solo stima: 1RM stimato con Brzycki, arrotondato. Salvato come "1@rm1". */
   rm1?: number;
 }
 

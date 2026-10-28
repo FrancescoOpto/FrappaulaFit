@@ -12,12 +12,13 @@ import type {
   Seduta,
   SerieRegistrata,
   Stato,
+  TestMode,
 } from '../tipi';
 import { CHIAVI, type Chiave, caricaMeta, caricaStato, salvaChiave, salvaMeta, cancellaTutto, STATO_VUOTO } from './db';
 import { AUTOCORREZIONE_CICLO, AUTOCORREZIONE_SERIE, RECUPERI_DEFAULT, STRIPPING } from '../data/tabelle';
 import { nuovoBlocco, rigeneraSeduteFuture } from '../motore/generatore';
 import { prescrizione } from '../motore/prescrizione';
-import { arrotonda, rm1DaTest } from '../motore/carichi';
+import { arrotonda, stimaMassimale } from '../motore/carichi';
 import { ESERCIZI_PER_ID } from '../data/esercizi';
 
 // Stato globale con signals. Ogni mutazione passa da `aggiorna`, che salva la chiave toccata.
@@ -98,6 +99,7 @@ export async function creaProfilo(nome: string, sesso: 'M' | 'F', parametri: Par
     creato: new Date().toISOString(),
     sostituzioni: {},
     esercizi_personalizzati: [],
+    fondamentali_promossi: [],
   };
   const b = nuovoBlocco(parametri, p, 1);
   await aggiorna({ profilo: p, blocco: b }, ['profilo', 'blocco']);
@@ -147,12 +149,47 @@ export async function nuovoBloccoSuccessivo(): Promise<void> {
 
 // ---------- Test ----------
 
-export async function salvaTest(esercizio_id: string, kg: number, rip: number, fondamentale: boolean): Promise<void> {
+/**
+ * Salva un test (TEST_INIZIO_BLOCCO §2): `stima` = reps e carico della prova → 1RM Brzycki arrotondato;
+ * `serie_unica` = N RM fisso e carico di lavoro, usato com'è per tutto il blocco.
+ */
+export async function salvaTest(esercizio_id: string, kg: number, rip: number, modo: TestMode): Promise<void> {
   const b = stato.value.blocco;
-  if (!b) return;
-  const r: RisultatoTest = { esercizio_id, kg, rip };
-  if (fondamentale && kg > 0 && rip > 0) r.rm1 = Math.round(rm1DaTest(kg, rip) * 100) / 100;
+  const p = stato.value.profilo;
+  if (!b || !p) return;
+  const r: RisultatoTest = { esercizio_id, kg, rip, modo };
+  if (modo === 'stima') r.rm1 = stimaMassimale(rip, kg, p.impostazioni.arrotondamento);
   await aggiorna({ blocco: { ...b, test: { ...b.test, [esercizio_id]: r } } }, ['blocco']);
+}
+
+/** Ultimo test dello stesso esercizio nei blocchi passati (suggerimento per il ritest, TEST_INIZIO_BLOCCO §3). */
+export function testBloccoPrecedente(esercizio_id: string): RisultatoTest | undefined {
+  const passati = stato.value.blocchiPassati;
+  for (let i = passati.length - 1; i >= 0; i--) {
+    const t = passati[i].test[esercizio_id];
+    if (t) return t;
+  }
+  return undefined;
+}
+
+/** Promuove (o retrocede) un esercizio guida a fondamentale: stima + scala RM; rigenera le sedute future. */
+export async function promuoviFondamentale(esercizio_id: string, promosso: boolean): Promise<void> {
+  const p = stato.value.profilo;
+  const b = stato.value.blocco;
+  if (!p) return;
+  const attuali = p.fondamentali_promossi ?? [];
+  const lista = promosso ? [...new Set([...attuali, esercizio_id])] : attuali.filter((x) => x !== esercizio_id);
+  const profiloNuovo: Profilo = { ...p, fondamentali_promossi: lista };
+  if (!b || b.stato === 'completato') {
+    await aggiorna({ profilo: profiloNuovo }, ['profilo']);
+    return;
+  }
+  const bloccoNuovo = rigeneraSeduteFuture(b, b.parametri, profiloNuovo);
+  // Un test fatto con l'altro modo non vale più: va rifatto.
+  const test = { ...bloccoNuovo.test };
+  const t = test[esercizio_id];
+  if (t && t.modo !== (promosso ? 'stima' : 'serie_unica')) delete test[esercizio_id];
+  await aggiorna({ profilo: profiloNuovo, blocco: { ...bloccoNuovo, test } }, ['profilo', 'blocco']);
 }
 
 export async function rimuoviTest(esercizio_id: string): Promise<void> {
@@ -258,7 +295,8 @@ export async function sostituisciEsercizio(sedutaId: string, slot: number, nuovo
   const vecchioId = es.esercizio_id;
   const test = { ...b.test };
   // Carico: se l'alternativa ha un test usa quello, altrimenti eredita quello dell'originale (modificabile).
-  if (!test[nuovoId] && test[vecchioId]) test[nuovoId] = { ...test[vecchioId], esercizio_id: nuovoId };
+  // In fase di test l'alternativa si testa da sé: niente eredità.
+  if (s.fase !== 'test' && !test[nuovoId] && test[vecchioId]) test[nuovoId] = { ...test[vecchioId], esercizio_id: nuovoId };
 
   const aggiornaEs = (sd: Seduta): Seduta => ({ ...sd, esercizi: sd.esercizi.map((e) => (e.slot === slot && e.esercizio_id === vecchioId ? { ...e, esercizio_id: nuovoId } : e)) });
   const sedute = b.sedute.map((sd) => {
@@ -274,7 +312,7 @@ export async function sostituisciEsercizio(sedutaId: string, slot: number, nuovo
   if (reg && reg.esercizi[slot]) {
     const sd = sedute.find((x) => x.id === sedutaId)!;
     const eNuovo = sd.esercizi.find((e) => e.slot === slot)!;
-    const pr = prescrizione(eNuovo, sd, test, p.impostazioni, b.correzioni[nuovoId] ?? 0);
+    const pr = prescrizione(eNuovo, sd, test, p.impostazioni, b.correzioni[nuovoId] ?? 0, p.fondamentali_promossi);
     const serie = reg.esercizi[slot].serie.map((x) => (x.fatta ? x : { ...x, kg_prev: pr.kg ?? 0, rip_prev: pr.rip }));
     registro[sedutaId] = { ...reg, esercizi: { ...reg.esercizi, [slot]: { esercizio_id: nuovoId, serie } } };
   }
@@ -306,7 +344,7 @@ export async function completaSeduta(id: string): Promise<void> {
   if (reg) {
     for (const es of Object.values(reg.esercizi)) {
       const def = ESERCIZI_PER_ID[es.esercizio_id];
-      if (!def?.fondamentale) continue;
+      if (!def?.fondamentale && b.test[es.esercizio_id]?.modo !== 'stima') continue;
       const mancate = es.serie.some((x) => x.fatta && !x.stripping && x.rip !== undefined && x.rip < x.rip_prev);
       if (!mancate) continue;
       const prec = registroPrecedente(id, es.esercizio_id);

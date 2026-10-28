@@ -56,7 +56,8 @@ Il contenitore definisce **quali gruppi** stanno in quale seduta; non i singoli 
 Per ogni (gruppo, seduta) il contenitore dà una lista di **slot** con ruolo: **R1** = fondamentale (PP, scala RM piena, §6.3); **R2/R3** = esercizi "Target" a carico fisso con progressione di volume; **L** = fondamentale alla seconda esposizione settimanale (o ospitato in una seduta "jolly"), scala leggera; **C** = complementare; **AB** = addome. Le tabelle serie×rip di §7 si applicano **per ruolo**, indipendentemente dal contenitore.
 Vincoli del generatore:
 - max **2 R1** per seduta (libro: "max 2 fondamentali"); l'esercizio più impegnativo va **per primo**, da freschi; ordine grandi → piccoli gruppi; **dorso senza fondamentale**: il primo multiarticolare (lat machine, trazioni, rematore) è R2. [Utente]
-- Fondamentali: panca piana (petto), squat (gambe), military press (spalle), stacco da terra, hip thrust (glutei, profilo lei). [Utente]
+- **Fondamentali permanenti** (test di stima + scala RM di §6.3, restano tutto l'anno): panca piana, squat, stacco da terra, hip thrust (glutei, profilo lei). [Utente + ebook Blocco 2: "panca, squat e stacco meglio non sostituirli"]
+- **Esercizio guida del gruppo** (primo esercizio di spalle, dorso, ecc.): **ruota per blocco** [Certo, video + ebook Blocco 2 pag. ~"al posto della military delle spinte con manubri"]. Spalle: Blocco 1 = military press; Blocco 2 = spinte in alto manubri da seduto (e la military resta in un'altra seduta come Target). È un Target: test serie unica 10RM, **carico fisso** per il blocco, progressione solo sul volume. Rotazione per gruppo = dato di libreria (`rotazione_guida[blocco]`), modificabile dall'utente. Il military press può essere promosso a fondamentale (stima + scala RM) solo se l'utente lo chiede nelle Impostazioni. [Mia decisione, delegata]
 - Ogni gruppo grande compare in ≥2 sedute della settimana se N ≥ 3.
 - **Copertura dei sottogruppi** (≥4 serie dirette/sett. ciascuno): quadricipiti, femorali, glutei/cerniera, spalle laterali, spalle posteriori, bicipiti, tricipiti. Esempio: il 2+1 base non ha femorali → il generatore aggiunge un leg curl (C) nella seduta con più spazio, o stacco rumeno come R2.
 ### 4.4 Volume settimanale e tempo
@@ -68,7 +69,7 @@ Vincoli del generatore:
 Dalla libreria (§5) per (gruppo, ruolo, classe), escludendo quelli esclusi dall'utente; ogni slot ottiene l'esercizio di default + **1–2 alternative** della stessa classe, scambiabili in test e in seduta. L'utente può sostituire qualsiasi esercizio generato (§9.3).
 ### 4.6 Sedute di esempio (output atteso con i default, uomo, N=3, T=60') [Mia decisione]
 - **S1 Split A** — petto: panca piana R1 · panca manubri R2 · chest press C | gambe: squat R1 · pressa R2 · leg extension C | braccia: curl EZ C · french press EZ C.
-- **S2 Split B** — spalle: military press R1 · shoulder press C · alzate (superserie) C | dorso: lat machine R2 · rematore R3 · pulley C | stacco da terra R1 | femorali: leg curl C (copertura sottogruppi).
+- **S2 Split B** — spalle: military press (guida, Target R2, carico fisso) · shoulder press C · alzate (superserie) C | dorso: lat machine R2 · rematore R3 · pulley C | stacco da terra R1 | femorali: leg curl C (copertura sottogruppi).
 - **S3 Full C jolly** — panca inclinata manubri R2 · lat unilaterale/T-bar R3 · shoulder press C · SS curl/french C · crunch AB.
 - N=4: A1 = S1; B1 = S2; A2 = panca (L) + croci + leg extension + leg curl + curl/french manubri + addome; B2 = spinte alto manubri R3 + alzate + dorso TI + addome (A2/B2 più leggere).
 Questi esempi servono a testare il generatore; **non vanno cablati**: devono uscire dalle regole 4.1–4.5.
@@ -77,19 +78,19 @@ Questi esempi servono a testare il generatore; **non vanno cablati**: devono usc
 - Seduta in più (N=3 → 4 una settimana): "anticipa la prossima seduta". Seduta saltata: regole di §3.
 
 ## 5. Libreria esercizi
-Campi: `id, nome, gruppo, classe_sostituzione, tipo (multi|isolamento), unilaterale, ripetizioni_test (10|12), alternative[], query_youtube, icona`.
+Campi: `id, nome, gruppo, classe_sostituzione, tipo (multi|isolamento), unilaterale, ripetizioni_test (10|12|14), test_mode (stima|serie_unica), carico_modo, alternative[], query_youtube, icona`.
 - Classi di sostituzione (esempi): spinta orizzontale (panca, panca multipower, chest press), spinta inclinata, spinta verticale (military, shoulder press macchina, spinte manubri), trazione verticale (lat machine, trazioni assistite, pulldown), trazione orizzontale (rematore manubrio, T-bar, pulley), squat (squat, hack, pressa), cerniera anca (stacco rumeno, stacco da terra, good morning), quadricipiti isolamento, femorali isolamento, bicipiti, tricipiti, spalle laterali, addome.
 - Ogni esercizio del programma deve avere **almeno 1, meglio 2 alternative** scambiabili **in fase di test** e anche in seduta (§9.3). [Utente]
 - Libreria propria: possibilità di aggiungere esercizi personalizzati. [Utente]
-- Ripetizioni di test: **10** per multiarticolari (manubri panca, lat machine, french press, rematori, T-bar, trazioni), **12** per macchine/isolamento/unilaterali/cavi. Regola: ripetizioni di test = ripetizioni di lavoro della Fase 1 + 2. [Mia decisione]
+- Ripetizioni di test: **10, 12 o 14** per esercizio, regola [Certo]: ripetizioni di test = ripetizioni di lavoro della Fase 1 + 2 (3×8→10, 3×10→12, 3×12→14). Dettagli in `TEST_INIZIO_BLOCCO.md`.
 
 ## 6. Test e calcolo dei carichi
-### 6.1 Protocollo [Mia decisione, motivata]
-- **Fondamentali (R1 e lift L con test proprio)**: **3RM** — 3 ripetizioni pulite fino al cedimento tecnico. `1RM = carico3RM / 0,944` (identico a Brzycki 36/34). Motivi: il libro (APREE.3) usa "carico max su 3 rip / 0,944"; l'utente testa già a 3 rip (panca 97,5 kg); meno rischio e variabilità di un 1RM vero.
-- **Target e complementari**: carico con cui si fanno 10 o 12 ripetizioni a cedimento tecnico (RIR 0–1). Il carico testato è usato **così com'è** per tutto il blocco: parte a RIR ≈2, il margine si consuma con il volume (3×8 → 4×9). Non 6–8RM (le 3×8 non si completerebbero); oltre 12 rip la stima è inaffidabile.
-- Test = **un ciclo completo del contenitore (N sedute)** con gli stessi esercizi che il generatore ha messo nelle fasi. Nelle fasi avanzate si può cambiare 1–2 esercizi senza ritest: si riusa il carico dell'esercizio simile (modificabile).
-- Se un fondamentale non è testabile: stima da 6–8RM con Brzycki (avviso sopra 10 rip) oppure kick-off.
-- Nuova settimana di test dopo la Fase 3, prima del Blocco 2.
+### 6.1 Protocollo — **VEDI `TEST_INIZIO_BLOCCO.md` (prevale su questa sezione)**
+Sintesi [Certo, dai video dei test dell'app di riferimento]:
+- **Fondamentali permanenti** (panca, squat, stacco, hip thrust): test di **stima**; l'utente inserisce *reps qualsiasi + carico*, l'app calcola `1RM = carico × 36/(37 − reps)` (Brzycki), arrotondato a 0,5 kg; pulsanti "Salva e completa" / "Non mi torna, ricalcola"; salvato come `1@kg`. Si consigliano 3–5 reps (il 3RM del libro è un caso particolare, non un obbligo).
+- **Tutti gli altri esercizi**: serie unica a **10, 12 o 14RM** (= ripetizioni di lavoro Fase 1 + 2); reps fisse, l'utente inserisce solo il carico; salvato `N@kg`; carico usato com'è per tutto il blocco.
+- Test all'inizio di **ogni blocco (1, 2, 3)**, su tutti gli esercizi del blocco; nelle fasi avanzate un esercizio cambiato non richiede ritest (si riusa il carico del simile).
+- Istruzione di carico per attrezzo (campo `carico_modo`) e tabella reale dei 34 test del Blocco 2: vedi il file dedicato.
 
 ### 6.2 Formula
 `carico(n RM) = 1RM × (37 − n) / 36`, arrotondato a **0,5 kg** (arrotondamento configurabile: 0,5 / 1 / 2,5).
@@ -107,7 +108,7 @@ Campi: `id, nome, gruppo, classe_sostituzione, tipo (multi|isolamento), unilater
 R2, R3, C, AB: **carico fisso del test** per tutto il blocco; cambia solo il volume.
 
 ### 6.4 Casi di verifica (test automatici) [Certo, dati reali del Blocco 1]
-Con 1RM panca = 81 kg: 9RM = 63, 7RM = 67,5, 5RM = 72, 3RM = 76,5, 11RM = 58,5, 13RM = 54 (tutti uguali ai carichi dell'app di riferimento). Con 1RM squat = 78,75: 9RM = 61,5, 7RM = 65,5, 5RM = 70, 3RM = 74,5, 11RM = 57. Dati reali dell'utente (Blocco 2): panca 3 rip × 97,5 kg → 1RM ≈ 103,3.
+Blocco 2 giorno A (panca): 1RM 78,75 → 9RM 61,5 · 7RM 65,5 · 5RM 70 · 3RM 74,5 · 11RM 57 (vedi `docs/note_elaborate/blocco2_giorno_A.md`). Con 1RM panca = 81 kg: 9RM = 63, 7RM = 67,5, 5RM = 72, 3RM = 76,5, 11RM = 58,5, 13RM = 54 (tutti uguali ai carichi dell'app di riferimento). Con 1RM squat = 78,75: 9RM = 61,5, 7RM = 65,5, 5RM = 70, 3RM = 74,5, 11RM = 57. Dati reali dell'utente (Blocco 2): panca 3 rip × 97,5 kg → 1RM ≈ 103,3.
 
 ## 7. Tabelle serie × ripetizioni (cicli 1→5) [Certo, ricavate dai video; identiche tra giorni A–D]
 | Ruolo | Fase 1 | Fase 2 | Fase 3 | Scarico |
@@ -116,8 +117,8 @@ Con 1RM panca = 81 kg: 9RM = 63, 7RM = 67,5, 5RM = 72, 3RM = 76,5, 11RM = 58,5, 
 | R2 | 3×8, 3×8, 4×8, 4×8, 4×8 | 3×9, 3×9, 4×9, 4×9, 4×9 | 3×7, 4×7, 3×8, 4×8, 3×6 | 3×9 |
 | R3 | 3×8, 3×8, 3×8, 4×8, 4×8 | 3×9, 3×9, 4×9, 4×9, 3×10 | 3×8, 4×8, 4×8, 3×9, 3×10 | 2×10 |
 | L | 3×9, 3×9, 3×9, 3×10, 3×10 | 3×8, 3×8, 3×8, 3×9, 3×10 | 3×10, 3×10, 3×8, 3×8, 3×8 | 3×10 |
-| AB | 3×12 fisso | 3×13, 3×13, 3×14, 3×14, 3×15 | 3×12, 3×12, 3×13, 3×13, 3×14 | 2×12 |
-| C | serie/rip dello slot, fissi | rip +1 rispetto alla Fase 1 | rip come Fase 1 ± variante | serie −1 (min 2) |
+| AB | 3×12 fisso | 3×13, 3×13, 3×14, 3×14, 3×15 | 3×12, 3×12, 3×13, 3×13, 3×14 | 3×15 (= ultima settimana di Fase 2; Blocco 2 giorno A) |
+| C | serie/rip dello slot, fissi | **invariati** rispetto alla Fase 1 (Blocco 2 giorno A: nessun +1; nelle note del Blocco 1 si leggeva +1 rip: da verificare sui giorni B–D) | serie/rip del nuovo slot della variante | serie −1 (min 2), rip invariate |
 - In Fase 1 il passaggio ciclo 3 → 4 di R1 **cambia carico** (da 9RM a 7RM) e riporta le rip a 5. In Fase 2 R1 tiene il carico 7RM e lavora sul volume.
 - In Fase 2/3 si cambiano alcune **varianti** dei complementari (es. croci manubri → croci ai cavi, curl 60° → 45°) senza cambiare la logica; i complementari nuovi non hanno carico prescritto: lo sceglie l'utente (o eredita quello dell'esercizio simile).
 - **Dubbio aperto [Probabile]**: 4×5@5RM e 4×3@3RM in Fase 3 non sono sostenibili al 100% con recuperi normali. Soluzione adottata: **autocorrezione** — se in una serie le ripetizioni fatte < prescritte, il peso della serie successiva è precompilato a −5%; se succede per 2 sedute di fila sullo stesso esercizio, il carico del ciclo successivo scende del 2,5% (modificabile dall'utente). 
@@ -125,8 +126,8 @@ Con 1RM panca = 81 kg: 9RM = 63, 7RM = 67,5, 5RM = 72, 3RM = 76,5, 11RM = 58,5, 
 
 ## 8. Profilo moglie — **PROVVISORIO** [Mia decisione, da rivedere con i libri glutei/donna non ancora ricevuti]
 - **Non è un programma scritto a mano**: è lo stesso generatore (§4) con il preset *Donna – focus glutei*: stesso motore e stesse regole (il libro: le regole di allenamento sono le stesse, cambiano biotipo e focus).
-- Parametri del preset: gruppo prioritario = **glutei** (target diretto 12–16 serie/sett. in ≥2 sedute, sottogruppo a sé); fondamentali: **hip thrust**, squat, panca piana, military press, stacco da terra; stacco rumeno come R2/C di cerniera; target spalle/braccia ridotti (−20%) per fare capacità. [Ipotesi]
-- Regola dei 2 R1 per seduta: con 5 fondamentali in N=3 il generatore mette hip thrust + stacco in S2, panca + squat in S1, e il military press nella seduta jolly con scala **L**.
+- Parametri del preset: gruppo prioritario = **glutei** (target diretto 12–16 serie/sett. in ≥2 sedute, sottogruppo a sé); fondamentali: **hip thrust**, squat, panca piana, stacco da terra (military come guida spalle, Target); stacco rumeno come R2/C di cerniera; target spalle/braccia ridotti (−20%) per fare capacità. [Ipotesi]
+- Regola dei 2 R1 per seduta: con 4 fondamentali permanenti in N=3 il generatore mette hip thrust + stacco in S2, panca + squat in S1; la seduta jolly ospita il lift **L** (2ª esposizione, scala leggera).
 - **Ciclo mestruale: solo suggerimenti opzionali** ("Applica / Lascia com'è"), a basso peso: il libro dice che programmi basati solo sul ciclo sono "più marketing"; non proporre per contraccettivi ormonali o cicli irregolari. I dati del ciclo stanno **solo nel suo account**. [Utente]
 - Deficit/surplus (se mostrati): taglio 350 kcal (uomo 500), pre-forza 100–150 (uomo 200–300).
 

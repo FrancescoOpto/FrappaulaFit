@@ -1,4 +1,4 @@
-import type { EsercizioSeduta, Fase, Impostazioni, RisultatoTest, Ruolo, Seduta } from '../tipi';
+import type { EsercizioSeduta, Fase, Impostazioni, RisultatoTest, Ruolo, Seduta, TestMode } from '../tipi';
 import { ESECUZIONE_SERIE_S, RISCALDAMENTO_S, SCALE_RM, TABELLE, type SerieRip } from '../data/tabelle';
 import { ESERCIZI_PER_ID } from '../data/esercizi';
 import { arrotonda, caricoRM, rm1DaTest } from './carichi';
@@ -10,8 +10,25 @@ export interface Prescrizione {
   kg?: number;
   /** n della scala RM (solo R1/L). */
   scalaRM?: number;
-  /** Testo da mostrare nella fase di test (es. "3RM" o "10 rip a cedimento"). */
+  /** Testo da mostrare nella fase di test. */
   testo?: string;
+  /** Solo fase di test: tipo di test dell'esercizio. */
+  modoTest?: TestMode;
+}
+
+/** Tipo di test (TEST_INIZIO_BLOCCO §2): stima per i fondamentali permanenti e per i promossi, serie unica per gli altri. */
+export function modoTest(es: Pick<EsercizioSeduta, 'esercizio_id' | 'ruolo'>, promossi: string[] = []): TestMode {
+  const def = ESERCIZI_PER_ID[es.esercizio_id];
+  if (def?.fondamentale || promossi.includes(es.esercizio_id) || es.ruolo === 'R1' || es.ruolo === 'L') return 'stima';
+  return 'serie_unica';
+}
+
+/** N della serie unica di test = ripetizioni di lavoro della Fase 1 + 2, limitato a 10–14 (TEST_INIZIO_BLOCCO §2.2). */
+export function ripetizioniTest(es: EsercizioSeduta): 10 | 12 | 14 {
+  if (es.ruolo === 'R1' || es.ruolo === 'L') return 10;
+  const rip = serieRip(es.ruolo, 'fase1', 1, es)[1] + 2;
+  const n = Math.min(14, Math.max(10, rip));
+  return (n % 2 === 1 ? n + 1 : n) as 10 | 12 | 14;
 }
 
 /** Serie × rip per ruolo, fase e ciclo (SPEC §7). Per C usa i valori dello slot con le regole di fase. */
@@ -20,10 +37,10 @@ export function serieRip(ruolo: Ruolo, fase: Exclude<Fase, 'test'>, cicloFase: n
     const serie = slot?.serie ?? 3;
     const rip = slot?.rip ?? 10;
     switch (fase) {
+      // Complementari: serie×rip dello slot, invariati in Fase 1–3 (Blocco 2 giorno A: nessun +1 in Fase 2);
+      // in scarico una serie in meno (min 2), ripetizioni invariate.
       case 'fase1':
-        return [serie, rip];
       case 'fase2':
-        return [serie, rip + 1];
       case 'fase3':
         return [serie, rip];
       case 'scarico':
@@ -59,16 +76,17 @@ export function prescrizione(
   test: Record<string, RisultatoTest>,
   impostazioni: Pick<Impostazioni, 'arrotondamento'>,
   correzione = 0,
+  promossi: string[] = [],
 ): Prescrizione {
-  const def = ESERCIZI_PER_ID[es.esercizio_id];
   const t = test[es.esercizio_id];
 
   if (seduta.fase === 'test') {
-    if (es.ruolo === 'R1' || es.ruolo === 'L') {
-      return { serie: 1, rip: 3, kg: t?.kg, testo: '3 ripetizioni pulite al cedimento tecnico (3RM)' };
+    const modo = modoTest(es, promossi);
+    if (modo === 'stima') {
+      return { serie: 1, rip: 1, kg: t?.rm1, modoTest: 'stima', testo: 'Stima del massimale: inserisci ripetizioni e carico di una prova (consigliate 3–5 ripetizioni)' };
     }
-    const rip = def?.ripetizioni_test ?? 10;
-    return { serie: 1, rip, kg: t?.kg, testo: `${rip} ripetizioni a cedimento tecnico (RIR 0–1)` };
+    const rip = ripetizioniTest(es);
+    return { serie: 1, rip, kg: t?.kg, modoTest: 'serie_unica', testo: `Serie unica a ${rip}RM: il peso più alto con cui riesci a fare ${rip} ripetizioni` };
   }
 
   const [serie, rip] = serieRip(es.ruolo, seduta.fase, seduta.cicloFase, es);

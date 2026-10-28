@@ -58,8 +58,11 @@ export function Home() {
 
       {b.stato === 'test' && prossima ? (
         <Avviso tipo="info">
-          Prima settimana: si testano gli esercizi del programma. Fondamentali a 3 ripetizioni massime; gli altri con il carico con cui chiudi 10 o 12 ripetizioni a cedimento tecnico. Da questi valori l'app calcola tutti i carichi del blocco.
+          Prima settimana: si testano i carichi di tutti gli esercizi del blocco. Fondamentali con la stima del massimale (reps e carico di una prova, consigliate 3–5 rip); gli altri con una serie unica a 10, 12 o 14 ripetizioni a cedimento. Da questi valori l'app calcola tutti i carichi del blocco.
         </Avviso>
+      ) : null}
+      {b.stato === 'in_corso' && prossima && prossima.fase === 'fase1' && prossima.cicloFase === 1 && prossima.giorno === 1 && prossima.stato === 'futura' ? (
+        <Avviso tipo="info">Fase di test completata al 100%. I carichi delle sedute sono pronti: puoi iniziare la Fase 1.</Avviso>
       ) : null}
 
       {prossima ? (

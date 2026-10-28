@@ -18,6 +18,16 @@ export function caricoRM(rm1: number, n: number, passo = 0.5): number {
   return arrotonda((rm1 * (37 - n)) / 36, passo);
 }
 
+/**
+ * Stima del massimale dal test di inizio blocco (TEST_INIZIO_BLOCCO §2.1): Brzycki arrotondato al passo.
+ * Ripetizioni valide 1–12 (oltre, la formula perde senso avvicinandosi a 37).
+ */
+export function stimaMassimale(reps: number, carico: number, passo = 0.5): number {
+  if (!Number.isFinite(reps) || reps < 1 || reps > 12) throw new Error('Le ripetizioni devono essere tra 1 e 12');
+  if (!Number.isFinite(carico) || carico <= 0) throw new Error('Carico non valido');
+  return arrotonda(rm1DaTest(carico, reps), passo);
+}
+
 /** Percentuale del 1RM corrispondente a n RM. */
 export function percentualeRM(n: number): number {
   return (37 - n) / 36;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { durataStimata, prescrizione, serieRip } from './prescrizione';
+import { durataStimata, modoTest, prescrizione, ripetizioniTest, serieRip } from './prescrizione';
 import { RECUPERI_DEFAULT } from '../data/tabelle';
 import type { EsercizioSeduta, RisultatoTest } from '../tipi';
 
@@ -13,12 +13,12 @@ const crunch: EsercizioSeduta = { slot: 3, esercizio_id: 'crunch_cavo', ruolo: '
 const croci: EsercizioSeduta = { slot: 4, esercizio_id: 'croci_manubri', ruolo: 'C', gruppo: 'petto', serie: 3, rip: 10 };
 
 const test: Record<string, RisultatoTest> = {
-  panca_piana: { esercizio_id: 'panca_piana', kg: 76.5, rip: 3, rm1: 81 },
-  squat: { esercizio_id: 'squat', kg: 74.5, rip: 3, rm1: 78.75 },
-  panca_manubri: { esercizio_id: 'panca_manubri', kg: 26, rip: 10 },
-  spinte_manubri_seduto: { esercizio_id: 'spinte_manubri_seduto', kg: 16, rip: 10 },
-  crunch_cavo: { esercizio_id: 'crunch_cavo', kg: 30, rip: 12 },
-  croci_manubri: { esercizio_id: 'croci_manubri', kg: 12, rip: 12 },
+  panca_piana: { esercizio_id: 'panca_piana', kg: 76.5, rip: 3, modo: 'stima', rm1: 81 },
+  squat: { esercizio_id: 'squat', kg: 74.5, rip: 3, modo: 'stima', rm1: 78.75 },
+  panca_manubri: { esercizio_id: 'panca_manubri', kg: 26, rip: 10, modo: 'serie_unica' },
+  spinte_manubri_seduto: { esercizio_id: 'spinte_manubri_seduto', kg: 16, rip: 10, modo: 'serie_unica' },
+  crunch_cavo: { esercizio_id: 'crunch_cavo', kg: 30, rip: 14, modo: 'serie_unica' },
+  croci_manubri: { esercizio_id: 'croci_manubri', kg: 12, rip: 12, modo: 'serie_unica' },
 };
 
 const p = (es: EsercizioSeduta, fase: 'fase1' | 'fase2' | 'fase3' | 'scarico', ciclo: number) =>
@@ -81,17 +81,19 @@ describe('Target R2/R3 a carico fisso', () => {
     expect([1, 2, 3, 4, 5].map((c) => fmt(spinteAlto, 'fase3', c))).toEqual(['3x8@16', '4x8@16', '4x8@16', '3x9@16', '3x10@16']);
     expect(fmt(spinteAlto, 'scarico', 1)).toBe('2x10@16');
   });
-  it('AB crunch: 3x12 fisso in F1, 3x13→3x15 in F2, scarico 2x12', () => {
+  it('AB crunch: 3x12 fisso in F1, 3x13→3x15 in F2, scarico 3x15 (Blocco 2 giorno A), F3 3x12→3x14', () => {
     expect([1, 5].map((c) => fmt(crunch, 'fase1', c))).toEqual(['3x12@30', '3x12@30']);
     expect([1, 3, 5].map((c) => fmt(crunch, 'fase2', c))).toEqual(['3x13@30', '3x14@30', '3x15@30']);
-    expect(fmt(crunch, 'scarico', 1)).toBe('2x12@30');
+    expect(fmt(crunch, 'scarico', 1)).toBe('3x15@30');
+    expect([1, 3, 5].map((c) => fmt(crunch, 'fase3', c))).toEqual(['3x12@30', '3x13@30', '3x14@30']);
   });
-  it('C: fisso in F1, rip+1 in F2, serie−1 in scarico', () => {
+  it('C: serie×rip dello slot invariati in F1–F3, serie−1 (min 2) in scarico', () => {
     expect(fmt(croci, 'fase1', 1)).toBe('3x10@12');
-    expect(fmt(croci, 'fase2', 3)).toBe('3x11@12');
+    expect(fmt(croci, 'fase2', 3)).toBe('3x10@12');
     expect(fmt(croci, 'fase3', 5)).toBe('3x10@12');
     expect(fmt(croci, 'scarico', 1)).toBe('2x10@12');
     expect(serieRip('C', 'scarico', 1, { serie: 2, rip: 12 })).toEqual([2, 12]);
+    expect(serieRip('C', 'scarico', 1, { serie: 4, rip: 10 })).toEqual([3, 10]);
   });
 });
 
@@ -105,10 +107,17 @@ describe('Autocorrezione e casi limite', () => {
     expect(r.kg).toBeUndefined();
     expect(r.serie).toBe(4);
   });
-  it('fase di test: 3RM per R1, ripetizioni_test per gli altri', () => {
-    expect(prescrizione(panca, { fase: 'test', cicloFase: 1 }, {}, imp).rip).toBe(3);
-    expect(prescrizione(manubri, { fase: 'test', cicloFase: 1 }, {}, imp).rip).toBe(10);
-    expect(prescrizione(croci, { fase: 'test', cicloFase: 1 }, {}, imp).rip).toBe(12);
+  it('fase di test (TEST_INIZIO_BLOCCO): stima per i fondamentali, serie unica N = rip Fase 1 + 2 per gli altri', () => {
+    expect(prescrizione(panca, { fase: 'test', cicloFase: 1 }, {}, imp).modoTest).toBe('stima');
+    expect(prescrizione(manubri, { fase: 'test', cicloFase: 1 }, {}, imp)).toMatchObject({ modoTest: 'serie_unica', rip: 10 }); // R2 3×8 → 10
+    expect(prescrizione(spinteAlto, { fase: 'test', cicloFase: 1 }, {}, imp).rip).toBe(10); // R3 3×8 → 10
+    expect(prescrizione(croci, { fase: 'test', cicloFase: 1 }, {}, imp).rip).toBe(12); // C 3×10 → 12
+    expect(prescrizione({ ...croci, rip: 12 }, { fase: 'test', cicloFase: 1 }, {}, imp).rip).toBe(14); // C 3×12 → 14
+    expect(prescrizione(crunch, { fase: 'test', cicloFase: 1 }, {}, imp).rip).toBe(14); // AB 3×12 → 14
+    const military: EsercizioSeduta = { slot: 5, esercizio_id: 'military_press', ruolo: 'R2', gruppo: 'spalle' };
+    expect(modoTest(military)).toBe('serie_unica');
+    expect(modoTest(military, ['military_press'])).toBe('stima');
+    expect(ripetizioniTest({ ...croci, rip: 15 })).toBe(14);
   });
 });
 

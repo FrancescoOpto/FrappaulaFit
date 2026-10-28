@@ -143,7 +143,7 @@ export function Progressi({ esercizioId }: { esercizioId?: string }) {
             <thead><tr><th>Esercizio</th><th class="num">Test</th><th class="num">1RM</th></tr></thead>
             <tbody>
               {Object.values(b.test).sort((x, y) => (trovaEsercizio(x.esercizio_id)?.nome ?? '').localeCompare(trovaEsercizio(y.esercizio_id)?.nome ?? '')).map((t) => (
-                <tr><td>{trovaEsercizio(t.esercizio_id, p?.esercizi_personalizzati)?.nome ?? t.esercizio_id}</td><td class="num">{t.kg}×{t.rip}</td><td class="num">{t.rm1 ? Math.round(t.rm1 * 2) / 2 : '—'}</td></tr>
+                <tr><td>{trovaEsercizio(t.esercizio_id, p?.esercizi_personalizzati)?.nome ?? t.esercizio_id}</td><td class="num">{t.modo === 'stima' ? `1@${t.rm1}` : `${t.rip}@${t.kg}`}</td><td class="num">{t.rm1 ?? '—'}</td></tr>
               ))}
             </tbody>
           </table>

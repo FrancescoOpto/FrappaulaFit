@@ -14,7 +14,7 @@ import type {
   Sottogruppo,
 } from '../tipi';
 import { contenitorePer } from '../data/contenitori';
-import { ESERCIZI, ESERCIZI_PER_ID, NOMI_GRUPPI, NOMI_SOTTOGRUPPI } from '../data/esercizi';
+import { ESERCIZI, ESERCIZI_PER_ID, NOMI_GRUPPI, NOMI_SOTTOGRUPPI, ROTAZIONE_GUIDA, guidaDelBlocco } from '../data/esercizi';
 import {
   COPERTURA_FALLBACK,
   COPERTURA_MINIMA,
@@ -65,9 +65,18 @@ export function alternative(esercizioId: string, esclusi: string[] = [], usati: 
   );
 }
 
-function scegliEsercizio(slot: Slot, parametri: ParametriGeneratore, usati: Set<string>, profilo?: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati'>): string | null {
-  const preferito = profilo?.sostituzioni?.[slot.default] ?? slot.default;
-  const candidati = [preferito, slot.default, ...alternative(slot.default, parametri.esclusi, [], profilo).map((e) => e.id)];
+function scegliEsercizio(slot: Slot, parametri: ParametriGeneratore, usati: Set<string>, profilo: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati'> | undefined, numeroBlocco: number): string | null {
+  // Esercizio guida del gruppo: ruota per blocco (TEST_INIZIO_BLOCCO §1b); la sostituzione del profilo prevale.
+  const guida = slot.guida ? guidaDelBlocco(slot.guida, numeroBlocco) : undefined;
+  const base = guida ?? slot.default;
+  const preferito = profilo?.sostituzioni?.[slot.default] ?? base;
+  let candidati = [preferito, base, slot.default, ...alternative(slot.default, parametri.esclusi, [], profilo).map((e) => e.id)];
+  if (slot.evita_guida) {
+    // La seconda seduta del gruppo non ripete la guida corrente: prende l'altra della rotazione.
+    const corrente = guidaDelBlocco(slot.evita_guida, numeroBlocco);
+    const altra = (ROTAZIONE_GUIDA[slot.evita_guida] ?? []).find((x) => x !== corrente);
+    candidati = [...(profilo?.sostituzioni?.[slot.default] ? [profilo.sostituzioni[slot.default]] : []), ...(altra ? [altra] : []), ...candidati.filter((x) => x !== corrente)];
+  }
   for (const id of candidati) {
     if (parametri.esclusi.includes(id)) continue;
     if (usati.has(id)) continue;
@@ -83,20 +92,26 @@ function etichettaSlot(slot: Slot): string {
 }
 
 /** Genera una sessione dal contenitore: scelta esercizi, priorità, capacità in tempo. */
-function generaSessione(sessione: SessioneContenitore, parametri: ParametriGeneratore, profilo: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati'> | undefined, recuperi: Record<Ruolo, number>, avvisi: string[]): SessioneGenerata {
+function generaSessione(sessione: SessioneContenitore, parametri: ParametriGeneratore, profilo: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati' | 'fondamentali_promossi'> | undefined, recuperi: Record<Ruolo, number>, avvisi: string[], numeroBlocco: number): SessioneGenerata {
   const usati = new Set<string>();
   const esercizi: EsercizioSeduta[] = [];
+  const promossi = profilo?.fondamentali_promossi ?? [];
   sessione.slot.forEach((slot, i) => {
-    const id = scegliEsercizio(slot, parametri, usati, profilo);
+    const id = scegliEsercizio(slot, parametri, usati, profilo, numeroBlocco);
     if (!id) {
       avvisi.push(`${sessione.nome}: nessun esercizio disponibile per ${etichettaSlot(slot)} (tutti esclusi).`);
       return;
     }
     usati.add(id);
+    // Guida promossa a fondamentale dall'utente: scala RM piena se c'è posto (max 2 R1), altrimenti scala leggera.
+    let ruolo: Ruolo = slot.ruolo;
+    if ((slot.ruolo === 'R2' || slot.ruolo === 'R3') && promossi.includes(id)) {
+      ruolo = esercizi.filter((e) => e.ruolo === 'R1').length < 2 ? 'R1' : 'L';
+    }
     esercizi.push({
       slot: i,
       esercizio_id: id,
-      ruolo: slot.ruolo,
+      ruolo,
       gruppo: slot.gruppo,
       serie: slot.serie,
       rip: slot.rip,
@@ -158,13 +173,15 @@ function coperturaSettimanale(sessioni: SessioneGenerata[], contenitore: Conteni
 }
 
 /** Genera il "giro" del contenitore (N sessioni) e verifica volume, copertura e tempo (SPEC §4.4). */
-export function generaSettimana(parametri: ParametriGeneratore, profilo?: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati' | 'impostazioni'>): RisultatoGenerazione {
+export type ProfiloGen = Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati' | 'impostazioni'> & Partial<Pick<Profilo, 'fondamentali_promossi'>>;
+
+export function generaSettimana(parametri: ParametriGeneratore, profilo?: ProfiloGen, numeroBlocco = 1): RisultatoGenerazione {
   const avvisi: string[] = [];
   const contenitore = contenitorePer(parametri.N, parametri.preset);
   if (contenitore.avviso) avvisi.push(contenitore.avviso);
   const recuperi = profilo?.impostazioni?.recuperi ?? RECUPERI_DEFAULT;
 
-  const sessioni = contenitore.sessioni.map((s) => generaSessione(s, parametri, profilo, recuperi, avvisi));
+  const sessioni = contenitore.sessioni.map((s) => generaSessione(s, parametri, profilo, recuperi, avvisi, numeroBlocco));
 
   // Copertura dei sottogruppi (SPEC §4.3): prima rialza le serie di un C esistente che copre il sottogruppo
   // (nella seduta con più spazio), poi, se non c'è, aggiunge lo slot di riserva.
@@ -283,8 +300,8 @@ export function generaSedute(parametri: ParametriGeneratore, settimana: Risultat
   return sedute;
 }
 
-export function nuovoBlocco(parametri: ParametriGeneratore, profilo: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati' | 'impostazioni'>, numero = 1): Blocco {
-  const settimana = generaSettimana(parametri, profilo);
+export function nuovoBlocco(parametri: ParametriGeneratore, profilo: ProfiloGen, numero = 1): Blocco {
+  const settimana = generaSettimana(parametri, profilo, numero);
   const id = `b${numero}-${Date.now().toString(36)}`;
   return {
     id,
@@ -309,9 +326,9 @@ export function primoCicloModificabile(blocco: Blocco): number {
  * Rigenera le sedute future con nuovi parametri, dal confine di ciclo (SPEC §4.7).
  * Fase, ciclo, test e carichi restano; cambia solo la lista di sedute non ancora iniziate.
  */
-export function rigeneraSeduteFuture(blocco: Blocco, nuovi: ParametriGeneratore, profilo: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati' | 'impostazioni'>): Blocco {
+export function rigeneraSeduteFuture(blocco: Blocco, nuovi: ParametriGeneratore, profilo: ProfiloGen): Blocco {
   const daCiclo = primoCicloModificabile(blocco);
-  const settimana = generaSettimana(nuovi, profilo);
+  const settimana = generaSettimana(nuovi, profilo, blocco.numero);
   const cicli = cicliDelBlocco(nuovi.bloccoBreve).filter((c) => c.ciclo >= daCiclo);
   const conservate = blocco.sedute.filter((s) => s.ciclo < daCiclo);
   let numero = conservate.length;
@@ -340,14 +357,14 @@ export function rigeneraSeduteFuture(blocco: Blocco, nuovi: ParametriGeneratore,
   return { ...blocco, sedute: [...conservate, ...nuove], parametri: { ...nuovi }, parametriInAttesa: undefined, contenitore_id: settimana.contenitore.id };
 }
 
-/** Esercizi distinti che compaiono nel blocco (per la settimana di test). */
-export function eserciziDaTestare(blocco: Blocco): { esercizio_id: string; ruolo: Ruolo; gruppo: Gruppo }[] {
-  const visti = new Map<string, { esercizio_id: string; ruolo: Ruolo; gruppo: Gruppo }>();
+/** Esercizi distinti che compaiono nel blocco (per la settimana di test), con lo slot di prima comparsa. */
+export function eserciziDaTestare(blocco: Blocco): EsercizioSeduta[] {
+  const visti = new Map<string, EsercizioSeduta>();
   for (const s of blocco.sedute) {
     for (const e of s.esercizi) {
       const prec = visti.get(e.esercizio_id);
-      // R1 prevale su L (stesso esercizio testato una volta sola a 3RM).
-      if (!prec || (prec.ruolo !== 'R1' && e.ruolo === 'R1')) visti.set(e.esercizio_id, { esercizio_id: e.esercizio_id, ruolo: e.ruolo, gruppo: e.gruppo });
+      // R1 prevale su L (stesso esercizio testato una volta sola).
+      if (!prec || (prec.ruolo !== 'R1' && e.ruolo === 'R1')) visti.set(e.esercizio_id, e);
     }
   }
   return [...visti.values()];

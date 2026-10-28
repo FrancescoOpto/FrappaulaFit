@@ -1,8 +1,9 @@
 import { useState } from 'preact/hooks';
-import type { Classe, Esercizio, Gruppo, ParametriGeneratore, Ruolo } from '../../tipi';
-import { ESERCIZI, NOMI_GRUPPI, NOMI_RUOLI, esercizio as trovaEsercizio } from '../../data/esercizi';
+import type { CaricoModo, Classe, Esercizio, Gruppo, ParametriGeneratore, Ruolo, TestMode } from '../../tipi';
+import { CARICO_MODO, ESERCIZI, NOMI_GRUPPI, NOMI_RUOLI, ROTAZIONE_GUIDA, esercizio as trovaEsercizio } from '../../data/esercizi';
 import { RECUPERI_DEFAULT } from '../../data/tabelle';
 import { eserciziDaTestare, generaSettimana, primoCicloModificabile } from '../../motore/generatore';
+import { modoTest, ripetizioniTest } from '../../motore/prescrizione';
 import { esportaJSON, importaJSON } from '../../store/db';
 import {
   aggiornaImpostazioni,
@@ -14,6 +15,7 @@ import {
   impostaCorrezione,
   nuovoBloccoSuccessivo,
   profilo,
+  promuoviFondamentale,
   rimuoviTest,
   salvaTest,
   sostituisciStato,
@@ -48,7 +50,7 @@ function Programma() {
   const [mostraEsclusi, setMostraEsclusi] = useState(false);
   const [esito, setEsito] = useState<string | null>(null);
   const cambiato = JSON.stringify(par) !== JSON.stringify(p.parametri);
-  const anteprima = generaSettimana(par, p);
+  const anteprima = generaSettimana(par, p, b?.numero ?? 1);
   const daCiclo = b ? primoCicloModificabile(b) : 1;
   const applica = async () => {
     await cambiaParametri(par);
@@ -96,36 +98,53 @@ function Test() {
   const [kg, setKg] = useState('');
   const [rip, setRip] = useState('');
   if (!b) return null;
+  const promossi = p.fondamentali_promossi ?? [];
   const lista = eserciziDaTestare(b).sort((x, y) => GRUPPI.indexOf(x.gruppo) - GRUPPI.indexOf(y.gruppo));
-  const salva = async (id: string, fondamentale: boolean) => {
+  const guide = Object.values(ROTAZIONE_GUIDA).flat();
+  const salva = async (id: string, modo: TestMode, ripFisse: number) => {
     const k = parseFloat(kg.replace(',', '.'));
-    const r = parseInt(rip, 10);
-    if (k > 0 && r > 0) await salvaTest(id, k, r, fondamentale);
+    const r = modo === 'stima' ? parseInt(rip, 10) : ripFisse;
+    if (k >= 0 && r > 0) await salvaTest(id, k, r, modo);
     setModifica(null);
   };
   return (
     <div class="colonna" style="gap:6px">
       <p class="muto">Carichi di riferimento del blocco {b.numero}. Correggerli qui ricalcola tutte le sedute future.</p>
+      <div class="colonna" style="gap:6px;padding:8px 0">
+        <div class="etichetta">Esercizi guida da trattare come fondamentali (stima + scala RM)</div>
+        <p class="piccolo">Di default, come nell'app di riferimento, la guida del gruppo (es. military press) è un Target a carico fisso.</p>
+        {guide.map((id) => (
+          <label class="riga spazio" style="padding:4px 0">
+            <span>{trovaEsercizio(id)?.nome ?? id}</span>
+            <input type="checkbox" checked={promossi.includes(id)} onChange={(ev) => void promuoviFondamentale(id, (ev.target as HTMLInputElement).checked)} />
+          </label>
+        ))}
+      </div>
       {lista.map((e) => {
         const t = b.test[e.esercizio_id];
         const def = trovaEsercizio(e.esercizio_id, p.esercizi_personalizzati);
-        const fond = e.ruolo === 'R1' || e.ruolo === 'L';
+        const modo = modoTest(e, promossi);
+        const ripFisse = ripetizioniTest(e);
         const corr = b.correzioni[e.esercizio_id] ?? 0;
         return (
           <div class="colonna" style="padding:10px 0;border-top:1px solid var(--bordo)">
             <div class="riga spazio">
               <div class="cresce">
                 <div style="font-weight:500">{def?.nome ?? e.esercizio_id}</div>
-                <div class="piccolo">{NOMI_RUOLI[e.ruolo]} · {t ? `${t.kg} kg × ${t.rip}${t.rm1 ? ` → 1RM ${Math.round(t.rm1 * 2) / 2}` : ''}` : 'nessun test'}{corr ? ` · correzione ${Math.round(corr * 1000) / 10}%` : ''}</div>
+                <div class="piccolo">{NOMI_RUOLI[e.ruolo]} · {modo === 'stima' ? 'stima' : `serie unica ${ripFisse}RM`} · {t ? (t.modo === 'stima' ? `1@${t.rm1} kg (${t.rip}×${t.kg})` : `${t.rip}@${t.kg} kg`) : 'nessun test'}{corr ? ` · correzione ${Math.round(corr * 1000) / 10}%` : ''}</div>
               </div>
-              <button class="bottone piccolo" onClick={() => { setModifica(e.esercizio_id); setKg(t ? String(t.kg) : ''); setRip(t ? String(t.rip) : fond ? '3' : String(def?.ripetizioni_test ?? 10)); }}>Modifica</button>
+              <button class="bottone piccolo" onClick={() => { setModifica(e.esercizio_id); setKg(t ? String(t.kg) : ''); setRip(t?.modo === 'stima' ? String(t.rip) : '3'); }}>Modifica</button>
             </div>
             {modifica === e.esercizio_id ? (
               <div class="colonna" style="gap:8px">
                 <div class="riga" style="gap:8px">
+                  {modo === 'stima' ? (
+                    <input type="number" inputMode="numeric" min="1" max="12" value={rip} onInput={(ev) => setRip((ev.target as HTMLInputElement).value)} placeholder="reps" />
+                  ) : (
+                    <div class="input" style="display:flex;align-items:center;justify-content:center;opacity:.7">{ripFisse} rip</div>
+                  )}
                   <input type="number" inputMode="decimal" step="0.5" value={kg} onInput={(ev) => setKg((ev.target as HTMLInputElement).value)} placeholder="kg" />
-                  <input type="number" inputMode="numeric" value={rip} onInput={(ev) => setRip((ev.target as HTMLInputElement).value)} placeholder="rip" />
-                  <button class="bottone primario piccolo" style="min-height:46px" onClick={() => salva(e.esercizio_id, fond)}>Salva</button>
+                  <button class="bottone primario piccolo" style="min-height:46px" onClick={() => salva(e.esercizio_id, modo, ripFisse)}>Salva</button>
                 </div>
                 <div class="riga" style="gap:8px">
                   {corr ? <button class="bottone piccolo fantasma" onClick={() => void impostaCorrezione(e.esercizio_id, 0)}>Azzera correzione</button> : null}
@@ -202,10 +221,11 @@ function NuovoEsercizio() {
   const [gruppo, setGruppo] = useState<Gruppo>('petto');
   const [classe, setClasse] = useState<Classe>('spinta_orizzontale');
   const [tipo, setTipo] = useState<'multi' | 'isolamento'>('isolamento');
-  const [rip, setRip] = useState<10 | 12>(12);
+  const [rip, setRip] = useState<10 | 12 | 14>(12);
+  const [caricoModo, setCaricoModo] = useState<CaricoModo>('macchina');
   const [fatto, setFatto] = useState(false);
   const salva = async () => {
-    const e: Esercizio = { id: 'x_' + nome.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_' + Date.now().toString(36), nome: nome.trim(), gruppo, classe, tipo, unilaterale: false, ripetizioni_test: rip, query_youtube: nome.trim() + ' esercizio' };
+    const e: Esercizio = { id: 'x_' + nome.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_' + Date.now().toString(36), nome: nome.trim(), gruppo, classe, tipo, unilaterale: false, ripetizioni_test: rip, carico_modo: caricoModo, query_youtube: nome.trim() + ' esercizio' };
     await aggiungiEsercizioPersonalizzato(e);
     setNome('');
     setFatto(true);
@@ -221,8 +241,9 @@ function NuovoEsercizio() {
       </div>
       <div class="griglia2">
         <div class="campo"><label>Tipo</label><Scelte valori={['multi', 'isolamento'] as const} valore={tipo} onCambia={setTipo} etichette={{ multi: 'Multiarticolare', isolamento: 'Isolamento' }} /></div>
-        <div class="campo"><label>Ripetizioni di test</label><Scelte valori={[10, 12] as const} valore={rip} onCambia={setRip} /></div>
+        <div class="campo"><label>Ripetizioni di test (riserva)</label><Scelte valori={[10, 12, 14] as const} valore={rip} onCambia={setRip} /></div>
       </div>
+      <div class="campo"><label>Come si inserisce il carico</label><select value={caricoModo} onChange={(e) => setCaricoModo((e.target as HTMLSelectElement).value as CaricoModo)}>{(Object.keys(CARICO_MODO) as CaricoModo[]).map((m) => <option value={m}>{CARICO_MODO[m].breve}</option>)}</select></div>
       <button class="bottone pieno" disabled={nome.trim().length < 3} onClick={salva}>{fatto ? 'Aggiunto ✓' : 'Aggiungi'}</button>
       {profilo.value!.esercizi_personalizzati.length ? <p class="piccolo">Tuoi: {profilo.value!.esercizi_personalizzati.map((e) => e.nome).join(', ')}</p> : null}
     </div>

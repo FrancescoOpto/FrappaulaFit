@@ -56,7 +56,8 @@ export const TABELLE: Record<Exclude<Ruolo, 'C'>, Record<FaseLavoro, SerieRip[]>
     fase1: [[3, 12], [3, 12], [3, 12], [3, 12], [3, 12]],
     fase2: [[3, 13], [3, 13], [3, 14], [3, 14], [3, 15]],
     fase3: [[3, 12], [3, 12], [3, 13], [3, 13], [3, 14]],
-    scarico: [[2, 12]],
+    // Scarico AB invariato rispetto all'ultima settimana di Fase 2 (Blocco 2 giorno A, 28/10).
+    scarico: [[3, 15]],
   },
 };
 
