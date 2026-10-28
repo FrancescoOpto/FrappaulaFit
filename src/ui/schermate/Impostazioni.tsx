@@ -11,6 +11,7 @@ import {
   cambiaObiettivo,
   impostazioni,
   aggiungiEsercizioPersonalizzato,
+  azzeraDatiProva,
   azzeraTutto,
   blocco,
   cambiaParametri,
@@ -138,7 +139,7 @@ function CambioObiettivo() {
       ) : null}
       {piano[0] ? (
         <div class="colonna" style="gap:4px">
-          {piano[0].tappe?.map((t) => <div class="riga spazio piccolo"><span><b>{NOMI_MODULO[t.modulo]}</b>{t.cicliPreservazione ? ` · ${t.cicliPreservazione.join(' · ')}` : ''}</span><span>{t.cicli} cicli</span></div>)}
+          {piano[0].tappe?.map((t) => <div class="riga spazio piccolo"><span><b>{NOMI_MODULO[t.modulo]}</b>{t.cicliPreservazione ? ` · ${t.cicliPreservazione.filter((c) => c === 'S').length} di scarico` : ''}</span><span>{t.cicli} cicli</span></div>)}
           <p class="piccolo">{piano[0].perche}</p>
         </div>
       ) : null}
@@ -323,6 +324,8 @@ export function Impostazioni({ sezione }: { sezione?: string }) {
   const [aperta, setAperta] = useState<string | null>(sezione ?? null);
   const [confermaReset, setConfermaReset] = useState(false);
   const [confermaBlocco, setConfermaBlocco] = useState(false);
+  const [confermaAzzeraProva, setConfermaAzzeraProva] = useState(false);
+  const [msgProva, setMsgProva] = useState<string | null>(null);
   const [msgImport, setMsgImport] = useState<string | null>(null);
   const [nome, setNome] = useState(p.nome);
   const toggle = (id: string) => setAperta(aperta === id ? null : id);
@@ -397,6 +400,20 @@ export function Impostazioni({ sezione }: { sezione?: string }) {
 
       <Sezione id="opzioni" titolo="Opzioni di allenamento" aperta={aperta === 'opzioni'} onToggle={() => toggle('opzioni')}>
         <label class="riga spazio" style="padding:6px 0"><span class="cresce">Stripping −30% in Fase 2<br /><span class="piccolo">Serie extra a −30% fino al cedimento sull'ultimo esercizio di ogni gruppo. Dalle tue note Keep, non verificato nei video: per questo è spento di default.</span></span><input type="checkbox" checked={imp.stripping} onChange={(e) => void aggiornaImpostazioni({ stripping: (e.target as HTMLInputElement).checked })} /></label>
+        <div class="separatore" />
+        <label class="riga spazio" style="padding:6px 0"><span class="cresce">Modalità prova<br /><span class="piccolo">Permette di avviare e completare qualsiasi seduta fuori ordine, per collaudare l'app. Le sedute fatte in prova aggiornano carichi e massimali come quelle vere: usa "Annulla seduta" o il pulsante qui sotto. Attiva di default in questa fase; da spegnere quando ti alleni davvero.</span></span><input type="checkbox" checked={imp.modalita_prova ?? true} onChange={(e) => void aggiornaImpostazioni({ modalita_prova: (e.target as HTMLInputElement).checked })} /></label>
+        {!confermaAzzeraProva ? (
+          <button class="bottone pieno" onClick={() => setConfermaAzzeraProva(true)}>Azzera dati di prova…</button>
+        ) : (
+          <div class="colonna" style="gap:8px">
+            <p class="muto">Tutte le sedute di lavoro tornano da fare, le serie registrate spariscono, carichi e massimali tornano a quelli dell'ultimo test. I test restano.</p>
+            <div class="griglia2">
+              <button class="bottone" onClick={() => setConfermaAzzeraProva(false)}>Annulla</button>
+              <button class="bottone pericolo" onClick={async () => { await azzeraDatiProva(); setConfermaAzzeraProva(false); setMsgProva('Dati di prova azzerati: carichi e massimali riportati all’ultimo test.'); }}>Sì, azzera</button>
+            </div>
+          </div>
+        )}
+        {msgProva ? <Avviso tipo="info">{msgProva}</Avviso> : null}
       </Sezione>
 
       <Sezione id="esercizi" titolo="Esercizi personalizzati" aperta={aperta === 'esercizi'} onToggle={() => toggle('esercizi')}><NuovoEsercizio /></Sezione>

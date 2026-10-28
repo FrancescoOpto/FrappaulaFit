@@ -222,7 +222,7 @@ export function Setup() {
           </div>
           <div class="colonna" style="gap:6px">
             {tappe.map((t) => (
-              <div class="riga spazio"><span><b>{NOMI_MODULO[t.modulo]}</b>{t.cicliPreservazione ? <span class="piccolo"> · {t.cicliPreservazione.join(' · ')}</span> : null}</span><span class="piccolo">{t.cicli} {t.cicli === 1 ? 'ciclo' : 'cicli'}</span></div>
+              <div class="riga spazio"><span><b>{NOMI_MODULO[t.modulo]}</b>{t.cicliPreservazione ? <span class="piccolo"> · {t.cicliPreservazione.filter((c) => c === 'S').length} di scarico</span> : null}</span><span class="piccolo">{t.cicli} {t.cicli === 1 ? 'ciclo' : 'cicli'}</span></div>
             ))}
           </div>
           <p class="piccolo">{piano[0].perche}</p>

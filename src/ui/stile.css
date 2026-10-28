@@ -761,3 +761,32 @@ input[type='radio'] {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+.contatore-grande {
+  font-family: var(--font-titolo);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.progresso.sottile {
+  height: 3px;
+}
+
+.tabella.piano td {
+  vertical-align: top;
+}
+
+.tabella.piano tr.fatta td {
+  color: var(--testo2);
+}
+
+.tabella.piano tr.in-corso td {
+  color: var(--accento2);
+}
+
+.cambiato {
+  color: var(--accento);
+  font-weight: 700;
+}

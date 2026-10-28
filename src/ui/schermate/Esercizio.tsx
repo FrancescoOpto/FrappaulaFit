@@ -2,12 +2,12 @@ import { useEffect, useState } from 'preact/hooks';
 import type { SerieRegistrata } from '../../tipi';
 import { NOMI_GRUPPI, esercizio as trovaEsercizio, linkYoutube } from '../../data/esercizi';
 import { PAUSA_REST_PAUSE_TOTALE, PAUSE_10_PIU_3 } from '../../data/tabelle';
-import { NOMI_FASI } from '../../data/tabelle';
 import { percentualeRM } from '../../motore/carichi';
 import {
   aggiornaNota,
   aggiornaSerie,
   aggiungiStripping,
+  avviabile,
   blocco,
   caricoCorrenteDi,
   chiaveCorrente,
@@ -22,6 +22,7 @@ import {
   stato,
 } from '../../store/stato';
 import { Avviso, Badge, Testata, formatoKg } from '../componenti/comuni';
+import { infoCiclo } from '../etichette';
 import { aggiungiSecondi, attivo, avviaTimer, fermaTimer, formatoMMSS, rimanente, timer } from '../timer';
 import { vai } from '../router';
 
@@ -147,7 +148,7 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
 
   return (
     <div class="pagina">
-      <Testata sopratitolo={`${s.nome} · ${NOMI_FASI[s.fase]} · ciclo ${s.cicloFase}`} />
+      <Testata sopratitolo={`${s.nome} · ${infoCiclo(b, s).testata}`} />
       <div class="colonna" style="gap:8px">
         <div class="riga" style="gap:8px"><Badge ruolo={es.ruolo} /><span class="piccolo">{NOMI_GRUPPI[es.gruppo]}</span></div>
         <h1 style="font-size:34px">{def?.nome ?? es.esercizio_id}</h1>
@@ -190,8 +191,8 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
 
       {s.stato === 'futura' ? (
         <Avviso tipo="info">
-          Seduta non ancora iniziata.{' '}
-          {b.sedute.find((x) => x.stato !== 'completata')?.id === s.id ? <button class="bottone piccolo" style="margin-left:6px" onClick={() => void iniziaSeduta(s.id)}>Inizia ora</button> : 'Potrai registrare le serie quando sarà il suo turno.'}
+          {b.sedute.find((x) => x.stato !== 'completata')?.id === s.id ? 'Seduta non ancora iniziata.' : 'Anteprima: non ancora in programma. I kg sono calcolati con i carichi correnti di oggi.'}{' '}
+          {avviabile(s) ? <button class="bottone piccolo" style="margin-left:6px" onClick={() => void iniziaSeduta(s.id)}>Inizia ora</button> : 'Potrai registrare le serie quando sarà il suo turno.'}
         </Avviso>
       ) : null}
 

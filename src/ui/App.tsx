@@ -61,6 +61,7 @@ export function App() {
   let schermata: preact.JSX.Element;
   if (p[0] === 'seduta' && p[1] && p[2] === 'es' && p[3] !== undefined) schermata = <Esercizio sedutaId={p[1]} slot={Number(p[3])} />;
   else if (p[0] === 'seduta' && p[1]) schermata = <Seduta id={p[1]} />;
+  else if (p[0] === 'progressi' && p[1] === 'piano') schermata = <Progressi scheda="piano" esercizioId={p[2]} />;
   else if (p[0] === 'progressi') schermata = <Progressi esercizioId={p[1]} />;
   else if (p[0] === 'checkin') schermata = <Checkin />;
   else if (p[0] === 'impostazioni') schermata = <Impostazioni sezione={p[1]} />;

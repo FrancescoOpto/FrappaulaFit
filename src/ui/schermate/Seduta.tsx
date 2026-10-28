@@ -1,14 +1,15 @@
 import { useState } from 'preact/hooks';
 import type { EsercizioSeduta, Fase, Gruppo, Seduta as TSeduta } from '../../tipi';
 import { CARICO_MODO, NOMI_GRUPPI, esercizio as trovaEsercizio } from '../../data/esercizi';
-import { NOMI_FASI } from '../../data/tabelle';
 import { alternative } from '../../motore/generatore';
 import { durataStimata, minuti, prescrizione, serieRip } from '../../motore/prescrizione';
 import { percentualeRM, stimaMassimale } from '../../motore/carichi';
 import {
+  annullaSeduta,
   avviabile,
   blocco,
   completaSeduta,
+  inAnteprima,
   impostazioni,
   iniziaSeduta,
   prescrizioneDi,
@@ -22,6 +23,7 @@ import {
   testBloccoPrecedente,
 } from '../../store/stato';
 import { Avviso, Badge, Modale, Scelte, Testata, formatoData, formatoKg } from '../componenti/comuni';
+import { infoCiclo } from '../etichette';
 import { vai } from '../router';
 
 const ORDINE_GRUPPI: Gruppo[] = ['petto', 'dorso', 'spalle', 'gambe', 'bicipiti', 'tricipiti', 'addome'];
@@ -236,10 +238,13 @@ export function Seduta({ id }: { id: string }) {
   const p = profilo.value;
   const [sost, setSost] = useState<EsercizioSeduta | null>(null);
   const [confermaCompleta, setConfermaCompleta] = useState(false);
+  const [confermaAnnulla, setConfermaAnnulla] = useState(false);
   const [congratulazioni, setCongratulazioni] = useState(false);
   if (!s || !b || !p) return <div class="pagina"><Testata /><p class="muto">Seduta non trovata.</p></div>;
 
   const puoIniziare = avviabile(s);
+  const anteprima = inAnteprima(s);
+  const prova = Boolean(impostazioni.value.modalita_prova);
   const reg = registroDi(s.id);
   const fatte = s.esercizi.filter((e) => {
     const r = reg?.esercizi[e.slot];
@@ -276,7 +281,7 @@ export function Seduta({ id }: { id: string }) {
 
   return (
     <div class="pagina">
-      <Testata sopratitolo={`Blocco ${b.numero} · ${NOMI_FASI[s.fase]} · ciclo ${s.cicloFase}`} />
+      <Testata sopratitolo={infoCiclo(b, s).testata} />
       <div class="colonna" style="gap:8px">
         <h1>{s.nome}</h1>
         <p class="muto">{s.etichetta}</p>
@@ -288,14 +293,19 @@ export function Seduta({ id }: { id: string }) {
         <div class="progresso"><div style={`width:${s.esercizi.length ? ((s.fase === 'test' ? testFatti : fatte) / s.esercizi.length) * 100 : 0}%`} /></div>
       </div>
 
-      {s.stato === 'futura' && !puoIniziare ? <Avviso tipo="info">Stai sbirciando: potrai iniziare questa seduta solo dopo le precedenti. I carichi mostrati sono già calcolati dal test.</Avviso> : null}
-      {s.stato === 'completata' ? <Avviso tipo="info">Seduta completata. Puoi riaprirla per correggere i dati.</Avviso> : null}
+      {anteprima ? (
+        <Avviso tipo="info">
+          <b>Anteprima: non ancora in programma.</b> Serie, ripetizioni e kg sono calcolati con i carichi correnti di oggi e si aggiornano se cambiano. Aprire l'anteprima non modifica nulla.
+          {prova ? ' Con la modalità prova puoi comunque avviarla fuori ordine.' : ''}
+        </Avviso>
+      ) : null}
+      {s.stato === 'completata' ? <Avviso tipo="info">Seduta completata. Puoi riaprirla per correggere i dati, o annullarla per cancellarla del tutto.</Avviso> : null}
       {s.fase === 'test' && s.stato !== 'completata' && puoIniziare ? (
         <Avviso tipo="info">Testa i carichi di tutti gli esercizi di questa seduta: da questi l'app calcola con precisione con quanto peso lavorare dalla settimana prossima. Fondamentali con la stima del massimale, gli altri con una serie unica a cedimento.</Avviso>
       ) : null}
 
-      {s.stato === 'futura' && puoIniziare && s.fase !== 'test' ? (
-        <button class="bottone primario pieno" onClick={() => void iniziaSeduta(s.id)}>Inizia la seduta</button>
+      {s.stato === 'futura' && s.fase !== 'test' ? (
+        <button class="bottone primario pieno" disabled={!puoIniziare} onClick={() => void iniziaSeduta(s.id)}>{anteprima ? (prova ? 'Inizia fuori ordine (prova)' : 'Inizia (dopo le precedenti)') : 'Inizia la seduta'}</button>
       ) : null}
 
       {gruppi(s).map((g) => (
@@ -328,6 +338,19 @@ export function Seduta({ id }: { id: string }) {
         </>
       ) : null}
       {s.stato === 'completata' ? <button class="bottone fantasma pieno" onClick={() => void riapriSeduta(s.id)}>Riapri la seduta</button> : null}
+      {s.stato !== 'futura' && s.fase !== 'test' ? (
+        !confermaAnnulla ? (
+          <button class="bottone fantasma pieno pericolo" onClick={() => setConfermaAnnulla(true)}>Annulla seduta…</button>
+        ) : (
+          <div class="carta">
+            <p>Annullare la seduta? Le serie registrate spariscono e i carichi correnti tornano com'erano prima di iniziarla.</p>
+            <div class="griglia2">
+              <button class="bottone" onClick={() => setConfermaAnnulla(false)}>No</button>
+              <button class="bottone pericolo" onClick={async () => { await annullaSeduta(s.id); setConfermaAnnulla(false); vai('/'); }}>Sì, annulla</button>
+            </div>
+          </div>
+        )
+      ) : null}
 
       {sost ? <Sostituzione s={s} es={sost} onChiudi={() => setSost(null)} /> : null}
     </div>

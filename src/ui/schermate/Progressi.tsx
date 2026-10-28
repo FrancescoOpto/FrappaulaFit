@@ -3,8 +3,9 @@ import type { Blocco, RegistroSeduta, Seduta } from '../../tipi';
 import { esercizio as trovaEsercizio, NOMI_GRUPPI } from '../../data/esercizi';
 import { NOMI_FASI } from '../../data/tabelle';
 import { rm1DaTest } from '../../motore/carichi';
-import { blocco, profilo, stato } from '../../store/stato';
+import { blocco, prescrizioneDi, profilo, stato } from '../../store/stato';
 import { Scelte, Testata, formatoData, formatoKg } from '../componenti/comuni';
+import { infoCiclo } from '../etichette';
 import { vai } from '../router';
 
 // Progressi: storico per esercizio (carico, volume, 1RM stimato), andamento delle sedute
@@ -67,7 +68,110 @@ function durataRegistro(reg: RegistroSeduta): number | null {
   return min >= 10 && min <= 240 ? Math.round(min) : null;
 }
 
-export function Progressi({ esercizioId }: { esercizioId?: string }) {
+interface RigaPiano {
+  seduta: Seduta;
+  ciclo: string;
+  serie: number;
+  rip: number;
+  kg?: number;
+  fatto?: string;
+  /** Cosa cambia rispetto alla riga prima (SPEC_PIANIFICATORE v2 §11b). */
+  cambia: { kg: boolean; serie: boolean; rip: boolean };
+  note: string[];
+}
+
+/** Piano per esercizio: per tutti i cicli del programma, serie×rip @kg previsti (e fatti), con le variazioni evidenziate. */
+function PianoEsercizio({ b, esercizioId }: { b: Blocco; esercizioId?: string }) {
+  const p = profilo.value;
+  const registro = stato.value.registro;
+  const ids = useMemo(() => {
+    const visti = new Map<string, string>();
+    for (const s of b.sedute) {
+      if (s.fase === 'test') continue;
+      for (const e of s.esercizi) if (!e.senza_carico && !visti.has(e.esercizio_id)) visti.set(e.esercizio_id, e.gruppo);
+    }
+    const ordine = ['petto', 'dorso', 'spalle', 'gambe', 'bicipiti', 'tricipiti', 'addome'];
+    return [...visti.entries()].sort((x, y) => ordine.indexOf(x[1]) - ordine.indexOf(y[1]) || (trovaEsercizio(x[0], p?.esercizi_personalizzati)?.nome ?? x[0]).localeCompare(trovaEsercizio(y[0], p?.esercizi_personalizzati)?.nome ?? y[0])).map(([id]) => id);
+  }, [b]);
+  const scelto = esercizioId && ids.includes(esercizioId) ? esercizioId : undefined;
+  const righe = useMemo<RigaPiano[]>(() => {
+    if (!scelto) return [];
+    const out: RigaPiano[] = [];
+    for (const s of b.sedute) {
+      if (s.fase === 'test') continue;
+      const e = s.esercizi.find((x) => x.esercizio_id === scelto && !x.senza_carico);
+      if (!e) continue;
+      const pr = prescrizioneDi(e, s);
+      const reg = registro[s.id]?.esercizi[e.slot];
+      const fatte = reg?.serie.filter((x) => x.fatta && !x.stripping) ?? [];
+      const fatto = fatte.length ? fatte.map((x) => `${x.kg ?? x.kg_prev}×${x.rip ?? x.rip_prev}`).join(' · ') : undefined;
+      const prec = out[out.length - 1];
+      const note: string[] = [];
+      if (pr.percentuale) note.push(`${Math.round(pr.percentuale * 100)} %`);
+      if (pr.scalaRM) note.push(`${pr.scalaRM}RM`);
+      if (pr.rest_pause) note.push('rest-pause');
+      if (pr.corrente) note.push('carico tuo');
+      if (s.cicloTipo === 'ponte') note.push('ponte');
+      out.push({
+        seduta: s,
+        ciclo: infoCiclo(b, s).titolo,
+        serie: pr.serie,
+        rip: pr.rip,
+        kg: pr.kg,
+        fatto,
+        cambia: { kg: prec ? prec.kg !== pr.kg : false, serie: prec ? prec.serie !== pr.serie : false, rip: prec ? prec.rip !== pr.rip : false },
+        note,
+      });
+    }
+    return out;
+  }, [scelto, b, registro]);
+  const def = scelto ? trovaEsercizio(scelto, p?.esercizi_personalizzati) : undefined;
+  return (
+    <div class="carta">
+      <div class="riga spazio">
+        <h2>Piano per esercizio</h2>
+        {scelto ? <button class="bottone piccolo" onClick={() => vai('/progressi/piano')}>Tutti</button> : null}
+      </div>
+      <p class="piccolo">Serie × ripetizioni @ kg previsti in ogni ciclo del programma, calcolati con i carichi correnti di oggi. In arancione quello che cambia rispetto al ciclo prima; tra parentesi quello che hai fatto davvero.</p>
+      {!scelto ? (
+        <div class="colonna" style="gap:0">
+          {ids.map((id) => {
+            const d = trovaEsercizio(id, p?.esercizi_personalizzati);
+            return (
+              <div class="esercizio-riga" onClick={() => vai(`/progressi/piano/${id}`)}>
+                <div class="cresce"><div class="nome">{d?.nome ?? id}</div><div class="dettaglio"><span>{d ? NOMI_GRUPPI[d.gruppo] : ''}</span></div></div>
+                <span class="piccolo">›</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <>
+          <h3>{def?.nome ?? scelto}</h3>
+          <table class="tabella piano">
+            <thead><tr><th>Ciclo</th><th>Seduta</th><th class="num">Previsto</th><th class="num">Fatto</th></tr></thead>
+            <tbody>
+              {righe.map((r) => (
+                <tr class={r.seduta.stato === 'completata' ? 'fatta' : r.seduta.stato === 'in_corso' ? 'in-corso' : ''}>
+                  <td class="piccolo">{r.ciclo}</td>
+                  <td class="piccolo">{r.seduta.nome}</td>
+                  <td class="num">
+                    <span class={r.cambia.serie ? 'cambiato' : ''}>{r.serie}</span>×<span class={r.cambia.rip ? 'cambiato' : ''}>{r.rip}</span>{' @ '}
+                    <span class={r.cambia.kg ? 'cambiato' : ''}>{r.kg !== undefined ? formatoKg(r.kg) : '—'}</span>
+                    {r.note.length ? <div class="piccolo">{r.note.join(' · ')}</div> : null}
+                  </td>
+                  <td class="num piccolo">{r.fatto ?? ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function Progressi({ esercizioId, scheda }: { esercizioId?: string; scheda?: 'piano' }) {
   void stato.value;
   const b = blocco.value;
   const p = profilo.value;
@@ -164,6 +268,7 @@ export function Progressi({ esercizioId }: { esercizioId?: string }) {
     <div class="pagina">
       <Testata senzaIndietro />
       <h1>Progressi</h1>
+      <Scelte valori={['storico', 'piano']} valore={scheda ?? 'storico'} onCambia={(v) => vai(v === 'piano' ? '/progressi/piano' : '/progressi')} etichette={{ storico: 'Storico', piano: 'Piano' }} />
 
       {b ? (
         <div class="griglia3">
@@ -173,7 +278,9 @@ export function Progressi({ esercizioId }: { esercizioId?: string }) {
         </div>
       ) : null}
 
-      {scelto ? (
+      {scheda === 'piano' && b ? (
+        <PianoEsercizio b={b} esercizioId={esercizioId} />
+      ) : scelto ? (
         <div class="carta">
           <div class="riga spazio">
             <h2 style="text-transform:none">{trovaEsercizio(scelto, p?.esercizi_personalizzati)?.nome}</h2>

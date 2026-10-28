@@ -54,6 +54,8 @@ export const IMPOSTAZIONI_DEFAULT: Impostazioni = {
   vibrazione: true,
   notifiche: false,
   stripping: false,
+  // Collaudo (SPEC_PIANIFICATORE §11b): attiva di default, da spegnere poi.
+  modalita_prova: true,
 };
 
 let meta = { modificato: {} as Partial<Record<Chiave, string>>, daInviare: [] as Chiave[] };
@@ -303,8 +305,15 @@ export function sedutaPerId(id: string): Seduta | undefined {
 /** La prossima seduta avviabile: la prima non completata (la sequenza non cambia mai, SPEC §3). */
 export const prossimaSeduta = computed<Seduta | undefined>(() => stato.value.blocco?.sedute.find((s) => s.stato !== 'completata'));
 
+/** La prossima seduta è sempre avviabile; in modalità prova (§11b) lo è qualsiasi seduta non completata. */
 export function avviabile(s: Seduta): boolean {
-  return prossimaSeduta.value?.id === s.id;
+  if (prossimaSeduta.value?.id === s.id) return true;
+  return Boolean(impostazioni.value.modalita_prova) && s.stato !== 'completata';
+}
+
+/** True se la seduta è futura e non è la prossima: si apre in anteprima (§11b). */
+export function inAnteprima(s: Seduta): boolean {
+  return s.stato === 'futura' && prossimaSeduta.value?.id !== s.id;
 }
 
 async function salvaSeduta(seduta: Seduta, bloccoMod: Partial<Blocco> = {}): Promise<void> {
@@ -324,7 +333,9 @@ export async function iniziaSeduta(id: string): Promise<void> {
     if (s.stato !== 'in_corso') await salvaSeduta({ ...s, stato: 'in_corso' });
     return;
   }
-  const reg: RegistroSeduta = { seduta_id: id, iniziata: new Date().toISOString(), esercizi: {} };
+  // Fotografia dei carichi all'avvio: serve ad "Annulla seduta" (§11b) per tornare indietro.
+  const snapshot = { carichiCorrenti: b.carichiCorrenti, test: b.test, correzioni: b.correzioni, carichi: p.carichi, note: b.note };
+  const reg: RegistroSeduta = { seduta_id: id, iniziata: new Date().toISOString(), esercizi: {}, snapshot };
   for (const e of s.esercizi) {
     const pr = prescrizioneDi(e, s);
     const serie: SerieRegistrata[] = [];
@@ -558,6 +569,67 @@ export async function impostaCorrezione(esercizio_id: string, frazione: number):
   const b = stato.value.blocco;
   if (!b) return;
   await aggiorna({ blocco: { ...b, correzioni: { ...b.correzioni, [esercizio_id]: frazione } } }, ['blocco']);
+}
+
+/**
+ * Annulla una seduta avviata o completata (§11b): cancella il registro, riporta la seduta a "futura" e ripristina
+ * carichi correnti, test, correzioni, profilo carichi e note com'erano all'avvio (dalla fotografia).
+ */
+export async function annullaSeduta(id: string): Promise<void> {
+  const b = stato.value.blocco;
+  const p = stato.value.profilo;
+  const s = sedutaPerId(id);
+  if (!b || !p || !s) return;
+  const reg = stato.value.registro[id];
+  const registro = { ...stato.value.registro };
+  delete registro[id];
+  const snap = reg?.snapshot;
+  const sedute = b.sedute.map((x) => (x.id === id ? { ...x, stato: 'futura' as const, data: undefined } : x));
+  const tutteTestFatte = sedute.filter((x) => x.fase === 'test').every((x) => x.stato === 'completata');
+  const bloccoNuovo: Blocco = {
+    ...b,
+    sedute,
+    stato: tutteTestFatte ? 'in_corso' : 'test',
+    carichiCorrenti: snap ? snap.carichiCorrenti : b.carichiCorrenti,
+    test: snap ? snap.test : b.test,
+    correzioni: snap ? snap.correzioni : b.correzioni,
+    note: snap ? snap.note : b.note,
+  };
+  const profiloNuovo: Profilo = snap ? { ...p, carichi: snap.carichi } : p;
+  await aggiorna({ blocco: bloccoNuovo, registro, profilo: profiloNuovo }, ['blocco', 'registro', 'profilo']);
+}
+
+/**
+ * Azzera i dati di prova (§11b): tutte le sedute di lavoro tornano "future", i registri spariscono,
+ * carichi correnti, correzioni e note si azzerano, i massimali tornano a quelli dell'ultimo test
+ * e il profilo carichi viene ricostruito dai test. I test restano. [Ipotesi: la spec parla solo di carichi e massimali;
+ * senza riportare indietro anche le sedute il collaudo lascerebbe sedute sporche.]
+ */
+export async function azzeraDatiProva(): Promise<void> {
+  const b = stato.value.blocco;
+  const p = stato.value.profilo;
+  if (!b || !p) return;
+  const test: Record<string, RisultatoTest> = {};
+  for (const [id, t] of Object.entries(b.test)) {
+    const { rm1_test, ...resto } = t;
+    test[id] = { ...resto, rm1: rm1_test ?? t.rm1 };
+  }
+  const carichi: Record<string, CaricoProfilo> = { ...(p.carichi ?? {}) };
+  for (const c of Object.values(carichi)) {
+    const t = test[c.esercizio_id];
+    carichi[c.esercizio_id] = t
+      ? { esercizio_id: c.esercizio_id, kg: t.kg, rip: t.rip, modo: t.modo, massimale: t.rm1, rir: t.rir, data: c.data, origine: 'test' }
+      : { ...c, caricoCorrente: undefined, massimale: c.origine === 'ricalcolo' ? undefined : c.massimale, origine: c.origine === 'ricalcolo' ? 'test' : c.origine };
+  }
+  const registro = { ...stato.value.registro };
+  const sedute = b.sedute.map((x) => {
+    if (x.fase === 'test') return x;
+    delete registro[x.id];
+    return { ...x, stato: 'futura' as const, data: undefined };
+  });
+  const tutteTestFatte = sedute.filter((x) => x.fase === 'test').every((x) => x.stato === 'completata');
+  const bloccoNuovo: Blocco = { ...b, sedute, test, carichiCorrenti: {}, correzioni: {}, note: [], stato: tutteTestFatte ? 'in_corso' : 'test' };
+  await aggiorna({ blocco: bloccoNuovo, registro, profilo: { ...p, carichi } }, ['blocco', 'registro', 'profilo']);
 }
 
 /** Riapre una seduta completata (per correggere errori). */
