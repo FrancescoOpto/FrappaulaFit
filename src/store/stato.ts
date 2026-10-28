@@ -6,6 +6,9 @@ import type {
   Esercizio,
   EsercizioSeduta,
   Obiettivo,
+  ObiettivoAttivo,
+  DatiCorporei,
+  CaricoProfilo,
   Impostazioni,
   ParametriGeneratore,
   Profilo,
@@ -23,6 +26,9 @@ import { nuovoBlocco, rigeneraSeduteFuture } from '../motore/generatore';
 import { prescrizione } from '../motore/prescrizione';
 import { arrotonda, stimaMassimale } from '../motore/carichi';
 import { nuovoCaricoCorrente } from '../motore/correnti';
+import { valutaRicalcolo } from '../motore/ricalcolo';
+import { cambiaObiettivo as cambiaObiettivoPuro, carichiRecenti, nuovoBloccoIpertrofia, nuovoBloccoPreservazione, serveTest } from '../motore/moduli';
+import { ENERGIA_PER_OBIETTIVO } from '../motore/pianificatore';
 import { ESERCIZI_PER_ID } from '../data/esercizi';
 
 // Stato globale con signals. Ogni mutazione passa da `aggiorna`, che salva la chiave toccata.
@@ -99,7 +105,16 @@ export async function azzeraTutto(): Promise<void> {
 
 // ---------- Profilo e blocco ----------
 
-export async function creaProfilo(nome: string, sesso: 'M' | 'F', parametri: ParametriGeneratore, obiettivo: Obiettivo = 'massa'): Promise<void> {
+/** Blocco iniziale per l'obiettivo attivo (SPEC_PIANIFICATORE §4): massa/mantenimento con test, dimagrimento = test + Preservazione. */
+function bloccoPerObiettivo(p: Profilo, numero: number, conTest: boolean, ponte = false): Blocco {
+  const ob = p.obiettivoAttivo;
+  if (ob?.tipo === 'definizione') return nuovoBloccoPreservazione(p.parametri, p, ob.settimane, conTest, numero, ponte);
+  if (ob?.tipo === 'mantenimento') return nuovoBloccoIpertrofia(p.parametri, p, 'mantenimento', conTest, numero, ponte);
+  return nuovoBloccoIpertrofia(p.parametri, p, 'massa', conTest, numero, ponte);
+}
+
+export async function creaProfilo(nome: string, sesso: 'M' | 'F', parametri: ParametriGeneratore, obiettivo: Obiettivo | ObiettivoAttivo = 'massa', datiCorporei?: DatiCorporei): Promise<void> {
+  const ob: ObiettivoAttivo = typeof obiettivo === 'string' ? { tipo: obiettivo, dal: new Date().toISOString(), settimane: obiettivo === 'definizione' ? 4 : obiettivo === 'mantenimento' ? 12 : 17, energia: ENERGIA_PER_OBIETTIVO[obiettivo] } : obiettivo;
   const p: Profilo = {
     id: 'p-' + Date.now().toString(36),
     nome,
@@ -110,10 +125,70 @@ export async function creaProfilo(nome: string, sesso: 'M' | 'F', parametri: Par
     sostituzioni: {},
     esercizi_personalizzati: [],
     fondamentali_promossi: [],
-    obiettivo,
+    obiettivo: ob.tipo,
+    obiettivoAttivo: ob,
+    datiCorporei,
+    carichi: {},
   };
-  const b = nuovoBlocco(parametri, p, 1);
+  const b = bloccoPerObiettivo(p, 1, true);
   await aggiorna({ profilo: p, blocco: b }, ['profilo', 'blocco']);
+}
+
+export async function aggiornaDatiCorporei(d: DatiCorporei): Promise<void> {
+  const p = stato.value.profilo;
+  if (!p) return;
+  await aggiorna({ profilo: { ...p, datiCorporei: d } }, ['profilo']);
+}
+
+export async function aggiornaObiettivoAttivo(mod: Partial<ObiettivoAttivo>): Promise<void> {
+  const p = stato.value.profilo;
+  if (!p?.obiettivoAttivo) return;
+  await aggiorna({ profilo: { ...p, obiettivoAttivo: { ...p.obiettivoAttivo, ...mod } } }, ['profilo']);
+}
+
+/**
+ * Cambio di obiettivo (SPEC_PIANIFICATORE §6): al confine di ciclo (default) o subito. Senza blocco attivo
+ * apre direttamente il blocco del nuovo modulo; il test si fa solo se mancano i carichi nel profilo.
+ */
+export async function cambiaObiettivo(ob: ObiettivoAttivo, quando: 'confine' | 'subito' = 'confine'): Promise<string> {
+  const p = stato.value.profilo;
+  const b = stato.value.blocco;
+  if (!p) return '';
+  const profiloNuovo: Profilo = { ...p, obiettivo: ob.tipo, obiettivoAttivo: ob, obiettivoInAttesa: undefined };
+  if (!b || b.stato === 'completato') {
+    const numero = (b?.numero ?? 0) + 1;
+    const passati = b ? [...stato.value.blocchiPassati, b] : stato.value.blocchiPassati;
+    const tentativo = bloccoPerObiettivo(profiloNuovo, numero, false, false);
+    const nuovo = serveTest(tentativo, p.carichi) && !carichiRecenti(p.carichi) ? bloccoPerObiettivo(profiloNuovo, numero, true) : tentativo;
+    await aggiorna({ profilo: profiloNuovo, blocco: nuovo, blocchiPassati: passati }, ['profilo', 'blocco', 'blocchiPassati']);
+    return 'Nuovo obiettivo avviato.';
+  }
+  const inCorso = b.sedute.some((s) => s.stato === 'in_corso');
+  const cicloAperto = (() => {
+    const toccati = b.sedute.filter((s) => s.stato !== 'futura');
+    if (!toccati.length) return false;
+    const ultimo = Math.max(...toccati.map((s) => s.ciclo));
+    return b.sedute.some((s) => s.ciclo === ultimo && s.stato !== 'completata');
+  })();
+  if (quando === 'confine' && (inCorso || cicloAperto)) {
+    await aggiorna({ profilo: { ...p, obiettivoInAttesa: ob } }, ['profilo']);
+    return 'Il nuovo obiettivo parte alla fine del ciclo in corso.';
+  }
+  const esito = cambiaObiettivoPuro(b, profiloNuovo, ob, quando === 'subito');
+  await aggiorna({ profilo: profiloNuovo, blocco: esito.nuovo, blocchiPassati: [...stato.value.blocchiPassati, esito.chiuso] }, ['profilo', 'blocco', 'blocchiPassati']);
+  return esito.perche;
+}
+
+/** Passo di carico per "Facile" sull'ultima serie, secondo l'attrezzo (SPEC_PIANIFICATORE §7.2). */
+function passoCarico(esercizio_id: string): number {
+  const modo = ESERCIZI_PER_ID[esercizio_id]?.carico_modo;
+  if (modo === 'manubrio_singolo') return 2;
+  if (modo === 'macchina' || modo === 'cavo') return 5;
+  return 2.5;
+}
+
+function aggiornaProfiloCarichi(p: Profilo, c: CaricoProfilo): Profilo {
+  return { ...p, carichi: { ...(p.carichi ?? {}), [c.esercizio_id]: c } };
 }
 
 export async function aggiornaImpostazioni(mod: Partial<Impostazioni>): Promise<void> {
@@ -173,7 +248,8 @@ export async function salvaTest(esercizio_id: string, kg: number, rip: number, m
   // Un nuovo test è un nuovo carico base: il carico corrente scelto prima non vale più.
   const carichiCorrenti = { ...(b.carichiCorrenti ?? {}) };
   delete carichiCorrenti[esercizio_id];
-  await aggiorna({ blocco: { ...b, test: { ...b.test, [esercizio_id]: r }, carichiCorrenti } }, ['blocco']);
+  const profiloNuovo = aggiornaProfiloCarichi(p, { esercizio_id, kg, rip, modo, massimale: r.rm1, data: new Date().toISOString(), origine: 'test' });
+  await aggiorna({ profilo: profiloNuovo, blocco: { ...b, test: { ...b.test, [esercizio_id]: r }, carichiCorrenti } }, ['profilo', 'blocco']);
 }
 
 /** Ultimo test dello stesso esercizio nei blocchi passati (suggerimento per il ritest, TEST_INIZIO_BLOCCO §3). */
@@ -294,6 +370,11 @@ export async function aggiornaSerie(sedutaId: string, slot: number, n: number, m
   const corrente = serie.find((x) => x.n === n)!;
   const prima = es.serie.find((x) => x.n === n)!;
   let carichiCorrenti = b.carichiCorrenti;
+  let profiloNuovo = p;
+  let test = b.test;
+  let note = b.note;
+  const esSedutaRiga = s.esercizi.find((e) => e.slot === slot);
+  const fondamentale = esSedutaRiga?.ruolo === 'R1' || esSedutaRiga?.ruolo === 'L';
 
   // Carico scelto dall'utente (non una serie di stripping, non il semplice "fatta" sul precompilato).
   if (mod.kg !== undefined && !corrente.stripping && mod.kg !== prima.kg_prev) {
@@ -306,14 +387,43 @@ export async function aggiornaSerie(sedutaId: string, slot: number, n: number, m
     else delete carichiCorrenti[chiave];
     for (const x of serie) if (x.n > n && !x.fatta && !x.stripping) x.kg_prev = mod.kg;
     corrente.kg_prev = mod.kg;
+    // Profilo carichi: il carico scelto a mano diventa il carico corrente dell'esercizio (ruoli a carico fisso).
+    if (!fondamentale && esSedutaRiga && !esSedutaRiga.seconda_riga) {
+      const prec = p.carichi?.[es.esercizio_id] ?? b.test[es.esercizio_id];
+      profiloNuovo = aggiornaProfiloCarichi(profiloNuovo, { esercizio_id: es.esercizio_id, kg: prec?.kg ?? mod.kg, rip: prec?.rip ?? corrente.rip_prev, modo: prec?.modo ?? 'serie_unica', caricoCorrente: mod.kg, massimale: (prec as CaricoProfilo | undefined)?.massimale, data: new Date().toISOString(), origine: 'manuale' });
+    }
   }
   if (mod.fatta && corrente.rip !== undefined && corrente.rip < corrente.rip_prev) {
     const succ = serie.find((x) => x.n > n && !x.fatta && !x.stripping);
     if (succ && succ.kg === undefined && succ.kg_prev > 0) succ.kg_prev = arrotonda(succ.kg_prev * (1 + AUTOCORREZIONE_SERIE), p.impostazioni.arrotondamento);
   }
+  // Ricalcolo del massimale (SPEC_PIANIFICATORE §7.2): peso alzato e ripetizioni completate su un fondamentale.
+  if (mod.fatta && fondamentale && !corrente.stripping && corrente.kg !== undefined && corrente.rip !== undefined && corrente.kg > (corrente.kg_piano ?? corrente.kg_prev) && corrente.rip >= corrente.rip_prev) {
+    const t = b.test[es.esercizio_id];
+    const rir = corrente.rir ?? (corrente.sforzo === 'facile' ? 2 : corrente.sforzo === 'giusto' ? 1 : 0);
+    const esito = valutaRicalcolo(t?.rm1, corrente.kg, corrente.rip, rir);
+    if (esito.aggiorna && t) {
+      test = { ...b.test, [es.esercizio_id]: { ...t, rm1: esito.stima } };
+      carichiCorrenti = { ...(carichiCorrenti ?? {}) };
+      delete carichiCorrenti[chiaveCorrente(esSedutaRiga!)];
+      profiloNuovo = aggiornaProfiloCarichi(profiloNuovo, { esercizio_id: es.esercizio_id, kg: corrente.kg, rip: corrente.rip, modo: 'stima', massimale: esito.stima, data: new Date().toISOString(), origine: 'ricalcolo' });
+      note = [...(b.note ?? []), { data: new Date().toISOString(), testo: `${ESERCIZI_PER_ID[es.esercizio_id]?.nome ?? es.esercizio_id}: nuovo massimale ${esito.stima} kg (era ${t.rm1}).`, perche: esito.perche }];
+    }
+  }
+  // "Facile" sull'ultima serie di Target e complementari: proposta di +1 passo alla seduta successiva.
+  if (mod.sforzo === 'facile' && !fondamentale && esSedutaRiga && !esSedutaRiga.seconda_riga && !corrente.stripping) {
+    const ultima = Math.max(...serie.filter((x) => !x.stripping).map((x) => x.n));
+    if (n === ultima) {
+      const kgBase = corrente.kg ?? corrente.kg_prev;
+      if (kgBase > 0) {
+        carichiCorrenti = { ...(carichiCorrenti ?? {}), [chiaveCorrente(esSedutaRiga)]: { kg: arrotonda(kgBase + passoCarico(es.esercizio_id), p.impostazioni.arrotondamento), aggiornato: new Date().toISOString(), seduta_id: sedutaId, origine: 'proposta' } };
+      }
+    }
+  }
   const nuovoReg: RegistroSeduta = { ...reg, esercizi: { ...reg.esercizi, [slot]: { ...es, serie } } };
-  const chiavi: Chiave[] = carichiCorrenti === b.carichiCorrenti ? ['registro'] : ['registro', 'blocco'];
-  await aggiorna({ registro: { ...stato.value.registro, [sedutaId]: nuovoReg }, blocco: { ...b, carichiCorrenti } }, chiavi);
+  const bloccoCambiato = carichiCorrenti !== b.carichiCorrenti || test !== b.test || note !== b.note;
+  const chiavi: Chiave[] = ['registro', ...(bloccoCambiato ? ['blocco' as const] : []), ...(profiloNuovo !== p ? ['profilo' as const] : [])];
+  await aggiorna({ registro: { ...stato.value.registro, [sedutaId]: nuovoReg }, blocco: { ...b, carichiCorrenti, test, note }, profilo: profiloNuovo }, chiavi);
 }
 
 /** Torna al carico del piano per un esercizio (SPEC §9.2b punto 5); nella seduta in corso ricalcola le serie non fatte. */
@@ -434,6 +544,10 @@ export async function completaSeduta(id: string): Promise<void> {
   const statoBlocco: Blocco['stato'] = tutteFatte ? 'completato' : tutteTestFatte ? 'in_corso' : 'test';
   const registro = reg ? { ...stato.value.registro, [id]: { ...reg, completata: new Date().toISOString() } } : stato.value.registro;
   await aggiorna({ blocco: { ...b, sedute, correzioni, stato: statoBlocco }, registro }, ['blocco', 'registro']);
+  // Cambio di obiettivo in attesa: si applica appena il ciclo è completo (SPEC_PIANIFICATORE §6).
+  const p = stato.value.profilo;
+  const cicloCompleto = sedute.filter((x) => x.ciclo === s.ciclo).every((x) => x.stato === 'completata');
+  if (p?.obiettivoInAttesa && cicloCompleto) await cambiaObiettivo(p.obiettivoInAttesa, 'subito');
 }
 
 export async function impostaCorrezione(esercizio_id: string, frazione: number): Promise<void> {

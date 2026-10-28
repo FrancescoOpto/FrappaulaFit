@@ -45,7 +45,71 @@ export type RestPause = 'totale' | '10_piu_3';
 
 export type FaseLavoro = Exclude<Fase, 'test'>;
 
+/** Obiettivo dell'utente (SPEC_PIANIFICATORE §1). `definizione` resta il nome interno; nell'interfaccia è "Dimagrimento". */
 export type Obiettivo = 'massa' | 'mantenimento' | 'definizione';
+export type StatoEnergetico = 'deficit' | 'mantenimento' | 'surplus';
+export type Attivita = 'sedentario' | 'leggero' | 'moderato' | 'alto';
+export type Modulo = 'test' | 'rientro' | 'ipertrofia' | 'mantenimento' | 'preservazione' | 'scarico';
+/** Ciclo della Preservazione: "77" (3×5 @77 %), "82" (3×4 @82 %), "S" scarico. */
+export type CicloPreservazione = 77 | 82 | 'S';
+export type Sforzo = 'facile' | 'giusto' | 'limite';
+
+export interface DatiCorporei {
+  eta?: number;
+  altezzaCm?: number;
+  pesoKg?: number;
+  bfPct?: number;
+  attivita: Attivita;
+  /** TDEE misurato con 10–14 giorni di conteggio a peso stabile: prevale sulla formula. */
+  tdeeEmpirico?: number;
+}
+
+export interface ObiettivoAttivo {
+  tipo: Obiettivo;
+  dal: string;
+  /** Durata richiesta in settimane (= cicli, SPEC_PIANIFICATORE §5). */
+  settimane: number;
+  energia: StatoEnergetico;
+  kgTarget?: number;
+  resistenza?: boolean;
+  preferisciMacchine?: boolean;
+  /** Calorie e macro sovrascritte dall'utente (altrimenti si calcolano). */
+  kcalTarget?: number;
+  macro?: { p: number; g: number; c: number };
+  /** L'utente ha ignorato l'avviso "massa in deficit". */
+  avvisoDeficitIgnorato?: boolean;
+}
+
+/** Profilo carichi per esercizio (SPEC_PIANIFICATORE §7.1): la fonte dei moduli, indipendente dal blocco. */
+export interface CaricoProfilo {
+  esercizio_id: string;
+  kg: number;
+  rip: number;
+  modo: TestMode;
+  /** Solo fondamentali: massimale stimato vigente. */
+  massimale?: number;
+  /** Ultimo carico scelto dall'utente per i ruoli a carico fisso. */
+  caricoCorrente?: number;
+  data: string;
+  origine: 'test' | 'manuale' | 'ricalcolo' | 'proposta';
+}
+
+export interface Tappa {
+  modulo: Modulo;
+  obiettivo: Obiettivo;
+  cicli: number;
+  energia: StatoEnergetico;
+  cicliPreservazione?: CicloPreservazione[];
+  perche?: string;
+}
+
+/** Back-off (SPEC_PIANIFICATORE §4.6): serie pesanti seguite da 1–2 serie al massimo a −10/−20 %. Solo dato: non nei Blocchi 1–3. */
+export interface BackOff {
+  serie_pesanti: number;
+  rip: number;
+  serie_max: number;
+  riduzione: number;
+}
 
 /** Come si inserisce il carico nel test (TEST_INIZIO_BLOCCO §4). */
 export type CaricoModo = 'bilanciere_totale' | 'manubrio_singolo' | 'macchina' | 'cavo' | 'solo_dischi' | 'carico_sul_corpo' | 'corpo_libero';
@@ -104,6 +168,8 @@ export interface Slot {
   fasi?: FaseLavoro[];
   /** Serie×rip nello scarico quando non seguono la regola generale. */
   scarico?: { serie: number; rip: number };
+  /** Tecnica back-off (solo programmi personalizzati). */
+  back_off?: BackOff;
 }
 
 export interface VarianteSlot {
@@ -172,8 +238,14 @@ export interface Profilo {
   fondamentali_promossi?: string[];
   /** Regole del motore coach (solo `ipotesi`) disattivate dall'utente (SPEC §14.5). */
   regole_disattivate?: string[];
-  /** Obiettivo dichiarato (SPEC §15): scelta dell'utente, non un attributo del blocco. Solo dato, per ora. */
+  /** Obiettivo dichiarato: scelta dell'utente, non un attributo del blocco. */
   obiettivo?: Obiettivo;
+  obiettivoAttivo?: ObiettivoAttivo;
+  /** Cambio di obiettivo in attesa del confine di ciclo. */
+  obiettivoInAttesa?: ObiettivoAttivo;
+  datiCorporei?: DatiCorporei;
+  /** Profilo carichi per esercizio (SPEC_PIANIFICATORE §7.1). */
+  carichi?: Record<string, CaricoProfilo>;
 }
 
 export interface EsercizioSeduta {
@@ -195,6 +267,11 @@ export interface EsercizioSeduta {
   /** Riga senza carico prescritto (seconda riga ×12): niente test, kg a scelta. */
   senza_carico?: boolean;
   seconda_riga?: boolean;
+  /** Fondamentale a percentuale diretta del massimale (Preservazione): prevale sulle tabelle. */
+  percentuale?: number;
+  /** Riga "resistenza" (2×15–20 a carico leggero, SPEC_PIANIFICATORE §4.5). */
+  resistenza?: boolean;
+  back_off?: BackOff;
 }
 
 export interface Seduta {
@@ -205,6 +282,9 @@ export interface Seduta {
   ciclo: number;
   /** Ciclo nella fase (1-based). */
   cicloFase: number;
+  /** Modulo e tipo di ciclo (Preservazione: 77/82/S; "ponte" = primo ciclo dopo un cambio di modulo). */
+  modulo?: Modulo;
+  cicloTipo?: CicloPreservazione | 'ponte';
   giorno: number;
   nome: string;
   etichetta: string;
@@ -223,6 +303,8 @@ export interface CaricoCorrente {
   aggiornato: string;
   /** Seduta in cui è stato scelto (per lo storico). */
   seduta_id?: string;
+  /** `proposta` = suggerito dal coach dopo un "Facile" sull'ultima serie. */
+  origine?: 'manuale' | 'proposta';
 }
 
 export interface RisultatoTest {
@@ -251,6 +333,10 @@ export interface SerieRegistrata {
   /** Rest-pause: ripetizioni di ogni mini-serie (la somma va in `rip`). */
   mini?: number[];
   rest_pause?: RestPause;
+  /** Tocco sull'ultima serie: Facile / Giusto / Al limite (SPEC_PIANIFICATORE §7.2). */
+  sforzo?: Sforzo;
+  /** RIR dichiarato (ripetizioni in riserva) sui fondamentali, per il ricalcolo del massimale. */
+  rir?: number;
 }
 
 export interface RegistroEsercizio {
@@ -282,6 +368,10 @@ export interface Blocco {
   /** Modifica dei parametri in attesa: si applica al prossimo confine di ciclo. */
   parametriInAttesa?: ParametriGeneratore;
   creato: string;
+  modulo?: Modulo;
+  tappe?: Tappa[];
+  /** Avvisi del coach registrati per il blocco (es. ricalcolo del massimale). */
+  note?: { data: string; testo: string; perche?: string }[];
 }
 
 export interface Checkin {
@@ -291,6 +381,10 @@ export interface Checkin {
   nota?: string;
   /** Solo profilo F: giorno del ciclo (dato locale, opzionale). */
   giornoCiclo?: number;
+  /** Circonferenze opzionali (cm). */
+  vita?: number;
+  braccio?: number;
+  coscia?: number;
 }
 
 /** Tutto lo stato persistito (export/import JSON). */
@@ -305,7 +399,7 @@ export interface Stato {
 
 // ---------- Motore coach (SPEC §14) e pianificatore a obiettivo (SPEC §15): solo strutture dati ----------
 
-export type FonteRegola = 'metodo' | 'ipotesi';
+export type FonteRegola = 'metodo' | 'libro' | 'evidenza' | 'ipotesi';
 
 export interface RegolaCoach {
   id: string;
@@ -324,6 +418,8 @@ export interface OpzionePiano {
   /** Versione accorciata: scelta nostra, non vista nell'app di riferimento. */
   nostraScelta: boolean;
   perche: string;
+  /** Piano a tappe (SPEC_PIANIFICATORE §6). */
+  tappe?: Tappa[];
 }
 
 export interface PianoObiettivo {

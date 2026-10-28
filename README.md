@@ -36,6 +36,16 @@ npm run preview    # anteprima della build su http://localhost:4173/FrappaulaFit
 - **Autocorrezione**: ripetizioni mancate → serie successiva a −5 %; due sedute di fila → −2,5 % sul ciclo dopo (modificabile in Impostazioni → Test).
 - **Modifiche in corso d'opera**: cambiare N, T, priorità o esclusioni rigenera solo le sedute future dal prossimo confine di ciclo; test, carichi e storico restano.
 
+## Obiettivi, energia e moduli (SPEC_PIANIFICATORE)
+
+- All'avvio (o da Impostazioni → Obiettivo) l'app chiede **obiettivo** (Massa / Mantenimento / Dimagrimento), **durata in cicli** e **stato energetico**; se scegli Massa in deficit avvisa (morbido: in deficit l'allenamento mantiene, non costruisce).
+- **Moduli** (`src/motore/moduli.ts`): Massa = blocchi di riferimento; Mantenimento = blocco accorciato senza Fase 3; Dimagrimento = **Preservazione** (`preservazione.ts`), una trasformazione del Blocco 3 senza tabelle nuove: fondamentali 3×5 @77 % → 3×4 @82 % → scarico 2×4 @77 %, Target e complementari con una serie in meno (min 2), via seconde righe e rest-pause; sequenza con scarico ogni 5 cicli (`N=8 → 77 82 82 82 S 77 82 S`). Opzioni "preferisci le macchine" e "allenare la resistenza" (2×15–20 leggere in coda).
+- **Cambio obiettivo** senza test: si applica alla fine del ciclo in corso (o subito, con conferma); il blocco si chiude, il nuovo parte con un **ciclo ponte** ai carichi del profilo. Il **profilo carichi** per esercizio (`profilo.carichi`) è la fonte dei moduli; il test si rifà solo se mancano carichi o sono più vecchi di 6 settimane.
+- **Ricalcolo del massimale** (`ricalcolo.ts`): se alzi il peso su un fondamentale e completi le ripetizioni, l'app stima il nuovo massimale (Brzycki + RIR dal tocco "Facile/Giusto/Al limite") e aggiorna le sedute future se supera il vigente del 2,5 %. "Facile" sull'ultima serie di Target e complementari propone +1 passo di carico alla seduta dopo.
+- **Energia** (`energia.ts`, Impostazioni → Energia): BMR Mifflin, tre stime del fabbisogno (formula × attività, regola del libro kg × 32–34, misurato), calorie per obiettivo (deficit 500/350 o da kg da perdere, tetto 1 % del peso a settimana, mai sotto il BMR), macro per kg. Non è un contacalorie.
+- **Coach** (`coach.ts`, `regole_coach.ts` con fonte metodo/libro/evidenza/ipotesi): consigli in Home su peso (medie settimanali), circonferenze, trend dei carichi; le regole `ipotesi` sono disattivabili.
+- Il ciclo di sedute è indipendente dalla settimana di calendario: la progressione segue il numero di seduta.
+
 ## Pubblicazione
 
 Push su `main` → GitHub Action `deploy.yml` costruisce e pubblica su GitHub Pages (`https://francescoopto.github.io/FrappaulaFit/`). Nelle impostazioni del repository, Pages deve essere impostato su "GitHub Actions".
@@ -51,7 +61,7 @@ Installazione sul telefono: Android Chrome → menu → "Installa app"; iPhone S
 
 ## Stato delle verifiche
 
-- [Certo] Motore: 90 test automatici passano, inclusi i casi di SPEC §6.4, le tabelle §7 e le stime di TEST_INIZIO_BLOCCO §2.1.
+- [Certo] Motore: 114 test automatici passano, inclusi i casi di SPEC §6.4, le tabelle §7 e le stime di TEST_INIZIO_BLOCCO §2.1.
 - [Certo] Flusso completo verificato in browser (Chromium): setup → settimana di test (stima e serie unica) → seduta → serie con timer e autocorrezione → completamento → storico → persistenza dopo ricarica.
 - [Non verificato] Timer con suono/vibrazione e notifiche su telefono reale (Android Chrome, iPhone PWA): da provare sui dispositivi.
 - [Non verificato] Sincronizzazione Supabase su un progetto reale.

@@ -20,8 +20,20 @@ export const REGOLE_COACH: RegolaCoach[] = [
   { id: 'rientro_pausa', sezione: 'stato', fonte: 'metodo', titolo: 'Rientro dopo una pausa', perche: 'Dal libro: fino a 1 settimana riprendi, 2 ripeti l’ultimo ciclo, 3 rifai il primo, oltre kick-off.' },
   { id: 'ritest_pausa_lunga', sezione: 'stato', fonte: 'ipotesi', titolo: 'Nuovo test dopo oltre 3 settimane di stop', perche: 'Il massimale del test non vale più: scelta nostra.' },
   { id: 'stripping', sezione: 'struttura', fonte: 'ipotesi', titolo: 'Stripping −30 % in Fase 2', perche: 'Dalle note Keep, non visto nei video: spento di default.' },
+  // ---- SPEC_PIANIFICATORE §8 ----
+  { id: 'energia_blocca_ipertrofia', sezione: 'stato', fonte: 'evidenza', titolo: 'In deficit non si costruisce muscolo', perche: 'Con un deficit del 20 % la sintesi proteica cala di circa un quinto: l\u2019allenamento la riporta al livello di riposo, non oltre. Avviso morbido; informativo per i principianti.' },
+  { id: 'ritmo_dimagrimento', sezione: 'stato', fonte: 'libro', titolo: 'Tetto di perdita: 1 % del peso a settimana (0,5 % se già magri)', perche: 'Oltre, si perde anche muscolo. Il libro cita ritmi più alti con molto grasso: non adottati.' },
+  { id: 'taratura_calorie', sezione: 'stato', fonte: 'libro', titolo: 'Calorie ±100–200 sulla media del peso di due settimane', perche: 'La stima del fabbisogno sbaglia del 10 %: si corregge sulla bilancia, mai su un giorno né sulla prima settimana.' },
+  { id: 'braccio_vs_vita', sezione: 'stato', fonte: 'libro', titolo: 'Il calo deve stare in vita e cosce', perche: 'Se il braccio cala più del 10 % del calo di vita si sta perdendo muscolo.' },
+  { id: 'trend_carichi', sezione: 'carichi', fonte: 'evidenza', titolo: 'Carichi in calo per due sedute → meno volume o scarico', perche: 'Il volume ha un massimo recuperabile; due cali di fila sui carichi principali lo segnalano (nessuna ricerca diretta, inferenza).' },
+  { id: 'sforzo', sezione: 'carichi', fonte: 'evidenza', titolo: 'Fondamentali con 2 ripetizioni in riserva; cedimento solo sull\u2019ultima serie dei Target', perche: 'Il cedimento sistematico sui multiarticolari costa recupero senza guadagni in più.' },
+  { id: 'riposi', sezione: 'struttura', fonte: 'evidenza', titolo: 'Riposi: ≥ 2 minuti sui multiarticolari liberi, 60–90 s su isolamenti e macchine', perche: 'Riposi più lunghi sui grandi esercizi conservano il carico delle serie successive.' },
+  { id: 'tecniche_solo_isolamenti', sezione: 'struttura', fonte: 'ipotesi', titolo: 'Rest-pause e drop set solo su isolamenti e macchine', perche: 'Sui fondamentali liberi la fatica accumulata peggiora la tecnica: scelta nostra.' },
+  { id: 'scarico_in_deficit', sezione: 'struttura', fonte: 'ipotesi', titolo: 'In Preservazione scarico ogni 5 cicli', perche: 'In deficit il recupero è ridotto: rapporto 4:1 come punto di partenza (3:1 in letteratura).' },
+  { id: 'ordine_seduta', sezione: 'struttura', fonte: 'evidenza', titolo: 'I muscoli prioritari per primi', perche: 'Il primo esercizio della seduta è quello fatto meglio.' },
+  { id: 'carico_ricalcolo', sezione: 'carichi', fonte: 'metodo', titolo: 'Nuovo massimale quando alzi il peso e completi le ripetizioni', perche: 'Dal video "Gestione carichi": le percentuali delle sedute future si ricalcolano, le passate no. Soglia +2,5 % (scelta nostra).' },
 ];
 
 export function regoleAttive(disattivate: string[] = []): RegolaCoach[] {
-  return REGOLE_COACH.filter((r) => r.fonte === 'metodo' || !disattivate.includes(r.id));
+  return REGOLE_COACH.filter((r) => r.fonte !== 'ipotesi' || !disattivate.includes(r.id));
 }

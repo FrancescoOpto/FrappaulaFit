@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { aggiungiCheckin, profilo, rimuoviCheckin, stato } from '../../store/stato';
 import { Avviso, Scelte, Testata, formatoData } from '../componenti/comuni';
+import { mediePesoSettimanali } from '../../motore/coach';
 
 const SENSAZIONI: Record<string, string> = { 1: '😩', 2: '😕', 3: '😐', 4: '🙂', 5: '💪' };
 
@@ -27,6 +28,11 @@ export function Checkin() {
   const [sensazioni, setSensazioni] = useState<number>(3);
   const [nota, setNota] = useState('');
   const [giornoCiclo, setGiornoCiclo] = useState('');
+  const [vita, setVita] = useState('');
+  const [braccio, setBraccio] = useState('');
+  const [coscia, setCoscia] = useState('');
+  const [mostraCirc, setMostraCirc] = useState(false);
+  const medie = mediePesoSettimanali(stato.value.checkin).slice(-4);
   const [salvato, setSalvato] = useState(false);
   const mostraCiclo = p?.sesso === 'F';
   const sugg = mostraCiclo ? suggerimentoCiclo(parseInt(giornoCiclo, 10) || undefined) : null;
@@ -39,6 +45,9 @@ export function Checkin() {
       sensazioni,
       nota: nota.trim() || undefined,
       giornoCiclo: mostraCiclo && giornoCiclo ? parseInt(giornoCiclo, 10) : undefined,
+      vita: parseFloat(vita.replace(',', '.')) || undefined,
+      braccio: parseFloat(braccio.replace(',', '.')) || undefined,
+      coscia: parseFloat(coscia.replace(',', '.')) || undefined,
     });
     setSalvato(true);
     setPeso('');
@@ -68,9 +77,25 @@ export function Checkin() {
           </div>
         ) : null}
         {sugg ? <Avviso tipo="info">{sugg} <span class="piccolo">(Suggerimento, non prescrizione: il libro dice che i programmi basati solo sul ciclo sono più marketing che scienza.)</span></Avviso> : null}
+        <button type="button" class="bottone fantasma" onClick={() => setMostraCirc(!mostraCirc)}>Circonferenze (facoltative) {mostraCirc ? '▲' : '▼'}</button>
+        {mostraCirc ? (
+          <div class="griglia3">
+            <div class="campo"><label>Vita (cm)</label><input type="number" inputMode="decimal" step="0.5" value={vita} onInput={(e) => setVita((e.target as HTMLInputElement).value)} /></div>
+            <div class="campo"><label>Braccio (cm)</label><input type="number" inputMode="decimal" step="0.5" value={braccio} onInput={(e) => setBraccio((e.target as HTMLInputElement).value)} /></div>
+            <div class="campo"><label>Coscia (cm)</label><input type="number" inputMode="decimal" step="0.5" value={coscia} onInput={(e) => setCoscia((e.target as HTMLInputElement).value)} /></div>
+          </div>
+        ) : null}
         <div class="campo"><label>Nota</label><textarea value={nota} onInput={(e) => setNota((e.target as HTMLTextAreaElement).value)} placeholder="Sonno, stress, dolori…" /></div>
         <button class="bottone primario pieno" onClick={salva}>{salvato ? 'Salvato ✓' : 'Salva check-in'}</button>
       </div>
+
+      {medie.length ? (
+        <div class="carta compatta">
+          <h3>Media settimanale del peso</h3>
+          <div class="riga" style="flex-wrap:wrap;gap:6px">{medie.map((m) => <span class="chip">dal {formatoData(m.settimana)}: <b>{m.media}</b> kg ({m.n})</span>)}</div>
+          <p class="piccolo">Le decisioni sulle calorie si prendono sulla media di due settimane, mai su un giorno; la prima settimana di deficit perde anche acqua.</p>
+        </div>
+      ) : null}
 
       {lista.length ? (
         <div class="carta">
@@ -81,7 +106,7 @@ export function Checkin() {
               {lista.map((c) => (
                 <tr>
                   <td>{formatoData(c.data)}</td>
-                  <td class="num">{c.peso ?? '—'}</td>
+                  <td class="num">{c.peso ?? '—'}{c.vita ? <span class="piccolo"> · vita {c.vita}</span> : ''}</td>
                   <td>{c.sensazioni ? SENSAZIONI[c.sensazioni] : ''} <span class="piccolo">{c.nota ?? ''}</span></td>
                   <td class="num"><button class="bottone piccolo fantasma" onClick={() => void rimuoviCheckin(c.data)} aria-label="Elimina">✕</button></td>
                 </tr>

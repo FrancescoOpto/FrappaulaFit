@@ -1,14 +1,43 @@
 import { useState } from 'preact/hooks';
 import type { Fase, Seduta } from '../../tipi';
 import { FASI_BLOCCO, FASI_BLOCCO_BREVE, NOMI_FASI, RIENTRO } from '../../data/tabelle';
-import { blocco, profilo, prossimaSeduta, giorniDallUltimaSeduta, impostazioni } from '../../store/stato';
+import { blocco, profilo, prossimaSeduta, giorniDallUltimaSeduta, impostazioni, stato } from '../../store/stato';
 import { durataStimata, minuti, serieRip } from '../../motore/prescrizione';
 import { Avviso, formatoData } from '../componenti/comuni';
+import { consigli } from '../consigli';
+import { NOMI_MODULO } from './Setup';
 import { vai } from '../router';
 
-function BarraFasi({ sedute, bloccoBreve }: { sedute: Seduta[]; bloccoBreve: boolean }) {
-  const fasi = bloccoBreve ? FASI_BLOCCO_BREVE : FASI_BLOCCO;
+function etichettaCiclo(s: Seduta): string {
+  if (s.cicloTipo === 'ponte') return 'Ciclo ponte';
+  if (s.cicloTipo === 'S' || s.fase === 'scarico') return 'Scarico';
+  if (s.cicloTipo === 77) return 'Preservazione 77 %';
+  if (s.cicloTipo === 82) return 'Preservazione 82 %';
+  return NOMI_FASI[s.fase];
+}
+
+function BarraFasi({ sedute, bloccoBreve, preservazione }: { sedute: Seduta[]; bloccoBreve: boolean; preservazione?: boolean }) {
   const corrente = sedute.find((s) => s.stato !== 'completata')?.fase;
+  if (preservazione) {
+    const cicli = [...new Set(sedute.map((s) => s.ciclo))];
+    const correnteCiclo = sedute.find((s) => s.stato !== 'completata')?.ciclo;
+    return (
+      <div class="barra-fasi">
+        {cicli.map((c) => {
+          const del = sedute.filter((s) => s.ciclo === c);
+          const fatte = del.filter((s) => s.stato === 'completata').length;
+          const tipo = del[0].fase === 'test' ? 'T' : del[0].cicloTipo === 'ponte' ? 'P' : del[0].cicloTipo === 'S' ? 'S' : String(del[0].cicloTipo ?? '');
+          return (
+            <div class={`fase ${c === correnteCiclo ? 'corrente' : ''}`}>
+              <div class="traccia"><div class="riempita" style={`width:${(fatte / del.length) * 100}%`} /></div>
+              <span>{tipo}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  const fasi = bloccoBreve ? FASI_BLOCCO_BREVE : FASI_BLOCCO;
   return (
     <div class="barra-fasi">
       {fasi.map((f) => {
@@ -40,20 +69,25 @@ export function Home() {
   const fatte = b.sedute.filter((s) => s.stato === 'completata').length;
   const giorni = giorniDallUltimaSeduta.value;
   const rientro = giorni !== null && giorni > 10 ? RIENTRO.find((r) => giorni <= r.maxGiorni) : undefined;
-  const fasi = (b.parametri.bloccoBreve ? FASI_BLOCCO_BREVE : FASI_BLOCCO).map((f) => f.fase);
+  const preservazione = b.modulo === 'preservazione';
+  const fasi = preservazione ? ([...new Set(b.sedute.map((s) => s.fase))] as Fase[]) : (b.parametri.bloccoBreve ? FASI_BLOCCO_BREVE : FASI_BLOCCO).map((f) => f.fase);
   const apertaDefault = prossima?.fase ?? fasi[fasi.length - 1];
   const aperta = faseAperta ?? apertaDefault;
+  const listaConsigli = consigli(stato.value);
+  const titolo = b.stato === 'completato' ? 'Blocco completato' : b.stato === 'test' ? 'Settimana di test' : prossima ? etichettaCiclo(prossima) : NOMI_FASI['fase1'];
 
   return (
     <div class="pagina">
       <div class="colonna" style="gap:8px;margin-top:8px">
         <div class="sopratitolo">Blocco {b.numero} · {p.nome}</div>
-        <h1>{b.stato === 'completato' ? 'Blocco completato' : b.stato === 'test' ? 'Settimana di test' : NOMI_FASI[prossima?.fase ?? 'fase1']}</h1>
-        <p class="muto">{fatte} di {b.sedute.length} sedute completate</p>
-        <BarraFasi sedute={b.sedute} bloccoBreve={b.parametri.bloccoBreve} />
+        <h1>{titolo}</h1>
+        <p class="muto">{fatte} di {b.sedute.length} sedute completate{b.modulo && b.modulo !== 'ipertrofia' ? ` · ${NOMI_MODULO[b.modulo] ?? b.modulo}` : ''}</p>
+        <BarraFasi sedute={b.sedute} bloccoBreve={b.parametri.bloccoBreve} preservazione={preservazione} />
       </div>
 
       {rientro ? <Avviso>Sono passati {giorni} giorni dall'ultima seduta. {rientro.testo}</Avviso> : null}
+      {p.obiettivoInAttesa ? <Avviso tipo="info">Cambio di obiettivo in attesa: parte alla fine del ciclo in corso.</Avviso> : null}
+      {listaConsigli.map((c) => <Avviso tipo={c.livello === 'info' ? 'info' : undefined}><b>Coach:</b> {c.testo} <span class="piccolo">{c.perche}</span></Avviso>)}
       {b.parametriInAttesa ? <Avviso tipo="info">Nuovi parametri in attesa: si applicano dal prossimo ciclo.</Avviso> : null}
 
       {b.stato === 'test' && prossima ? (
@@ -75,7 +109,7 @@ export function Home() {
             </div>
           </div>
           <div class="riga" style="gap:16px">
-            <span class="chip">{NOMI_FASI[prossima.fase]} · ciclo {prossima.cicloFase}</span>
+            <span class="chip">{etichettaCiclo(prossima)} · ciclo {prossima.cicloFase}</span>
             <span class="chip">{prossima.esercizi.length} esercizi</span>
             {prossima.fase !== 'test' ? <span class="chip">≈ {minuti(durataSeduta(prossima))}′</span> : null}
           </div>
@@ -100,7 +134,7 @@ export function Home() {
           return (
             <div class="colonna" style="gap:8px">
               <button class="riga spazio" style="background:none;border:0;padding:6px 0;cursor:pointer;text-align:left" onClick={() => setFaseAperta(apertaQui ? ('nessuna' as Fase) : f)}>
-                <h3>{NOMI_FASI[f]}</h3>
+                <h3>{preservazione && f !== 'test' && f !== 'scarico' ? (f === 'fase1' ? 'Cicli 77 %' : 'Cicli 82 %') : NOMI_FASI[f]}</h3>
                 <span class="piccolo">{n}/{sedute.length} {apertaQui ? '▲' : '▼'}</span>
               </button>
               {apertaQui ? (
@@ -112,7 +146,7 @@ export function Home() {
                       <div class={`seduta-riga ${eProssima ? 'prossima' : ''} ${futura ? 'futura' : ''}`} onClick={() => vai(`/seduta/${s.id}`)}>
                         <span class={`spunta ${s.stato === 'completata' ? 'fatta' : s.stato === 'in_corso' ? 'parziale' : ''}`}>{s.stato === 'completata' ? '✓' : s.stato === 'in_corso' ? '…' : ''}</span>
                         <div class="cresce">
-                          <div style="font-weight:600">{s.nome} <span class="piccolo">· ciclo {s.cicloFase}</span></div>
+                          <div style="font-weight:600">{s.nome} <span class="piccolo">· ciclo {s.cicloFase}{s.cicloTipo === 'ponte' ? ' · ponte' : ''}</span></div>
                           <div class="piccolo">{s.etichetta}</div>
                         </div>
                         <span class="piccolo">{s.stato === 'completata' ? formatoData(s.data) : futura ? '🔒' : ''}</span>

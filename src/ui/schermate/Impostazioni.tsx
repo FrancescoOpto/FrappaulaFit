@@ -8,6 +8,7 @@ import { esportaJSON, importaJSON } from '../../store/db';
 import {
   aggiornaImpostazioni,
   aggiornaProfilo,
+  cambiaObiettivo,
   impostazioni,
   aggiungiEsercizioPersonalizzato,
   azzeraTutto,
@@ -26,6 +27,12 @@ import {
 } from '../../store/stato';
 import { accedi, configSync, erroreSync, esci, registrati, salvaConfigSync, sessioneSync, sincronizza, statoSync, ultimaSync } from '../../store/sync';
 import { Avviso, Scelte, Testata, formatoData } from '../componenti/comuni';
+import { Energia } from './Energia';
+import { NOMI_ENERGIA, NOMI_MODULO, NOMI_OBIETTIVO } from './Setup';
+import { DURATA_DEFAULT } from '../../motore/energia';
+import { avvisoEnergia } from '../../motore/coach';
+import { ENERGIA_PER_OBIETTIVO, proponiPiano } from '../../motore/pianificatore';
+import type { ObiettivoAttivo, StatoEnergetico } from '../../tipi';
 import { avviaTimer, chiediPermessoNotifiche, sbloccaAudio } from '../timer';
 import { vai } from '../router';
 
@@ -88,6 +95,58 @@ function Programma() {
         {GRUPPI.map((g) => <span class="chip">{NOMI_GRUPPI[g]} {anteprima.volume[g]}</span>)}
       </div>
       <button class="bottone primario pieno" disabled={!cambiato} onClick={applica}>{b && b.stato !== 'completato' ? `Applica dal ciclo ${daCiclo}` : 'Salva'}</button>
+      {esito ? <Avviso tipo="info">{esito}</Avviso> : null}
+    </div>
+  );
+}
+
+function CambioObiettivo() {
+  const p = profilo.value!;
+  const b = blocco.value;
+  const attuale = p.obiettivoAttivo;
+  const [tipo, setTipo] = useState<Obiettivo>(attuale?.tipo ?? 'massa');
+  const [settimane, setSettimane] = useState<number>(attuale?.settimane ?? DURATA_DEFAULT[attuale?.tipo ?? 'massa']);
+  const [energia, setEnergia] = useState<StatoEnergetico>(attuale?.energia ?? ENERGIA_PER_OBIETTIVO[attuale?.tipo ?? 'massa']);
+  const [kgTarget, setKgTarget] = useState(attuale?.kgTarget ? String(attuale.kgTarget) : '');
+  const [resistenza, setResistenza] = useState(attuale?.resistenza ?? false);
+  const [macchine, setMacchine] = useState(attuale?.preferisciMacchine ?? false);
+  const [esito, setEsito] = useState<string | null>(null);
+  const [confermaSubito, setConfermaSubito] = useState(false);
+  const scegli = (o: Obiettivo) => { setTipo(o); setSettimane(DURATA_DEFAULT[o]); setEnergia(ENERGIA_PER_OBIETTIVO[o]); };
+  const avviso = avvisoEnergia(tipo, energia, p.parametri.esperienza);
+  const piano = proponiPiano({ obiettivo: tipo, settimane, N: p.parametri.N, energia, carichiRecenti: Object.keys(p.carichi ?? {}).length > 0 });
+  const nuovo = (): ObiettivoAttivo => ({ tipo, dal: new Date().toISOString(), settimane: Math.max(1, settimane), energia, kgTarget: parseFloat(kgTarget.replace(',', '.')) || undefined, resistenza: tipo === 'definizione' ? resistenza : undefined, preferisciMacchine: tipo === 'definizione' ? macchine : undefined, avvisoDeficitIgnorato: avviso ? true : undefined, kcalTarget: attuale?.kcalTarget });
+  const applica = async (quando: 'confine' | 'subito') => {
+    const msg = await cambiaObiettivo(nuovo(), quando);
+    setEsito(msg);
+    setConfermaSubito(false);
+  };
+  return (
+    <div class="colonna" style="gap:12px">
+      {attuale ? <p class="muto">Obiettivo attuale: <b>{NOMI_OBIETTIVO[attuale.tipo]}</b> per {attuale.settimane} cicli, {NOMI_ENERGIA[attuale.energia].toLowerCase()}{b?.modulo ? ` · modulo ${NOMI_MODULO[b.modulo] ?? b.modulo}` : ''}.</p> : null}
+      {p.obiettivoInAttesa ? <Avviso tipo="info">Cambio in attesa: {NOMI_OBIETTIVO[p.obiettivoInAttesa.tipo]} dal prossimo confine di ciclo.</Avviso> : null}
+      <div class="campo"><label>Obiettivo</label><Scelte valori={['massa', 'mantenimento', 'definizione'] as Obiettivo[]} valore={tipo} onCambia={scegli} etichette={NOMI_OBIETTIVO} /></div>
+      <div class="campo"><label>Settimane (cicli)</label><input type="number" inputMode="numeric" min="1" max="52" value={settimane} onInput={(e) => setSettimane(parseInt((e.target as HTMLInputElement).value, 10) || 0)} /></div>
+      <div class="campo"><label>Stato energetico</label><Scelte valori={['deficit', 'mantenimento', 'surplus'] as StatoEnergetico[]} valore={energia} onCambia={setEnergia} etichette={NOMI_ENERGIA} /></div>
+      {avviso ? <Avviso tipo={avviso.livello === 'info' ? 'info' : undefined}>{avviso.testo} <span class="piccolo">{avviso.perche}</span></Avviso> : null}
+      {tipo === 'definizione' ? (
+        <>
+          <div class="campo"><label>Kg da perdere (facoltativo)</label><input type="number" inputMode="decimal" step="0.5" value={kgTarget} onInput={(e) => setKgTarget((e.target as HTMLInputElement).value)} placeholder="—" /></div>
+          <label class="riga spazio" style="padding:4px 0"><span>Allenare anche la resistenza</span><input type="checkbox" checked={resistenza} onChange={(e) => setResistenza((e.target as HTMLInputElement).checked)} /></label>
+          <label class="riga spazio" style="padding:4px 0"><span>Preferisci le macchine</span><input type="checkbox" checked={macchine} onChange={(e) => setMacchine((e.target as HTMLInputElement).checked)} /></label>
+        </>
+      ) : null}
+      {piano[0] ? (
+        <div class="colonna" style="gap:4px">
+          {piano[0].tappe?.map((t) => <div class="riga spazio piccolo"><span><b>{NOMI_MODULO[t.modulo]}</b>{t.cicliPreservazione ? ` · ${t.cicliPreservazione.join(' · ')}` : ''}</span><span>{t.cicli} cicli</span></div>)}
+          <p class="piccolo">{piano[0].perche}</p>
+        </div>
+      ) : null}
+      <p class="piccolo">Il cambio parte alla fine del ciclo in corso (meglio allo scarico): le sedute fatte e i carichi del profilo restano; il primo ciclo del nuovo modulo è un ciclo ponte, senza rifare i test.</p>
+      <div class="griglia2">
+        <button class="bottone primario" onClick={() => applica('confine')}>Al prossimo ciclo</button>
+        {!confermaSubito ? <button class="bottone" onClick={() => setConfermaSubito(true)}>Subito…</button> : <button class="bottone pericolo" onClick={() => applica('subito')}>Conferma: subito</button>}
+      </div>
       {esito ? <Avviso tipo="info">{esito}</Avviso> : null}
     </div>
   );
@@ -300,9 +359,12 @@ export function Impostazioni({ sezione }: { sezione?: string }) {
       <Sezione id="profilo" titolo="Profilo" aperta={aperta === 'profilo'} onToggle={() => toggle('profilo')}>
         <div class="campo"><label>Nome</label><div class="riga"><input type="text" value={nome} onInput={(e) => setNome((e.target as HTMLInputElement).value)} /><button class="bottone piccolo" style="min-height:46px" disabled={nome.trim() === p.nome || !nome.trim()} onClick={() => void aggiornaProfilo({ nome: nome.trim() })}>Salva</button></div></div>
         <div class="campo"><label>Profilo</label><Scelte valori={['M', 'F']} valore={p.sesso} onCambia={(v) => void aggiornaProfilo({ sesso: v })} etichette={{ M: 'Uomo · base', F: 'Donna · focus glutei' }} /><p class="piccolo">Il preset cambia solo le sedute del prossimo blocco (o rigenerandole da “Programma”).</p></div>
-        <div class="campo"><label>Obiettivo</label><Scelte valori={['massa', 'mantenimento', 'definizione'] as Obiettivo[]} valore={p.obiettivo ?? 'massa'} onCambia={(v) => void aggiornaProfilo({ obiettivo: v })} etichette={{ massa: 'Massa', mantenimento: 'Mantenimento', definizione: 'Definizione' }} /><p class="piccolo">Scelta tua, non del blocco: il programma non cambia (SPEC §15).</p></div>
         <button class="bottone fantasma pieno" onClick={() => vai('/nuovo-profilo')}>Crea un nuovo profilo su questo dispositivo…</button>
       </Sezione>
+
+      <Sezione id="obiettivo" titolo="Obiettivo" aperta={aperta === 'obiettivo'} onToggle={() => toggle('obiettivo')}><CambioObiettivo /></Sezione>
+
+      <Sezione id="energia" titolo="Energia" aperta={aperta === 'energia'} onToggle={() => toggle('energia')}><Energia /></Sezione>
 
       <Sezione id="programma" titolo="Programma" aperta={aperta === 'programma'} onToggle={() => toggle('programma')}><Programma /></Sezione>
 

@@ -5,6 +5,7 @@ Progetto personale di Francesco (titolare di Ottica Curci, Rieti): PWA di bodybu
 ## Ordine di lettura
 1. `SPEC.md` — specifica completa (struttura, formule, tabelle, schermate, parti aperte).
 1b. `TEST_INIZIO_BLOCCO.md` — **test di carico a inizio blocco (prevale su SPEC §6.1)**: stima Brzycki per i fondamentali, serie unica 10/12/14RM per gli altri.
+1c. `SPEC_PIANIFICATORE.md` — **obiettivi, energia, moduli e pianificatore a tappe (estende SPEC §3/§14, sostituisce §15)**: in caso di conflitto su obiettivo/energia/pianificatore prevale questo file.
 2. `docs/INDICE_MATERIALE.md` — mappa di tutto il materiale.
 3. `docs/note_elaborate/MEMORIA_GENERALE.md` — regole metodologiche e decisioni.
 4. `docs/note_elaborate/struttura_programma_vathlete.md` — tabelle reali del Blocco 1 dell'app di riferimento (servono per i test automatici).

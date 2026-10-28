@@ -66,7 +66,7 @@ function RigaRestPause({ sedutaId, slot, x, soloLettura, recupero, etichetta }: 
   );
 }
 
-function RigaSerie({ sedutaId, slot, x, soloLettura, recupero, etichetta }: { sedutaId: string; slot: number; x: SerieRegistrata; soloLettura: boolean; recupero: number; etichetta: string }) {
+function RigaSerie({ sedutaId, slot, x, soloLettura, recupero, etichetta, ultima }: { sedutaId: string; slot: number; x: SerieRegistrata; soloLettura: boolean; recupero: number; etichetta: string; ultima?: boolean }) {
   const [kg, setKg] = useState(x.kg !== undefined ? String(x.kg) : x.kg_prev ? String(x.kg_prev) : '');
   const [rip, setRip] = useState(x.rip !== undefined ? String(x.rip) : String(x.rip_prev));
   // Se l'autocorrezione cambia il previsto (−5 %) e l'utente non ha ancora scritto nulla, aggiorna il campo.
@@ -106,6 +106,15 @@ function RigaSerie({ sedutaId, slot, x, soloLettura, recupero, etichetta }: { se
       <button class={`bottone piccolo ${x.fatta ? 'primario' : ''}`} style="min-height:46px;min-width:70px" disabled={soloLettura} onClick={toggle}>
         {x.fatta ? '✓' : 'Fatta'}
       </button>
+      {ultima && x.fatta && !x.stripping ? (
+        <div class="riga" style="grid-column:1 / -1;gap:6px;align-items:center">
+          <span class="piccolo">Com'era?</span>
+          {(['facile', 'giusto', 'limite'] as const).map((v) => (
+            <button class={`bottone piccolo ${x.sforzo === v ? 'primario' : 'fantasma'}`} style="min-height:32px;padding:0 10px;font-size:13px" disabled={soloLettura} onClick={() => void aggiornaSerie(sedutaId, slot, x.n, { sforzo: v })}>{v === 'facile' ? 'Facile' : v === 'giusto' ? 'Giusto' : 'Al limite'}</button>
+          ))}
+          {x.sforzo === 'facile' ? <span class="piccolo">→ +1 passo di carico proposto alla prossima seduta</span> : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -148,13 +157,16 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
           {pr.percentuale ? <span class="chip">{Math.round(pr.percentuale * 100)}% del massimale</span> : null}
           {es.seconda_riga ? <span class="chip">seconda riga · carico a tua scelta</span> : null}
           {pr.rest_pause ? <span class="chip">rest-pause</span> : null}
+          {es.back_off ? <span class="chip">back-off: {es.back_off.serie_pesanti}×{es.back_off.rip} + {es.back_off.serie_max}×max a −{Math.round(es.back_off.riduzione * 100)}%</span> : null}
+          {es.resistenza ? <span class="chip">resistenza · 15–20 rip leggere</span> : null}
+          {s.cicloTipo === 'ponte' ? <span class="chip">ciclo ponte</span> : null}
           <span class="chip">recupero {recupero}″</span>
         </div>
         {correzione ? <p class="piccolo">Carico corretto del {Math.round(correzione * 1000) / 10}% per ripetizioni mancate nei cicli precedenti (modificabile in Impostazioni → Test).</p> : null}
         {corrente && s.fase !== 'test' ? (
           <div class="riga spazio" style="flex-wrap:wrap;gap:8px">
             <span class="piccolo">
-              Carico scelto da te{corrente.fattore ? ` (×${corrente.fattore})` : ''} · piano: {formatoKg(pr.kgPiano)}
+              {corrente.origine === 'proposta' ? 'Carico proposto dal coach (+1 passo dopo un "Facile")' : 'Carico scelto da te'}{corrente.fattore ? ` (×${corrente.fattore})` : ''} · piano: {formatoKg(pr.kgPiano)}
             </span>
             {!soloLettura || s.stato === 'futura' ? <button class="bottone piccolo fantasma" onClick={() => void ripristinaCaricoPiano(chiaveCorrente(es), s.stato === 'in_corso' ? s.id : undefined)}>Ripristina carico del piano</button> : null}
           </div>
@@ -190,7 +202,7 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
             x.rest_pause ? (
               <RigaRestPause key={`${x.n}-${es.esercizio_id}`} sedutaId={s.id} slot={slot} x={x} soloLettura={soloLettura} recupero={recupero} etichetta={def?.nome ?? ''} />
             ) : (
-              <RigaSerie key={`${x.n}-${es.esercizio_id}`} sedutaId={s.id} slot={slot} x={x} soloLettura={soloLettura} recupero={recupero} etichetta={def?.nome ?? ''} />
+              <RigaSerie key={`${x.n}-${es.esercizio_id}`} sedutaId={s.id} slot={slot} x={x} soloLettura={soloLettura} recupero={recupero} etichetta={def?.nome ?? ''} ultima={x.n === Math.max(...regEs.serie.filter((y) => !y.stripping).map((y) => y.n))} />
             ),
           )}
           <p class="piccolo">Il kg che scrivi diventa il carico di questo esercizio anche per le sedute successive.</p>

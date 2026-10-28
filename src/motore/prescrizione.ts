@@ -116,9 +116,15 @@ export function prescrizione(
   // Seconda riga ×12 e righe senza carico: kg a scelta dell'utente (più leggero del Target).
   if (es.senza_carico) return { serie, rip, kg: applicaCorrente(es.ruolo, undefined, corrente, passo), rest_pause: es.rest_pause };
 
+  // Riga "resistenza" (SPEC_PIANIFICATORE §4.5): carico_test × (37 − 15) / (37 − RM_test), stesso modello del test.
+  if (es.resistenza) {
+    const kgPiano = t && t.kg > 0 && t.rip > 0 ? arrotonda((t.kg * (37 - 15)) / (37 - t.rip), passo) : undefined;
+    return { serie, rip, kg: kgPiano, kgPiano, ereditatoDa };
+  }
+
   if (es.ruolo === 'R1' || es.ruolo === 'L') {
     const rm1 = rm1DiTest(t);
-    const pct = es.tabella ? CARICO_PER_TABELLA[es.tabella]?.[seduta.fase] : undefined;
+    const pct = es.percentuale ?? (es.tabella ? CARICO_PER_TABELLA[es.tabella]?.[seduta.fase] : undefined);
     if (pct !== undefined) {
       // Blocco 3: percentuale diretta del massimale, senza fattore di lavoro (BLOCCO3 §A2).
       const kgPiano = rm1 ? arrotonda(rm1 * pct * (1 + correzione), passo) : undefined;
