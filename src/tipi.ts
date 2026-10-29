@@ -243,7 +243,7 @@ export interface Contenitore {
   nome: string;
   descrizione: string;
   sessioni: SessioneContenitore[];
-  /** Fattore di lavoro sul massimale per i fondamentali di questo blocco (SPEC_PIANIFICATORE §4.2: Blocco 1 = 1, Blocco 2 = 0,9). Se assente vale l'impostazione. */
+  /** Fattore di lavoro sul massimale per i fondamentali di questo blocco, se diverso dall'impostazione. Nessun blocco dei video lo usa: Blocchi 1 e 2 sono entrambi a 0,9 (SPEC §6.2). */
   fattore_lavoro?: number;
   /** Indice (0-based) della seduta "jolly" da saltare quando si salta una seduta. */
   jolly?: number;

@@ -66,8 +66,10 @@ export const TABELLE: Record<TabellaProg, Record<FaseLavoro, SerieRip[]>> = {
     fase3: [[3, 8], [3, 8], [4, 8], [3, 9], [4, 9]],
     scarico: [[2, 10]],
   },
+  // L (fondamentale in seconda esposizione, Blocco 1 giorni C/D): Fase 1 letta nei video il 29/10 (panca C, squat D);
+  // il ciclo 2 non è stato letto ed è presunto uguale al ciclo 1.
   L: {
-    fase1: [[3, 9], [3, 9], [3, 9], [3, 10], [3, 10]],
+    fase1: [[3, 8], [3, 8], [3, 9], [3, 9], [3, 10]],
     fase2: [[3, 8], [3, 8], [3, 8], [3, 9], [3, 10]],
     fase3: [[3, 10], [3, 10], [3, 8], [3, 8], [3, 8]],
     scarico: [[3, 10]],
@@ -166,9 +168,10 @@ export const RECUPERI_DEFAULT: Record<Ruolo, number> = {
 };
 
 /**
- * Fattore di lavoro sul massimale stimato (blocco2_giorno_B.md §3): i carichi RM dell'app di riferimento sono
- * 0,9 × stima × (37−n)/36, verificato su panca (87,5 → 78,75), squat (56,5 → 50,85) e stacco (90 → 81).
- * Origine del 10 % non nota: parametro modificabile nelle Impostazioni.
+ * Fattore di lavoro sul massimale stimato: i carichi RM dell'app di riferimento sono 0,9 × stima × (37−n)/36.
+ * Verificato nel Blocco 2 (panca 87,5 → 78,75, squat 56,5 → 50,85, stacco 90 → 81; BLOCCO2_programma.md §A3) e
+ * nel Blocco 1 con i massimali reali dell'utente (panca 84,5, squat 62, stacco 87,5; BLOCCO1_verifica.md, 29/10).
+ * Non noto per il Blocco 3 (che usa percentuali dirette). Origine del 10 % non nota: parametro modificabile nelle Impostazioni.
  */
 export const FATTORE_LAVORO_DEFAULT = 0.9;
 

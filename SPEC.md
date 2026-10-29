@@ -93,7 +93,7 @@ Sintesi [Certo, dai video dei test dell'app di riferimento]:
 - Istruzione di carico per attrezzo (campo `carico_modo`) e tabella reale dei 34 test del Blocco 2: vedi il file dedicato.
 
 ### 6.2 Formula
-`carico(n RM) = fattore_lavoro × 1RM_stimato × (37 − n) / 36`, con **`fattore_lavoro = 0,90`** (parametro modificabile, default 0,90), arrotondato a **0,5 kg** (arrotondamento configurabile: 0,5 / 1 / 2,5). [Certo: verificato nel Blocco 2 su panca (stima 87,5 → carichi da 78,75), squat (stima 56,5 → 9RM 39,5, 7RM 42,5, 5RM 45, 3RM 48, 11RM 36,5) e stacco (stima 90 → 81). Vedi `docs/note_elaborate/BLOCCO2_programma.md` §A3. Non è noto se il 0,9 valga anche dal Blocco 3 o se dipenda da un'impostazione: tenerlo come parametro.]
+`carico(n RM) = fattore_lavoro × 1RM_stimato × (37 − n) / 36`, con **`fattore_lavoro = 0,90`** (parametro modificabile, default 0,90), arrotondato a **0,5 kg** (arrotondamento configurabile: 0,5 / 1 / 2,5). [Certo: verificato nel Blocco 2 su panca (stima 87,5 → carichi da 78,75), squat (stima 56,5 → 9RM 39,5, 7RM 42,5, 5RM 45, 3RM 48, 11RM 36,5) e stacco (stima 90 → 81). Vedi `docs/note_elaborate/BLOCCO2_programma.md` §A3. **Verificato anche nel Blocco 1 [Certo, 29/10, 4 test con massimali reali]:** panca 1RM 84,5 → Fase 1 59 / 63,5, Fase 2 63,5, Scarico 55, Fase 3 67,5 / 72; squat 62 → 43,5 / 46,5 / 40,5 / 49,5 / 52,5; stacco 87,5 → 61,5 / 65,5 / 57 / 70 / 74,5 (tutti = 0,9 × RM di Brzycki, arrotondati a 0,5). Resta ignoto se valga nel Blocco 3: tenerlo come parametro.]
 Il massimale mostrato/salvato resta la stima di Brzycki (non scontata); lo sconto si applica solo al calcolo dei carichi RM.
 
 ### 6.3 Scale RM per ruolo e fase (R1 = fondamentale; L = fondamentale alla 2ª esposizione settimanale o ospitato in seduta jolly)
@@ -117,13 +117,13 @@ R2, R3, C, AB: **carico fisso del test** per tutto il blocco; cambia solo il vol
 | R1 | 4×5, 4×5, 4×6, 4×5, 4×5 | 3×6, 3×6, 4×6, 4×6, 3×7 | 3×5, 3×5, 4×5, 4×5, 4×3 | 3×7 |
 | R2 | 3×8, 3×8, 4×8, 4×8, 4×8 | 3×9, 3×9, 4×9, 4×9, 4×9 | 3×7, 4×7, 3×8, 4×8, 3×6 | 3×9 |
 | R3 | 3×8, 3×8, 3×8, 4×8, 4×8 | 3×9, 3×9, 4×9, 4×9, 3×10 | 3×8, 4×8, 4×8, 3×9, 3×10 | 2×10 |
-| L | 3×9, 3×9, 3×9, 3×10, 3×10 | 3×8, 3×8, 3×8, 3×9, 3×10 | 3×10, 3×10, 3×8, 3×8, 3×8 | 3×10 |
+| L | 3×8, 3×8, 3×9, 3×9, 3×10 [Certo, 29/10: panca giorno C, squat giorno D; il ciclo 2 è presunto] | 3×8, 3×8, 3×8, 3×9, 3×10 | 3×10, 3×10, 3×8, 3×8, 3×8 | 3×10 |
 | AB | 3×12 fisso | 3×13, 3×13, 3×14, 3×14, 3×15 | 3×12, 3×12, 3×13, 3×13, 3×14 | 3×15 (= ultima settimana di Fase 2; Blocco 2 giorno A) |
 | C | serie/rip dello slot, fissi | **invariati** rispetto alla Fase 1 (Blocco 2, giorni A–D: nessun +1, confermato; nelle note Keep del Blocco 1 si leggeva +1 rip: ignorare) | serie/rip del nuovo slot della variante | serie −1 (min 2), rip invariate |
 - **Blocco 2 (4 giorni A–D, tutte le settimane lette): vedi `docs/note_elaborate/BLOCCO2_programma.md` §A2, che prevale su questa tabella.** Esistono 5 tabelle Target (R1, R2, R3, R3b military, R3c spinte piana) più AB; la tabella dipende dall'**esercizio nello slot**, non dal ruolo né dal gruppo: va tenuta come dato (`tabella_prog` per slot), non nel codice. Nel Blocco 2 non c'è nessun ruolo L (ogni fondamentale compare una volta a settimana come R1).
 - In Fase 1 il passaggio ciclo 3 → 4 di R1 **cambia carico** (da 9RM a 7RM) e riporta le rip a 5. In Fase 2 R1 tiene il carico 7RM e lavora sul volume.
 - In Fase 2/3 si cambiano alcune **varianti** dei complementari (es. croci manubri → croci ai cavi, curl 60° → 45°) senza cambiare la logica; i complementari nuovi non hanno carico prescritto: lo sceglie l'utente (o eredita quello dell'esercizio simile).
-- **Dubbio aperto [Probabile]**: 4×5@5RM e 4×3@3RM in Fase 3 non sono sostenibili al 100% con recuperi normali. Soluzione adottata: **autocorrezione** — se in una serie le ripetizioni fatte < prescritte, il peso della serie successiva è precompilato a −5%; se succede per 2 sedute di fila sullo stesso esercizio, il carico del ciclo successivo scende del 2,5% (modificabile dall'utente). 
+- **Dubbio chiuso [Certo, 29/10]**: i carichi sono 0,9 × RM (4×5 in Fase 3 = 80 % del 1RM, 4×3 = 85 %), quindi sostenibili; il dubbio nasceva dall'avere ignorato il 0,9. Soluzione adottata: **autocorrezione** — se in una serie le ripetizioni fatte < prescritte, il peso della serie successiva è precompilato a −5%; se succede per 2 sedute di fila sullo stesso esercizio, il carico del ciclo successivo scende del 2,5% (modificabile dall'utente). 
 - **Stripping −30%** sull'ultima serie dell'ultimo esercizio di ogni gruppo, solo Fase 2: viene dalle note Keep dell'utente e **non è verificato nei video**; implementarlo come opzione (default: spento), con testo "serie extra a −30%, fino al cedimento".
 
 ## 8. Profilo moglie — **PROVVISORIO** [Mia decisione, da rivedere con i libri glutei/donna non ancora ricevuti]

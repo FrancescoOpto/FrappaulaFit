@@ -61,7 +61,7 @@ const GIORNO_D: SessioneContenitore = {
     s({ gruppo: 'dorso', ruolo: 'R2', tabella: 'R2', classe: 'trazione_orizzontale', default: 't_bar' }),
     s({ gruppo: 'dorso', ruolo: 'C', classe: 'trazione_orizzontale', default: 'pulley', serie: 3, rip: 8, varianti: { fase2: { id: 'rematore_manubrio', serie: 3, rip: 10 }, fase3: { id: 'pulley', serie: 3, rip: 10 } } }),
     s({ gruppo: 'dorso', ruolo: 'C', classe: 'trazione_verticale', default: 'lat_larga', serie: 3, rip: 10, varianti: { fase2: 'lat_triangolo', fase3: { id: 'lat_larga', serie: 3, rip: 8 } } }),
-    // Squat leggero nel giorno D: nei video 3×8 → 3×9 → 3×10 in Fase 1 (tabella L letta con lacune: [Probabile]).
+    // Squat leggero nel giorno D: tabella L, Fase 1 3×8, 3×8, 3×9, 3×9, 3×10 (BLOCCO1_verifica.md; ciclo 2 presunto).
     s({ gruppo: 'gambe', ruolo: 'L', tabella: 'L', classe: 'squat', default: 'squat', copre: 'quadricipiti' }),
     s({ gruppo: 'gambe', ruolo: 'C', classe: 'squat', default: 'pressa', serie: 3, rip: 10, copre: 'quadricipiti', varianti: { fase2: { id: 'affondi_multipower', serie: 3, rip: 8 }, fase3: { id: 'leg_extension', serie: 3, rip: 10 } } }),
     s({ gruppo: 'tricipiti', ruolo: 'C', classe: 'tricipiti', default: 'french_corda', serie: 4, rip: 10, copre: 'tricipiti', varianti: { fase2: 'french_manubri', fase3: 'french_ez' } }),
@@ -76,7 +76,4 @@ export const BLOCCO1_4G: Contenitore = {
   descrizione: 'Struttura del Blocco 1 letta dai video: panca (A) e squat (B) con la seconda esposizione leggera in C e D, stacco in D; varianti dei complementari per fase.',
   sessioni: [GIORNO_A, GIORNO_B, GIORNO_C, GIORNO_D],
   fisso: true,
-  // SPEC_PIANIFICATORE v2 §4.2: nel Blocco 1 i carichi RM sono Brzycki sul massimale senza il fattore 0,9
-  // (1RM 100 → 9RM 78, 7RM 83,5, 11RM 72). Il 0,9 è verificato solo sul Blocco 2. [Utente]
-  fattore_lavoro: 1,
 };

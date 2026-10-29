@@ -28,10 +28,10 @@ describe('blocco composto per durata (§6b)', () => {
 
   it('la riga di tabella decide serie×rip e scala RM: F1×3 sul Blocco 1 (panca R1) → 4x5 @9RM, 4x6 (riga 3), 4x5 @7RM (riga 5)', () => {
     const b = nuovoBloccoComposto(par, profilo, compongoPiano(4, true, 'massa'), 1);
-    b.test.panca_piana = { esercizio_id: 'panca_piana', kg: 72, rip: 5, modo: 'stima', rm1: 81 };
+    b.test.panca_piana = { esercizio_id: 'panca_piana', kg: 80, rip: 5, modo: 'stima', rm1: 90 };
     const sed = b.sedute.filter((s) => s.fase === 'fase1' && s.giorno === 1);
     const pr = sed.map((s) => { const e = s.esercizi.find((x) => x.esercizio_id === 'panca_piana')!; const p = prescrizione(e, s, b.test, imp); return `${p.serie}x${p.rip}@${p.kg}`; });
-    // Blocco 1 senza fattore 0,9 (§4.2): 9RM di 81 = 63, 7RM = 67,5.
+    // Blocco 1 con fattore 0,9 (SPEC §6.2, verificato il 29/10): 0,9 × 90 = 81 → 9RM 63, 7RM 67,5.
     expect(pr).toEqual(['4x5@63', '4x6@63', '4x5@67.5']);
   });
 

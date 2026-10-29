@@ -140,7 +140,7 @@ export function prescrizione(
     }
     const n = scalaRM(es.ruolo, seduta.fase, riga);
     // Carico RM = fattore di lavoro × massimale stimato × (37−n)/36 (blocco2_giorno_B.md §3).
-    // Il contenitore può fissare il proprio fattore (Blocco 1 = 1, SPEC_PIANIFICATORE §4.2).
+    // Un contenitore può fissare un fattore proprio; i Blocchi 1 e 2 usano quello delle impostazioni (0,9, SPEC §6.2).
     const fattore = es.fattore_lavoro ?? impostazioni.fattore_lavoro ?? FATTORE_LAVORO_DEFAULT;
     const kgPiano = rm1 ? caricoRM(rm1 * fattore * (1 + correzione), n, passo) : undefined;
     return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, scalaRM: n, corrente, ereditatoDa };
