@@ -33,8 +33,11 @@ describe('Blocco 1 a 4 giorni: struttura', () => {
 describe('Blocco 1: carichi e tabelle dei video', () => {
   const b = nuovoBlocco(par, profilo, 1);
   b.test = {
-    panca_piana: { esercizio_id: 'panca_piana', kg: 80, rip: 5, modo: 'stima', rm1: 90 },
-    squat: { esercizio_id: 'squat', kg: 80, rip: 4, modo: 'stima', rm1: 87.5 },
+    // SPEC_PIANIFICATORE v2 §4.2: nel Blocco 1 i carichi RM sono Brzycki sul massimale senza il fattore 0,9.
+    // I carichi dei video (63 → 67,5 → 72 → 76,5, scarico 58,5) corrispondono a 1RM 81 (panca) e 78,75 (squat),
+    // come dedotto in struttura_programma_vathlete.md (riga 113). Prima, con il fattore 0,9, servivano 90 e 87,5.
+    panca_piana: { esercizio_id: 'panca_piana', kg: 72, rip: 5, modo: 'stima', rm1: 81 },
+    squat: { esercizio_id: 'squat', kg: 70, rip: 5, modo: 'stima', rm1: 78.75 },
     panca_manubri: { esercizio_id: 'panca_manubri', kg: 26, rip: 10, modo: 'serie_unica' },
     spinte_manubri_seduto: { esercizio_id: 'spinte_manubri_seduto', kg: 16, rip: 10, modo: 'serie_unica' },
     military_press: { esercizio_id: 'military_press', kg: 20, rip: 10, modo: 'serie_unica' },

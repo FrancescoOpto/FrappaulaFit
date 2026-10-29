@@ -48,10 +48,11 @@ export function ripetizioniTest(es: EsercizioSeduta): 10 | 12 | 14 {
  * Serie × rip per fase e ciclo (SPEC §7, BLOCCO2 §A2). La tabella viene dallo slot (`tabella`), altrimenti dal ruolo.
  * Per C usa i valori dello slot con le regole di fase.
  */
-export function serieRip(ruolo: Ruolo, fase: Exclude<Fase, 'test'>, cicloFase: number, slot?: { serie?: number; rip?: number; tabella?: TabellaProg; serie_fisse?: boolean }): SerieRip {
-  if (slot?.serie_fisse && slot.serie !== undefined && slot.rip !== undefined) return [slot.serie, slot.rip];
+export function serieRip(ruolo: Ruolo, fase: Exclude<Fase, 'test'>, cicloFase: number, slot?: { serie?: number; rip?: number; tabella?: TabellaProg; serie_fisse?: boolean; serie_extra?: number }): SerieRip {
+  const extra = slot?.serie_extra ?? 0;
+  if (slot?.serie_fisse && slot.serie !== undefined && slot.rip !== undefined) return [slot.serie + extra, slot.rip];
   if (ruolo === 'C') {
-    const serie = slot?.serie ?? 3;
+    const serie = (slot?.serie ?? 3) + extra;
     const rip = slot?.rip ?? 10;
     switch (fase) {
       // Complementari: serie×rip dello slot, invariati in Fase 1–3 (Blocco 2 giorno A: nessun +1 in Fase 2);
@@ -67,7 +68,13 @@ export function serieRip(ruolo: Ruolo, fase: Exclude<Fase, 'test'>, cicloFase: n
   const tab = TABELLE[slot?.tabella ?? ruolo][fase];
   if (!tab.length) return [0, 0];
   const idx = Math.min(Math.max(cicloFase, 1), tab.length) - 1;
-  return tab[idx];
+  // Priorità muscolari (SPEC_PIANIFICATORE §6c punto 4): +1 serie anche ai Target, non nello scarico.
+  return extra && fase !== 'scarico' ? [tab[idx][0] + extra, tab[idx][1]] : tab[idx];
+}
+
+/** Riga della tabella da usare per una seduta: nei piani composti (§6b) è `rigaTabella`, altrimenti il ciclo nella fase. */
+export function rigaDi(s: Pick<Seduta, 'cicloFase' | 'rigaTabella'>): number {
+  return s.rigaTabella ?? s.cicloFase;
 }
 
 /** n della scala RM per R1/L (SPEC §6.3). */
@@ -90,7 +97,7 @@ export function rm1DiTest(t: RisultatoTest | undefined): number | undefined {
  */
 export function prescrizione(
   es: EsercizioSeduta,
-  seduta: Pick<Seduta, 'fase' | 'cicloFase'>,
+  seduta: Pick<Seduta, 'fase' | 'cicloFase' | 'rigaTabella'>,
   test: Record<string, RisultatoTest>,
   impostazioni: Pick<Impostazioni, 'arrotondamento' | 'fattore_lavoro'>,
   correzione = 0,
@@ -110,7 +117,8 @@ export function prescrizione(
     return { serie: 1, rip, kg: t?.kg, modoTest: 'serie_unica', testo: `Serie unica a ${rip}RM: il peso più alto con cui riesci a fare ${rip} ripetizioni` };
   }
 
-  const [serie, rip] = serieRip(es.ruolo, seduta.fase, seduta.cicloFase, es);
+  const riga = rigaDi(seduta);
+  const [serie, rip] = serieRip(es.ruolo, seduta.fase, riga, es);
   const passo = impostazioni.arrotondamento;
 
   // Seconda riga ×12 e righe senza carico: kg a scelta dell'utente (più leggero del Target).
@@ -130,9 +138,10 @@ export function prescrizione(
       const kgPiano = rm1 ? arrotonda(rm1 * pct * (1 + correzione), passo) : undefined;
       return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, percentuale: pct, corrente, ereditatoDa };
     }
-    const n = scalaRM(es.ruolo, seduta.fase, seduta.cicloFase);
+    const n = scalaRM(es.ruolo, seduta.fase, riga);
     // Carico RM = fattore di lavoro × massimale stimato × (37−n)/36 (blocco2_giorno_B.md §3).
-    const fattore = impostazioni.fattore_lavoro ?? FATTORE_LAVORO_DEFAULT;
+    // Il contenitore può fissare il proprio fattore (Blocco 1 = 1, SPEC_PIANIFICATORE §4.2).
+    const fattore = es.fattore_lavoro ?? impostazioni.fattore_lavoro ?? FATTORE_LAVORO_DEFAULT;
     const kgPiano = rm1 ? caricoRM(rm1 * fattore * (1 + correzione), n, passo) : undefined;
     return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, scalaRM: n, corrente, ereditatoDa };
   }

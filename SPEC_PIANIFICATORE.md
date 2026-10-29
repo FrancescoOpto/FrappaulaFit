@@ -24,19 +24,19 @@ Fonti: `Libro` = Project Bodybuilding (note in `docs/note_elaborate/cap*.md`), `
 
 ## 1. Il ragionamento in una pagina [Mia decisione]
 Quando l'utente entra (primo avvio, reset dati, o "Cambia obiettivo") l'app decide **in questo ordine**:
-1. **Che obiettivo hai?** Massa · Mantenimento · Dimagrimento. **Per quanto tempo?** (settimane)
-2. **In che stato energetico sei?** Deficit · Calorie di mantenimento (TDEE) · Surplus. Di norma discende dall'obiettivo, ma l'utente può dichiarare di essere già in deficit. *L'energia decide cosa l'allenamento può ottenere*: nel deficit la sintesi proteica cala (−19 % con deficit del 20 %; −27 % con ~500 kcal per 5 giorni) e l'allenamento la riporta solo ai valori di riposo [Certo, Schoenfeld cap. 9]. Quindi **in deficit l'allenamento serve a mantenere il muscolo, non a costruirlo**.
+1. **Che obiettivo hai?** Massa · Mantenimento · Dimagrimento. **Per quanto tempo?** (cicli/settimane)
+2. **Stato energetico: non si chiede** [Utente, 29/10]. Discende dall'obiettivo (Massa = surplus, Mantenimento = calorie di mantenimento, Dimagrimento = deficit) e serve solo al calcolatore opzionale di §3 e alle regole del coach sul peso. Il principio resta il fondamento della Preservazione: in deficit la sintesi proteica cala (−19 % con deficit del 20 %; −27 % con ~500 kcal per 5 giorni) e l'allenamento la riporta solo ai valori di riposo [Certo, Schoenfeld cap. 9], quindi **in deficit l'allenamento serve a mantenere il muscolo**.
 3. **Cosa so già di te?** Carichi e massimali nel profilo (§7). Se ci sono, **nessun nuovo test** passando da un programma all'altro.
 4. L'app sceglie il **modulo** (§4) e costruisce la sequenza di **cicli** (§5–§6) per la durata richiesta, mostrando il "perché" in una riga.
 5. Ogni settimana il **coach** (§8) legge peso, carichi e sforzo e propone (non impone) aggiustamenti.
 
-| Obiettivo | Stato energetico | Modulo di allenamento |
+| Obiettivo | Energia (derivata) | Modulo di allenamento |
 |---|---|---|
 | Massa | surplus | **Ipertrofia con forza** (blocchi di riferimento, come oggi) |
 | Mantenimento | calorie di mantenimento | **Ipertrofia accorciata** (Test/rientro + Fase 1 + Fase 2 + Scarico), senza Fase 3 e senza tecniche avanzate |
 | Dimagrimento | deficit | **Preservazione** (§4.3): intensità alta, struttura e serie invariate, senza tecniche avanzate |
 
-**Blocco bloccante morbido:** se l'utente sceglie *Massa* ma dichiara *deficit* → avviso: "In deficit non si costruisce muscolo in modo efficace. Scegli: Mantenimento / Dimagrimento, oppure indica che sei in surplus." L'utente può ignorarlo (lo registriamo). Eccezione dal Libro: chi si allena da poco (principiante) può migliorare la composizione a calorie di mantenimento (ricomposizione) → per i principianti l'avviso è solo informativo. [Probabile]
+**Nessun avviso di coerenza obiettivo/energia** (campo rimosso). Chi si allena da poco può comunque migliorare la composizione a calorie di mantenimento (ricomposizione, Libro) [Probabile].
 
 ## 2. Dati da raccogliere (onboarding e Impostazioni)
 Esistenti: nome, sesso, N giorni/settimana (**default 4**), durata seduta, priorità, esclusioni, esperienza, preset. **Nuovi:**
@@ -85,10 +85,13 @@ Proteine ripartite su ≥ 4 pasti da 0,4–0,55 g/kg [Schoenfeld]. 4 kcal/g (P, 
 Un **modulo** è una funzione che, dati profilo, carichi e durata, produce la sequenza di sedute. **Regola d'oro: nessuna tabella nuova da mantenere.** Massa e Mantenimento usano i dati dei Blocchi esistenti; Preservazione è una **trasformazione** dei dati del Blocco 3.
 
 ### 4.1 Massa — Ipertrofia con forza
-Come oggi: Test → Fase 1 → Fase 2 → Scarico → Fase 3 (17 cicli), Blocchi 1, 2, 3 = Anno 1. Test a inizio di ogni blocco (come l'app di riferimento) **salvo** che l'utente arrivi da un altro modulo con carichi recenti (§7.4). Il coach **propone** soltanto; non riscrive le tabelle del blocco.
+Come oggi: Test → Fase 1 → Fase 2 → Scarico → Fase 3 (17 cicli per il blocco intero; con durate diverse si compone secondo §6b), Blocchi 1, 2, 3 = Anno 1. Test a inizio di ogni blocco (come l'app di riferimento) **salvo** che l'utente arrivi da un altro modulo con carichi recenti (§7.4). Il coach **propone** soltanto; non riscrive le tabelle del blocco.
 
-### 4.2 Mantenimento
-Sequenza: [Rientro o Test se serve] + Fase 1 + Fase 2 + Scarico (blocco accorciato già esistente, `nostraScelta`). Nessuna tecnica avanzata. Lunghezza adattata alla durata richiesta con la logica di `bloccoAccorciato`. [Ipotesi]
+### 4.2 Mantenimento [Utente, 29/10: base Blocchi 1 e 2]
+- **Base:** dati dei **Blocchi 1 e 2** (non il Blocco 3, che è il blocco di definizione: ebook 3 p.22). Sequenza: [Rientro o Test se serve] + Fase 1 + Fase 2 + Scarico, cioè circa 12 cicli (1 + 5 + 5 + 1) con la logica già esistente di `bloccoAccorciato`. Fase 3 assente. Quale dei due blocchi: il Blocco 1 per default, il Blocco 2 come alternativa selezionabile (gruppi per giorno diversi). [Ipotesi]
+- **Carichi:** Blocco 1 = RM di Brzycki sul massimale, **senza** fattore 0,9 (es. 1RM 100 → 9RM 78, 7RM 83,5, 11RM 72); Blocco 2 = con `fattore_lavoro` 0,9. Progressione a gradini come nei dati del blocco (ciclo 1=2; ciclo 3 +1 rip/serie; ciclo 4 +carico; ciclo 5 = 4).
+- **Tecniche avanzate (seconda riga ×12, rest-pause `1×40`/`1×10`, serie senza bilanciere):** esistono nei dati solo nel Blocco 3. Nel Mantenimento sono un'**opzione attivabile** `tecniche_avanzate` (default **off**) in Impostazioni → Allenamento. Se attiva, si applicano solo agli isolamenti e ai Target secondari, con le righe del Blocco 3 corrispondenti; mai ai fondamentali. [Ipotesi: prove deboli, Schoenfeld]
+- Lunghezza adattata alla durata richiesta con `bloccoAccorciato`. [Ipotesi]
 
 ### 4.3 Preservazione (Dimagrimento) [Libro Shred + Schoenfeld; v2]
 **Principio:** mantenere intensità e struttura, evitare fatica inutile. Non si taglia il volume a priori: in definizione il Libro tiene le serie settimanali per gruppo vicine a quelle delle altre fasi (tab. 10.21: petto 16,5, dorso 14,0, spalle 13,5, braccia 12,0, gambe 15,5) e abbassa invece fondamentali e novità [Certo, `cap10.md`]. Il −30–50 % del `Doc` non è adottato (fonte debole). Si ricava dai dati del blocco in corso (default **Blocco 3**):
@@ -144,6 +147,50 @@ Un **piano** è una lista ordinata di **tappe**: `{ modulo, obiettivo, cicli, en
 - **Cambio obiettivo in corso:** si applica al **confine di ciclo** (preferibilmente allo scarico). Se l'utente insiste a metà ciclo, chiedere conferma. Il primo ciclo del nuovo modulo è un **ciclo ponte** a carichi del profilo (livello "77 %", niente tecniche).
 - Le tappe già fatte e i carichi non si toccano; le sedute future si rigenerano (come `SPEC.md` §4.7).
 
+## 6b. Piano su misura per durata [Utente, 29/10] (estende §6)
+**Principio:** i blocchi di riferimento (Test → Fase 1 → Fase 2 → Scarico → Fase 3, 17 cicli) sono una **linea guida**, non un vincolo. I 17 cicli non sono una scelta nostra: vengono dall'app di riferimento (4+20+20+4+20 = 68 sedute). **La durata richiesta decide la struttura**; un piano può avere più di un blocco, o meno di un blocco intero. Le sedute sono sempre **4 per ciclo** (A–D) [Utente]. Il generatore **non inventa schemi serie×ripetizioni**: ricompone solo i mattoni validati dei blocchi (Test T, Fase 1 = F1 volume, Fase 2 = F2 ripetizioni, Scarico S, Fase 3 = F3 intensità), accorciandoli con la stessa regola dei gradini (ciclo 1 = ciclo 2; gradino al ciclo 3; gradino al ciclo 4; ciclo 5 = 4). Fase minima: F1 e F2 ≥ 2 cicli, F3 ≥ 3.
+
+### Massa: composizione per durata (R = cicli senza il Test; il Test dura 1 ciclo e si omette se i carichi sono nel profilo, §7.4)
+- **R ≤ 5:** solo F1 (troncata a R cicli); nessuno scarico.
+- **6 ≤ R ≤ 11:** F1 + F2 + S. Cicli di lavoro w = R−1; F1 = min(5, ⌈w/2⌉), F2 = w−F1. (Due stimoli diversi + scarico finale: è il caso "due mesi prima dell'estate" = D 8 → T F1×3 F2×3 S, oppure senza Test F1×4 F2×3 S.)
+- **12 ≤ R ≤ 16:** F1 + F2 + S + F3. w = R−1; F3 = min(5, max(3, ⌊w/3⌋)); r = w−F3; F1 = min(5, ⌈r/2⌉), F2 = r−F1. R=16 = blocco di riferimento intero (5·5·1·5).
+- **R ≥ 17:** blocco intero (16) + **scarico di chiusura** + **nuovo Test** + blocco successivo, con i dati dei Blocchi nell'ordine 1 → 2 → 3 → 1 [Utente: "dopo il Blocco 3 scarico, nuovo test, si riparte dal Blocco 1"]; l'ultimo blocco si accorcia con le regole sopra.
+- **Variazione:** a ogni cambio di fase il generatore cambia, come nei dati di riferimento, la maggior parte dei complementari con un **equivalente** della libreria (§14b, `LIBRERIA_ESERCIZI.md`); i fondamentali non cambiano. Nei piani con una sola fase, a metà fase i complementari possono ruotare su richiesta dell'utente.
+- Esempi verificati (T incluso): D=4 `T F1×3` · D=8 `T F1×3 F2×3 S` · D=12 `T F1×5 F2×5 S` · D=13 `T F1×4 F2×4 S F3×3` · D=17 `T F1×5 F2×5 S F3×5` · D=18 aggiunge `S` · D=20 `… S T B2 F1`.
+
+### Mantenimento
+Stessa composizione **senza F3**; dopo 11 cicli (F1×5 F2×5 S) si ripete con il blocco successivo (Blocco 1 → Blocco 2 → …) e un Test breve solo se il profilo carichi è vecchio (§7.4). Opzione `tecniche_avanzate` come §4.2.
+
+### Preservazione
+Invariata (§4.3–§4.4).
+
+### Interfaccia
+Nel passo "Durata" l'utente scrive i cicli (o le settimane): l'anteprima mostra la **composizione** ("5 volume · 4 ripetizioni · scarico"), il totale di sedute e la durata in calendario, con il "perché" in una riga. Dalla scheda "Piano" (§11b) si vedono già tutte le progressioni.
+
+### Parte aperta
+Il Blocco 3 è il blocco di definizione (ebook 3): nel modulo Massa, l'ordine 1 → 2 → 3 → 1 voluto dall'utente lo include. Il coach segnala una volta che i Target/tecniche del Blocco 3 sono pensati per il deficit. [Ipotesi]
+
+## 6c. Algoritmo di costruzione del programma [Utente, 29/10]
+Il pianificatore è una **funzione pura e deterministica** (stessi input → stesso piano, testabile) che attraversa questi passi nell'ordine e registra per ciascuno il "perché" in una riga:
+1. **Obiettivo + durata** (§1; l'energia ne discende, §3) → modulo (§4) e **struttura in fasi** (§6b).
+2. **Esperienza** (principiante < 1 anno · intermedio 1–3 · avanzato > 3): decide se serve il Test (i principianti possono partire dal carico di una serie di prova), il punto di partenza del volume (principiante: i valori bassi dell'intervallo) e il ritmo degli scarichi.
+3. **Intensità desiderata** (nuovo parametro, 3 livelli; vedi tabella). Modifica solo **serie, istruzione di sforzo, tecniche e scarichi**; **non tocca le percentuali di carico** dei dati validati.
+4. **Priorità muscolari** (0–2 gruppi): +1 serie ai loro Target e complementari (massimo 20 serie/settimana per gruppo, 12–20 per principianti ≤ 12) e posti **all'inizio della seduta** (Schoenfeld). Gli altri gruppi restano ai valori del blocco.
+5. **Tempo per seduta T** → scala di §4.7.
+6. **Libreria esercizi** (§14b): scelta degli esercizi per slot, esclusioni dell'utente, rotazione dei complementari a ogni fase.
+7. **Coach settimanale** (§8) che propone aggiustamenti leggendo carichi, sforzo e peso.
+
+| Intensità | Sforzo richiesto (RIR) | Serie rispetto al blocco | Tecniche (§4.2) | Scarico |
+|---|---|---|---|---|
+| **Moderata** | tutte le serie a 2–3 ripetizioni dal cedimento; nessun cedimento | −1 serie sui complementari (min 2), Target e fondamentali invariati | off | come il blocco |
+| **Standard** (default) | come i blocchi: 1–2 RIR, cedimento solo sull'ultima serie dei Target/isolamenti | invariate | off (opzione) | come il blocco |
+| **Alta** | come Standard, cedimento anche sull'ultima serie dei complementari; fondamentali mai a cedimento | invariate, +1 serie solo sui gruppi prioritari | on, solo isolamenti | anticipabile dal coach se i carichi calano (`trend_carichi`) |
+
+[Ipotesi] Le tre righe sono una **nostra costruzione** su criteri di Schoenfeld (sforzo 1–2 RIR con cedimento sull'ultima serie, 10–20 serie/settimana, più cura sui multiarticolari): l'app di riferimento mostra un solo profilo. Per questo la tabella cambia solo parametri documentati e mai i carichi. L'intensità vale per Massa e Mantenimento; in Preservazione agisce solo sulle istruzioni di sforzo (i fondamentali restano al 77/82 %).
+
+### Nuove domande in Setup (oltre a obiettivo e durata)
+Esperienza · Intensità desiderata · Priorità muscolari (opzionali) · Esercizi da escludere (elenco dalla libreria). Giorni a settimana: **sempre 4** [Utente]. Attrezzatura: **completa** [Utente]; resta l'elenco delle esclusioni.
+
 ## 7. Carichi: profilo persistente e ricalcolo [Certo: video "Gestione carichi" e SPEC §9.2b]
 ### 7.1 Profilo carichi (per esercizio, non per blocco)
 `profilo_carichi[esercizio_id] = { massimale_stimato? (solo fondamentali), carico_corrente, data, origine: 'test'|'manuale'|'ricalcolo' }`. `massimaleVigente(esercizio)` = ultimo valido. Lo storico dei blocchi resta per i confronti ma **non è più la fonte** per i moduli: tutti i moduli leggono il profilo.
@@ -189,7 +236,7 @@ Anno 1 = Blocchi 1–3 (dati completi). **Anno 2–3** dell'app di riferimento: 
 interface DatiCorporei { sesso: 'M'|'F'; eta: number; altezzaCm: number; pesoKg: number; bfPct?: number; passiGiorno: number; allenamentiSettimana: number; durataSedutaMin?: number; tdeeEmpirico?: number; }
 type StatoEnergetico = 'deficit' | 'mantenimento' | 'surplus';
 type Modulo = 'test'|'rientro'|'ipertrofia'|'mantenimento'|'preservazione'|'scarico';
-interface Tappa { modulo: Modulo; obiettivo: Obiettivo; cicli: number; energia: StatoEnergetico; ciclo77o82?: (77|82|'S')[]; }
+interface Tappa { modulo: Modulo; obiettivo: Obiettivo; cicli: number; energia: StatoEnergetico /* derivato dall'obiettivo, non chiesto */; ciclo77o82?: (77|82|'S')[]; }
 interface ObiettivoAttivo { tipo: Obiettivo; dal: string; kgTarget?: number; resistenza?: boolean; preferisciMacchine?: boolean; kcalTarget?: number; macro?: { p: number; g: number; c: number }; }
 interface CheckIn { data: string; pesoKg: number; vitaCm?: number; braccioCm?: number; cosciaCm?: number; }
 profilo_carichi: Record<string, { massimale?: number; caricoCorrente: number; data: string; origine: 'test'|'manuale'|'ricalcolo' }>;
@@ -260,6 +307,8 @@ Dati, motore, nomi delle voci del menu, flussi di Setup/Check-in/Energia (ricevo
 13. **Piano per esercizio:** per la panca del Blocco 3 mostra i carichi per ciclo coerenti con 77/82/87 % e le variazioni evidenziate.
 14. **Retrocompatibilità:** tutti i test esistenti (`blocco1–3`, `carichi`, `correnti`, `generatore`, `pianificatore`, `prescrizione`, `energia`) restano verdi, salvo quelli che codificavano regole sostituite dalla v2 (serie −1, sequenza con scarico al 5°, fattore 1,55): vanno **aggiornati, non cancellati**.
 
+**Piano su misura (§6b):** test su `componiMassa(R)` e `compongoPiano(D, test)`: R=3 → `F1×3`; R=7 → `F1×4 F2×3 S`; R=10 → `F1×5 F2×4 S`; R=11 → `F1×5 F2×5 S`; R=12 → `F1×4 F2×4 S F3×3`; R=16 → `F1×5 F2×5 S F3×5`; D=18 con Test → `T B1 F1×5 F2×5 S F3×5 S`; D=26 → secondo blocco (Blocco 2) con Test dopo lo scarico di chiusura. Somma dei cicli = D in tutti i casi. Mantenimento senza F3.
+
 ## 13. Parti aperte (non inventare)
 - Profilo e programma della moglie: spec separata (foto/screen in arrivo).
 - Testo delle note sugli aumenti forzati in Fase 3 e sulle tecniche (back-off) dell'app di riferimento; Anno 2–3; esistenza del Blocco 4.
@@ -277,6 +326,9 @@ Il codice della v1 esiste già (commit `d5983c2`): **applica la v2 come differen
 2. **Interfaccia:** barra "completate/totali", testate per modulo, anteprima e modalità prova, scheda "Piano", campo RIR nel test, stepper passi e allenamenti nel calcolatore.
 3. **Restyle** (§11c): ora applicabile. Prima token e componenti (`stile.css`, `comuni.tsx`), poi Percorso, poi Seduta, poi le altre schermate. Poi le icone (`IconaEsercizio`). Nessuna modifica a logica o dati; i test esistenti restano verdi.
 4. Verifica con test e con l'app aperta in un browser headless prima di dichiarare finito; riporta il totale di serie del Blocco 3 W1 prima e dopo la Preservazione.
+
+## 14b. Libreria esercizi
+Esercizi, classi (F fondamentale · T target · C complementare), tipo (libero/macchina/cavo) ed equivalenti sono in `LIBRERIA_ESERCIZI.md`. Code estende `esercizi.ts` con i campi `classe`, `tipo`, `equivalenti` (1–3 per esercizio), mantenendo gli id esistenti. I nomi non presenti in `esercizi.ts` si aggiungono; **nessuna immagine**.
 
 ## 15. Cosa NON fare
 Niente contacalorie né pasti; niente HIIT o cardio tracciato; niente tabelle nuove per la Preservazione; niente tagli di serie a priori nella Preservazione; niente back-off nei Blocchi 1–3; niente aumenti forzati finché non si vedono le note; niente dati inventati per Anno 2–3; niente testi copiati.

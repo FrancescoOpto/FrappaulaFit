@@ -23,7 +23,7 @@ import {
 } from '../../store/stato';
 import { Avviso, Badge, Testata, formatoKg } from '../componenti/comuni';
 import { Icona, IconaEsercizio } from '../componenti/IconaEsercizio';
-import { infoCiclo } from '../etichette';
+import { infoCiclo, sforzoPer } from '../etichette';
 import { aggiungiSecondi, attivo, avviaTimer, fermaTimer, formatoMMSS, rimanente, timer } from '../timer';
 import { vai } from '../router';
 
@@ -167,6 +167,7 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
           {s.cicloTipo === 'ponte' ? <span class="chip">ciclo ponte</span> : null}
           <span class="chip">recupero {recupero}″</span>
         </div>
+        {s.fase !== 'test' ? <p class="piccolo"><b>Sforzo:</b> {sforzoPer(es.ruolo, p.parametri.intensita, b.modulo)}</p> : null}
         {correzione ? <p class="piccolo">Carico corretto del {Math.round(correzione * 1000) / 10}% per ripetizioni mancate nei cicli precedenti (modificabile in Impostazioni → Test).</p> : null}
         {corrente && s.fase !== 'test' ? (
           <div class="riga spazio" style="flex-wrap:wrap;gap:8px">

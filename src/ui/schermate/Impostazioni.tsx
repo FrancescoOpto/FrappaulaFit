@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import type { CaricoModo, Classe, Esercizio, Gruppo, Obiettivo, ParametriGeneratore, Ruolo, TestMode } from '../../tipi';
+import type { CaricoModo, Classe, Esercizio, Gruppo, Intensita, Obiettivo, ParametriGeneratore, Ruolo, TestMode } from '../../tipi';
 import { CARICO_MODO, ESERCIZI, NOMI_GRUPPI, NOMI_RUOLI, ROTAZIONE_GUIDA, esercizio as trovaEsercizio } from '../../data/esercizi';
 import { RECUPERI_DEFAULT } from '../../data/tabelle';
 import { eserciziDaTestare, generaSettimana, primoCicloModificabile } from '../../motore/generatore';
@@ -30,17 +30,17 @@ import { accedi, configSync, erroreSync, esci, registrati, salvaConfigSync, sess
 import { Avviso, Scelte, Testata, formatoData } from '../componenti/comuni';
 import { Icona } from '../componenti/IconaEsercizio';
 import { Energia } from './Energia';
-import { NOMI_ENERGIA, NOMI_MODULO, NOMI_OBIETTIVO } from './Setup';
+import { DESCRIZIONE_INTENSITA, NOMI_INTENSITA, NOMI_MODULO, NOMI_OBIETTIVO } from './Setup';
 import { DURATA_DEFAULT } from '../../motore/energia';
-import { avvisoEnergia } from '../../motore/coach';
 import { ENERGIA_PER_OBIETTIVO, proponiPiano } from '../../motore/pianificatore';
-import type { ObiettivoAttivo, StatoEnergetico } from '../../tipi';
+import { descriviComposizione } from '../../motore/composizione';
+import type { ObiettivoAttivo } from '../../tipi';
 import { avviaTimer, chiediPermessoNotifiche, sbloccaAudio } from '../timer';
 import { vai } from '../router';
 
 const GRUPPI: Gruppo[] = ['petto', 'dorso', 'spalle', 'gambe', 'bicipiti', 'tricipiti', 'addome'];
 const RUOLI: Ruolo[] = ['R1', 'R2', 'R3', 'L', 'C', 'AB'];
-const CLASSI: Classe[] = ['spinta_orizzontale', 'spinta_inclinata', 'spinta_verticale', 'trazione_verticale', 'trazione_orizzontale', 'squat', 'cerniera_anca', 'hip_thrust', 'quadricipiti_isolamento', 'femorali_isolamento', 'bicipiti', 'tricipiti', 'spalle_laterali', 'spalle_posteriori', 'petto_isolamento', 'addome'];
+const CLASSI: Classe[] = ['spinta_orizzontale', 'spinta_inclinata', 'spinta_verticale', 'trazione_verticale', 'trazione_orizzontale', 'squat', 'cerniera_anca', 'hip_thrust', 'quadricipiti_isolamento', 'femorali_isolamento', 'bicipiti', 'tricipiti', 'spalle_laterali', 'spalle_posteriori', 'petto_isolamento', 'polpacci', 'addome'];
 
 function Sezione({ id, titolo, aperta, onToggle, children }: { id: string; titolo: string; aperta: boolean; onToggle: () => void; children: preact.ComponentChildren }) {
   return (
@@ -70,8 +70,15 @@ function Programma() {
   return (
     <div class="colonna" style="gap:14px">
       <p class="muto">Le modifiche valgono dal prossimo confine di ciclo: le sedute già fatte e i carichi restano.</p>
-      <div class="campo"><label>Sedute a settimana</label><Scelte valori={[2, 3, 4, 5]} valore={par.N} onCambia={(N) => setPar({ ...par, N })} /></div>
-      <div class="campo"><label>Minuti per seduta</label><Scelte valori={[45, 60, 75, 90]} valore={par.T} onCambia={(T) => setPar({ ...par, T })} /></div>
+      <div class="campo"><label>Sedute a settimana</label><Scelte valori={[2, 3, 4, 5]} valore={par.N} onCambia={(N) => setPar({ ...par, N })} /><p class="piccolo">Il programma dei video esiste a 4 giorni: con altri valori la struttura è generica (regole nostre).</p></div>
+      <div class="campo"><label>Minuti per seduta (tetto)</label><Scelte valori={[45, 60, 75, 90]} valore={par.T} onCambia={(T) => setPar({ ...par, T })} /></div>
+      <div class="campo">
+        <label>Intensità desiderata</label>
+        <Scelte valori={['moderata', 'standard', 'alta'] as Intensita[]} valore={par.intensita ?? 'standard'} onCambia={(intensita) => setPar({ ...par, intensita })} etichette={NOMI_INTENSITA} />
+        <p class="piccolo">{DESCRIZIONE_INTENSITA[par.intensita ?? 'standard']} I carichi non cambiano mai.</p>
+      </div>
+      <label class="riga spazio" style="padding:4px 0"><span class="cresce">Tecniche avanzate sui Blocchi 1–2<br /><span class="piccolo">Rest-pause 1×40 sull'ultimo isolamento di bicipiti e tricipiti e seconda riga ×12 sul primo Target, come nel Blocco 3; mai sui fondamentali. Spente di default (prove deboli); l'intensità "alta" le accende da sola.</span></span><input type="checkbox" checked={Boolean(par.tecniche_avanzate)} onChange={(e) => setPar({ ...par, tecniche_avanzate: (e.target as HTMLInputElement).checked })} /></label>
+      {p.obiettivoAttivo?.tipo === 'mantenimento' ? <div class="campo"><label>Blocco di riferimento (mantenimento)</label><Scelte valori={[1, 2] as const} valore={par.bloccoBase ?? 1} onCambia={(bloccoBase) => setPar({ ...par, bloccoBase })} etichette={{ 1: 'Blocco 1', 2: 'Blocco 2' }} /></div> : null}
       <div class="campo">
         <label>Gruppi prioritari (max 2)</label>
         <div class="scelte">
@@ -80,7 +87,6 @@ function Programma() {
           ))}
         </div>
       </div>
-      <div class="campo"><label>Blocco</label><Scelte valori={['completo', 'breve']} valore={par.bloccoBreve ? 'breve' : 'completo'} onCambia={(v) => setPar({ ...par, bloccoBreve: v === 'breve' })} etichette={{ completo: 'Completo · 17 cicli', breve: 'Breve · 12 cicli' }} /></div>
       <button type="button" class="bottone fantasma" onClick={() => setMostraEsclusi(!mostraEsclusi)}>Esercizi esclusi ({par.esclusi.length}) <Icona nome={mostraEsclusi ? 'su' : 'giu'} dimensione={18} /></button>
       {mostraEsclusi ? GRUPPI.map((g) => (
         <div class="colonna">
@@ -108,16 +114,16 @@ function CambioObiettivo() {
   const attuale = p.obiettivoAttivo;
   const [tipo, setTipo] = useState<Obiettivo>(attuale?.tipo ?? 'massa');
   const [settimane, setSettimane] = useState<number>(attuale?.settimane ?? DURATA_DEFAULT[attuale?.tipo ?? 'massa']);
-  const [energia, setEnergia] = useState<StatoEnergetico>(attuale?.energia ?? ENERGIA_PER_OBIETTIVO[attuale?.tipo ?? 'massa']);
   const [kgTarget, setKgTarget] = useState(attuale?.kgTarget ? String(attuale.kgTarget) : '');
   const [resistenza, setResistenza] = useState(attuale?.resistenza ?? false);
   const [macchine, setMacchine] = useState(attuale?.preferisciMacchine ?? false);
   const [esito, setEsito] = useState<string | null>(null);
   const [confermaSubito, setConfermaSubito] = useState(false);
-  const scegli = (o: Obiettivo) => { setTipo(o); setSettimane(DURATA_DEFAULT[o]); setEnergia(ENERGIA_PER_OBIETTIVO[o]); };
-  const avviso = avvisoEnergia(tipo, energia, p.parametri.esperienza);
-  const piano = proponiPiano({ obiettivo: tipo, settimane, N: p.parametri.N, energia, carichiRecenti: Object.keys(p.carichi ?? {}).length > 0 });
-  const nuovo = (): ObiettivoAttivo => ({ tipo, dal: new Date().toISOString(), settimane: Math.max(1, settimane), energia, kgTarget: parseFloat(kgTarget.replace(',', '.')) || undefined, resistenza: tipo === 'definizione' ? resistenza : undefined, preferisciMacchine: tipo === 'definizione' ? macchine : undefined, avvisoDeficitIgnorato: avviso ? true : undefined, kcalTarget: attuale?.kcalTarget });
+  const scegli = (o: Obiettivo) => { setTipo(o); setSettimane(DURATA_DEFAULT[o]); };
+  // L'energia discende dall'obiettivo (v2 §1): non si chiede.
+  const energia = ENERGIA_PER_OBIETTIVO[tipo];
+  const piano = proponiPiano({ obiettivo: tipo, settimane, N: p.parametri.N, carichiRecenti: Object.keys(p.carichi ?? {}).length > 0, bloccoBase: p.parametri.bloccoBase });
+  const nuovo = (): ObiettivoAttivo => ({ tipo, dal: new Date().toISOString(), settimane: Math.max(1, settimane), energia, kgTarget: parseFloat(kgTarget.replace(',', '.')) || undefined, resistenza: tipo === 'definizione' ? resistenza : undefined, preferisciMacchine: tipo === 'definizione' ? macchine : undefined, kcalTarget: attuale?.kcalTarget });
   const applica = async (quando: 'confine' | 'subito') => {
     const msg = await cambiaObiettivo(nuovo(), quando);
     setEsito(msg);
@@ -125,12 +131,10 @@ function CambioObiettivo() {
   };
   return (
     <div class="colonna" style="gap:12px">
-      {attuale ? <p class="muto">Obiettivo attuale: <b>{NOMI_OBIETTIVO[attuale.tipo]}</b> per {attuale.settimane} cicli, {NOMI_ENERGIA[attuale.energia].toLowerCase()}{b?.modulo ? ` · modulo ${NOMI_MODULO[b.modulo] ?? b.modulo}` : ''}.</p> : null}
+      {attuale ? <p class="muto">Obiettivo attuale: <b>{NOMI_OBIETTIVO[attuale.tipo]}</b> per {attuale.settimane} cicli{b?.modulo ? ` · modulo ${NOMI_MODULO[b.modulo] ?? b.modulo}` : ''}.</p> : null}
       {p.obiettivoInAttesa ? <Avviso tipo="info">Cambio in attesa: {NOMI_OBIETTIVO[p.obiettivoInAttesa.tipo]} dal prossimo confine di ciclo.</Avviso> : null}
       <div class="campo"><label>Obiettivo</label><Scelte valori={['massa', 'mantenimento', 'definizione'] as Obiettivo[]} valore={tipo} onCambia={scegli} etichette={NOMI_OBIETTIVO} /></div>
-      <div class="campo"><label>Settimane (cicli)</label><input type="number" inputMode="numeric" min="1" max="52" value={settimane} onInput={(e) => setSettimane(parseInt((e.target as HTMLInputElement).value, 10) || 0)} /></div>
-      <div class="campo"><label>Stato energetico</label><Scelte valori={['deficit', 'mantenimento', 'surplus'] as StatoEnergetico[]} valore={energia} onCambia={setEnergia} etichette={NOMI_ENERGIA} /></div>
-      {avviso ? <Avviso tipo={avviso.livello === 'info' ? 'info' : undefined}>{avviso.testo} <span class="piccolo">{avviso.perche}</span></Avviso> : null}
+      <div class="campo"><label>Cicli (≈ settimane)</label><input type="number" inputMode="numeric" min="1" max="60" value={settimane} onInput={(e) => setSettimane(parseInt((e.target as HTMLInputElement).value, 10) || 0)} /></div>
       {tipo === 'definizione' ? (
         <>
           <div class="campo"><label>Kg da perdere (facoltativo)</label><input type="number" inputMode="decimal" step="0.5" value={kgTarget} onInput={(e) => setKgTarget((e.target as HTMLInputElement).value)} placeholder="—" /></div>
@@ -140,7 +144,8 @@ function CambioObiettivo() {
       ) : null}
       {piano[0] ? (
         <div class="colonna" style="gap:4px">
-          {piano[0].tappe?.map((t) => <div class="riga spazio piccolo"><span><b>{NOMI_MODULO[t.modulo]}</b>{t.cicliPreservazione ? ` · ${t.cicliPreservazione.filter((c) => c === 'S').length} di scarico` : ''}</span><span>{t.cicli} cicli</span></div>)}
+          {piano[0].composizione ? <p><b>{descriviComposizione(piano[0].composizione)}</b></p> : null}
+          {piano[0].tappe?.map((t) => <div class="riga spazio piccolo"><span><b>{NOMI_MODULO[t.modulo]}</b>{t.cicliPreservazione ? ` · ${t.cicliPreservazione.filter((c) => c === 'S').length} di scarico` : ''}{t.bloccoRif ? ` · Blocco ${t.bloccoRif}` : ''}</span><span>{t.cicli} cicli</span></div>)}
           <p class="piccolo">{piano[0].perche}</p>
         </div>
       ) : null}

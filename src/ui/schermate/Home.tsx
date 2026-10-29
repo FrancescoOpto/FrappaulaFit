@@ -3,7 +3,7 @@ import type { Fase, Seduta } from '../../tipi';
 import { RIENTRO } from '../../data/tabelle';
 import { NOMI_GRUPPI } from '../../data/esercizi';
 import { blocco, profilo, prossimaSeduta, giorniDallUltimaSeduta, impostazioni, prescrizioneDi, stato } from '../../store/stato';
-import { durataStimata, minuti, serieRip } from '../../motore/prescrizione';
+import { durataStimata, minuti, rigaDi, serieRip } from '../../motore/prescrizione';
 import { Avviso, formatoData } from '../componenti/comuni';
 import { Icona } from '../componenti/IconaEsercizio';
 import { consigli } from '../consigli';
@@ -16,7 +16,7 @@ import { vai } from '../router';
 
 function durataSeduta(s: Seduta): number {
   if (s.fase === 'test') return 0;
-  return durataStimata(s.esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieRip(e.ruolo, s.fase as Exclude<Fase, 'test'>, s.cicloFase, e)[0], superserie: e.superserie })), impostazioni.value.recuperi);
+  return durataStimata(s.esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieRip(e.ruolo, s.fase as Exclude<Fase, 'test'>, rigaDi(s), e)[0], superserie: e.superserie })), impostazioni.value.recuperi);
 }
 
 function serieSeduta(s: Seduta): number {

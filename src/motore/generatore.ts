@@ -30,6 +30,8 @@ import {
 } from '../data/tabelle';
 import { durataStimata, minuti, serieRip } from './prescrizione';
 import { scalaPerTempo } from './preservazione';
+import { righeTabella } from './composizione';
+import type { SegmentoPiano } from '../tipi';
 
 // Generatore delle sedute (SPEC §4). Le sedute non sono fisse: escono dal contenitore + parametri.
 
@@ -96,7 +98,52 @@ function etichettaSlot(slot: Slot): string {
 }
 
 /** Genera una sessione dal contenitore: scelta esercizi, priorità, capacità in tempo. */
-function generaSessione(sessione: SessioneContenitore, parametri: ParametriGeneratore, profilo: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati' | 'fondamentali_promossi'> | undefined, recuperi: Record<Ruolo, number>, avvisi: string[], numeroBlocco: number, fisso = false): SessioneGenerata {
+/** Serie settimanali massime per gruppo con le priorità (SPEC_PIANIFICATORE §6c punto 4). */
+export const TETTO_SERIE_PRIORITA = 20;
+
+/**
+ * Intensità e priorità muscolari (SPEC_PIANIFICATORE v2 §6c punti 3–4): la priorità dà +1 serie ai Target e ai
+ * complementari del gruppo e lo porta all'inizio della seduta; "moderata" toglie 1 serie ai complementari (min 2).
+ * Nessuna modifica ai carichi. Addome, righe rest-pause e seconde righe restano com'erano.
+ */
+export function applicaIntensitaEPriorita(esercizi: EsercizioSeduta[], parametri: Pick<ParametriGeneratore, 'priorita' | 'intensita'>): void {
+  const intensita = parametri.intensita ?? 'standard';
+  for (const e of esercizi) {
+    if (e.ruolo === 'AB' || e.rest_pause || e.seconda_riga || e.senza_carico) continue;
+    const prioritario = parametri.priorita.includes(e.gruppo);
+    if (e.ruolo === 'C') {
+      let serie = e.serie ?? 3;
+      if (intensita === 'moderata') serie = Math.max(2, serie - 1);
+      if (prioritario) serie = Math.min(serie + 1, 5);
+      e.serie = serie;
+    } else if ((e.ruolo === 'R2' || e.ruolo === 'R3') && prioritario) {
+      e.serie_extra = 1;
+    }
+  }
+  if (parametri.priorita.length) {
+    // Gruppi prioritari all'inizio (ordine stabile tra i gruppi, l'addome resta in coda).
+    const peso = (e: EsercizioSeduta) => (e.ruolo === 'AB' ? 2 : parametri.priorita.includes(e.gruppo) ? 0 : 1);
+    esercizi.sort((a, b) => peso(a) - peso(b));
+  }
+}
+
+/** Tetto di 20 serie/settimana per i gruppi prioritari: toglie le serie extra oltre il tetto. */
+function limitaPriorita(sessioni: SessioneGenerata[], parametri: ParametriGeneratore): void {
+  for (const g of parametri.priorita) {
+    let guardia = 0;
+    while (guardia++ < 20) {
+      const vol = sessioni.reduce((a, s) => a + s.esercizi.filter((e) => e.gruppo === g).reduce((b, e) => b + serieBase(e), 0), 0);
+      if (vol <= TETTO_SERIE_PRIORITA) break;
+      const extra = sessioni.flatMap((s) => s.esercizi).find((e) => e.gruppo === g && e.serie_extra);
+      if (extra) { extra.serie_extra = undefined; continue; }
+      const c = [...sessioni.flatMap((s) => s.esercizi)].reverse().find((e) => e.gruppo === g && e.ruolo === 'C' && (e.serie ?? 3) > 3);
+      if (!c) break;
+      c.serie = (c.serie ?? 4) - 1;
+    }
+  }
+}
+
+function generaSessione(sessione: SessioneContenitore, parametri: ParametriGeneratore, profilo: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati' | 'fondamentali_promossi'> | undefined, recuperi: Record<Ruolo, number>, avvisi: string[], numeroBlocco: number, fisso = false, fattoreContenitore?: number): SessioneGenerata {
   const usati = new Set<string>();
   const esercizi: EsercizioSeduta[] = [];
   const promossi = profilo?.fondamentali_promossi ?? [];
@@ -127,16 +174,13 @@ function generaSessione(sessione: SessioneContenitore, parametri: ParametriGener
       serie_fisse: slot.rest_pause ? true : undefined,
       senza_carico: slot.seconda_riga ? true : undefined,
       seconda_riga: slot.seconda_riga,
+      fattore_lavoro: fattoreContenitore,
     });
   });
+  applicaIntensitaEPriorita(esercizi, parametri);
   if (fisso) {
     // Programma letto dai video: nessun taglio, solo l'avviso sulla durata (in generaSettimana).
     return { nome: sessione.nome, etichetta: sessione.etichetta, esercizi, durataS: durataStimata(esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieBase(e), superserie: e.superserie })), recuperi) };
-  }
-
-  // Priorità (SPEC §4.1 punto 3) [Ipotesi]: +1 serie ai complementari dei gruppi prioritari.
-  for (const e of esercizi) {
-    if (e.ruolo === 'C' && parametri.priorita.includes(e.gruppo) && e.serie) e.serie = Math.min(e.serie + 1, 4);
   }
 
   // Scala per tempo (SPEC_PIANIFICATORE v2 §4.7, sostituisce il riempimento di SPEC §4.4): T è un tetto.
@@ -175,7 +219,8 @@ export function generaSettimana(parametri: ParametriGeneratore, profilo?: Profil
   if (!contenitore.fisso && parametri.preset === 'uomo_base') avvisi.push(`Con ${parametri.N} sedute la struttura è generica (regole nostre): il programma letto dai video esiste solo a 4 giorni. [Da definire]`);
   const recuperi = profilo?.impostazioni?.recuperi ?? RECUPERI_DEFAULT;
 
-  const sessioni = contenitore.sessioni.map((s) => generaSessione(s, parametri, profilo, recuperi, avvisi, numeroBlocco, contenitore.fisso));
+  const sessioni = contenitore.sessioni.map((s) => generaSessione(s, parametri, profilo, recuperi, avvisi, numeroBlocco, contenitore.fisso, contenitore.fattore_lavoro));
+  limitaPriorita(sessioni, parametri);
 
   // Copertura dei sottogruppi (SPEC §4.3): prima rialza le serie di un C esistente che copre il sottogruppo
   // (nella seduta con più spazio), poi, se non c'è, aggiunge lo slot di riserva.
@@ -272,6 +317,13 @@ export function eserciziPerFase(sessione: SessioneGenerata, contenitoreSessione:
     if (fase === 'scarico' && e.tabella && e.ruolo !== 'C' && TABELLE[e.tabella].scarico.length === 0) continue;
 
     let base: EsercizioSeduta = { ...e };
+    if (faseVarianti && slot && !slot.varianti?.[faseVarianti] && e.ruolo === 'C' && !e.rest_pause && !contenitoreFisso(contenitoreSessione)) {
+      // Rotazione dei complementari a ogni fase con gli equivalenti della libreria (§6b, §14b) [Ipotesi]:
+      // Fase 2 → primo equivalente, Fase 3 → secondo (o il default: mai lo stesso tre fasi di seguito).
+      const eq = (ESERCIZI_PER_ID[e.esercizio_id]?.equivalenti ?? []).filter((id) => ESERCIZI_PER_ID[id] && ESERCIZI_PER_ID[id].gruppo === e.gruppo && !parametri.esclusi.includes(id) && !sessione.esercizi.some((x) => x.esercizio_id === id));
+      const scelta = faseVarianti === 'fase2' ? eq[0] : eq[1];
+      if (scelta) base = { ...base, esercizio_id: sostituzioni[scelta] ?? scelta, eredita_da: e.esercizio_id };
+    }
     if (faseVarianti && slot) {
       const v = slot.varianti?.[faseVarianti];
       if (v) {
@@ -298,7 +350,101 @@ export function eserciziPerFase(sessione: SessioneGenerata, contenitoreSessione:
     }
     out.push(base);
   }
+  if (fase !== 'test' && fase !== 'scarico' && (parametri.tecniche_avanzate || parametri.intensita === 'alta') && !haTecniche(contenitoreSessione)) applicaTecnicheAvanzate(out);
   return out;
+}
+
+function contenitoreFisso(cs: SessioneContenitore | undefined): boolean {
+  // I programmi dei video hanno le loro varianti per fase: nessuna rotazione automatica.
+  return Boolean(cs?.slot.some((x) => x.varianti));
+}
+
+function haTecniche(cs: SessioneContenitore | undefined): boolean {
+  return Boolean(cs?.slot.some((x) => x.rest_pause || x.seconda_riga));
+}
+
+/**
+ * Tecniche avanzate sui Blocchi 1–2 (SPEC_PIANIFICATORE v2 §4.2, opzione `tecniche_avanzate` o intensità "alta") [Ipotesi]:
+ * con le righe del Blocco 3 corrispondenti, solo su isolamenti e Target secondari, mai sui fondamentali.
+ * Ultimo isolamento di bicipiti e tricipiti → rest-pause 1×40 (carico del test a 14RM); primo Target della seduta → seconda riga ×12.
+ */
+export function applicaTecnicheAvanzate(out: EsercizioSeduta[]): void {
+  for (const g of ['bicipiti', 'tricipiti'] as const) {
+    const ultimo = [...out].reverse().find((e) => e.gruppo === g && e.ruolo === 'C' && ESERCIZI_PER_ID[e.esercizio_id]?.tipo === 'isolamento' && !e.rest_pause);
+    if (ultimo) Object.assign(ultimo, { serie: 1, rip: 40, rest_pause: 'totale', serie_fisse: true });
+  }
+  const target = out.find((e) => e.ruolo === 'R2' && !e.seconda_riga);
+  if (target && !out.some((e) => e.seconda_riga && e.esercizio_id === target.esercizio_id)) {
+    const i = out.indexOf(target);
+    out.splice(i + 1, 0, { slot: -(500 + target.slot), esercizio_id: target.esercizio_id, ruolo: 'R3', gruppo: target.gruppo, tabella: 'B3_X12', seconda_riga: true, senza_carico: true });
+  }
+}
+
+/**
+ * Sedute di un piano su misura (§6b): per ogni segmento usa i dati del suo blocco di riferimento e la riga
+ * di tabella della regola dei gradini. Numerazione continua di sedute e cicli; le sedute "Test" tra un blocco e
+ * l'altro ritestano gli esercizi del blocco che inizia.
+ */
+export function generaSeduteComposte(parametri: ParametriGeneratore, profilo: ProfiloGen | undefined, composizione: SegmentoPiano[], bloccoId: string): { sedute: Seduta[]; avvisi: string[]; contenitori: string[] } {
+  const settimane = new Map<number, RisultatoGenerazione>();
+  const settimanaDi = (n: number) => {
+    let w = settimane.get(n);
+    if (!w) {
+      w = generaSettimana(parametri, profilo, n);
+      settimane.set(n, w);
+    }
+    return w;
+  };
+  const sedute: Seduta[] = [];
+  let numero = 0;
+  let ciclo = 0;
+  const contaFase: Partial<Record<Fase, number>> = {};
+  for (const seg of composizione) {
+    const w = settimanaDi(seg.bloccoRif);
+    const righe = seg.fase === 'test' ? [1] : righeTabella(seg.cicli);
+    for (let i = 0; i < seg.cicli; i++) {
+      ciclo++;
+      for (let g = 0; g < parametri.N; g++) {
+        numero++;
+        contaFase[seg.fase] = (contaFase[seg.fase] ?? 0) + 1;
+        const s = w.sessioni[g];
+        sedute.push({
+          id: `${bloccoId}-${numero}`,
+          numero,
+          fase: seg.fase,
+          ciclo,
+          cicloFase: i + 1,
+          rigaTabella: seg.fase === 'test' ? undefined : righe[Math.min(i, righe.length - 1)],
+          bloccoRif: seg.bloccoRif,
+          giorno: g + 1,
+          nome: nomeSeduta(seg.fase, contaFase[seg.fase]!),
+          etichetta: `${s.nome} · ${s.etichetta}`,
+          stato: 'futura',
+          esercizi: eserciziPerFase(s, w.contenitore.sessioni[g], seg.fase, parametri, profilo?.sostituzioni ?? {}),
+        });
+      }
+    }
+  }
+  const avvisi = [...new Set([...settimane.values()].flatMap((w) => w.avvisi))];
+  return { sedute, avvisi, contenitori: [...settimane.values()].map((w) => w.contenitore.id) };
+}
+
+/** Blocco (programma) da una composizione per durata (§6b). */
+export function nuovoBloccoComposto(parametri: ParametriGeneratore, profilo: ProfiloGen, composizione: SegmentoPiano[], numero = 1): Blocco {
+  const id = `b${numero}-${Date.now().toString(36)}`;
+  const r = generaSeduteComposte(parametri, profilo, composizione, id);
+  return {
+    id,
+    numero,
+    stato: r.sedute[0]?.fase === 'test' ? 'test' : 'in_corso',
+    contenitore_id: r.contenitori[0] ?? '',
+    sedute: r.sedute,
+    test: {},
+    correzioni: {},
+    parametri: { ...parametri, priorita: [...parametri.priorita], esclusi: [...parametri.esclusi] },
+    creato: new Date().toISOString(),
+    composizione,
+  };
 }
 
 function nomeSeduta(fase: Fase, numeroNellaFase: number): string {
@@ -368,6 +514,13 @@ export function primoCicloModificabile(blocco: Blocco): number {
  */
 export function rigeneraSeduteFuture(blocco: Blocco, nuovi: ParametriGeneratore, profilo: ProfiloGen): Blocco {
   const daCiclo = primoCicloModificabile(blocco);
+  if (blocco.composizione) {
+    // Piano su misura: si rigenera tutto dalla composizione e si tengono le sedute dei cicli già toccati.
+    const tutte = generaSeduteComposte(nuovi, profilo, blocco.composizione, blocco.id).sedute;
+    const conservate = blocco.sedute.filter((s) => s.ciclo < daCiclo);
+    const nuove = tutte.filter((s) => s.ciclo >= daCiclo).map((s, i) => ({ ...s, numero: conservate.length + i + 1, id: `${blocco.id}-${conservate.length + i + 1}`, modulo: blocco.sedute.find((x) => x.ciclo === s.ciclo)?.modulo ?? s.modulo }));
+    return { ...blocco, sedute: [...conservate, ...nuove], parametri: { ...nuovi }, parametriInAttesa: undefined };
+  }
   const settimana = generaSettimana(nuovi, profilo, blocco.numero);
   const cicli = cicliDelBlocco(nuovi.bloccoBreve).filter((c) => c.ciclo >= daCiclo);
   const conservate = blocco.sedute.filter((s) => s.ciclo < daCiclo);

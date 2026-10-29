@@ -76,4 +76,7 @@ export const BLOCCO1_4G: Contenitore = {
   descrizione: 'Struttura del Blocco 1 letta dai video: panca (A) e squat (B) con la seconda esposizione leggera in C e D, stacco in D; varianti dei complementari per fase.',
   sessioni: [GIORNO_A, GIORNO_B, GIORNO_C, GIORNO_D],
   fisso: true,
+  // SPEC_PIANIFICATORE v2 §4.2: nel Blocco 1 i carichi RM sono Brzycki sul massimale senza il fattore 0,9
+  // (1RM 100 → 9RM 78, 7RM 83,5, 11RM 72). Il 0,9 è verificato solo sul Blocco 2. [Utente]
+  fattore_lavoro: 1,
 };

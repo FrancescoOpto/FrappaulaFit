@@ -1,6 +1,7 @@
 import type { Blocco, CaricoProfilo, CicloPreservazione, Fase, ObiettivoAttivo, ParametriGeneratore, Profilo, RisultatoTest, Seduta, Tappa } from '../tipi';
 import { contenitorePer } from '../data/contenitori';
-import { eserciziPerFase, generaSettimana, nuovoBlocco, primoCicloModificabile, type ProfiloGen } from './generatore';
+import { eserciziPerFase, generaSettimana, nuovoBlocco, nuovoBloccoComposto, primoCicloModificabile, type ProfiloGen } from './generatore';
+import { compongoPiano } from './composizione';
 import { faseDelCiclo, sequenzaPreservazione, trasformaPreservazione } from './preservazione';
 import { ENERGIA_PER_OBIETTIVO } from './pianificatore';
 import { RECUPERI_DEFAULT } from '../data/tabelle';
@@ -98,11 +99,26 @@ export function nuovoBloccoPreservazione(parametri: ParametriGeneratore, profilo
   };
 }
 
-/** Blocco di massa o mantenimento, con o senza test; il primo ciclo di lavoro può essere marcato "ponte". */
-export function nuovoBloccoIpertrofia(parametri: ParametriGeneratore, profilo: ProfiloModulo, obiettivo: 'massa' | 'mantenimento', conTest: boolean, numero: number, ponte = false): Blocco {
+/**
+ * Blocco di massa o mantenimento, con o senza test; il primo ciclo di lavoro può essere marcato "ponte".
+ * Con `cicli` (durata richiesta, Test incluso) il programma è composto su misura (SPEC_PIANIFICATORE v2 §6b);
+ * senza, resta il blocco di riferimento intero (o breve) come prima.
+ */
+export function nuovoBloccoIpertrofia(parametri: ParametriGeneratore, profilo: ProfiloModulo, obiettivo: 'massa' | 'mantenimento', conTest: boolean, numero: number, ponte = false, cicli?: number): Blocco {
+  const energia = profilo.obiettivoAttivo?.energia ?? ENERGIA_PER_OBIETTIVO[obiettivo];
+  if (cicli && cicli > 0) {
+    const comp = compongoPiano(cicli, conTest, obiettivo, obiettivo === 'mantenimento' ? parametri.bloccoBase ?? 1 : 1);
+    const b = nuovoBloccoComposto(parametri, profilo, comp, numero);
+    let sedute = b.sedute.map((s) => ({ ...s, modulo: (s.fase === 'test' ? 'test' : s.fase === 'scarico' ? 'scarico' : obiettivo === 'mantenimento' ? 'mantenimento' : 'ipertrofia') as Seduta['modulo'] }));
+    if (ponte) {
+      const primo = sedute.find((s) => s.fase !== 'test')?.ciclo;
+      sedute = sedute.map((s) => (s.ciclo === primo ? { ...s, cicloTipo: 'ponte' } : s));
+    }
+    const tappe: Tappa[] = comp.map((s) => ({ modulo: s.fase === 'test' ? 'test' : s.fase === 'scarico' ? 'scarico' : obiettivo === 'mantenimento' ? 'mantenimento' : 'ipertrofia', obiettivo, cicli: s.cicli, energia, fase: s.fase, bloccoRif: s.bloccoRif }));
+    return { ...b, sedute, stato: sedute[0]?.fase === 'test' ? 'test' : 'in_corso', test: conTest ? {} : testDalProfilo(profilo.carichi), modulo: obiettivo === 'mantenimento' ? 'mantenimento' : 'ipertrofia', tappe };
+  }
   const par = { ...parametri, bloccoBreve: obiettivo === 'mantenimento' ? true : parametri.bloccoBreve };
   const b = nuovoBlocco(par, profilo, numero);
-  const energia = profilo.obiettivoAttivo?.energia ?? ENERGIA_PER_OBIETTIVO[obiettivo];
   let sedute = b.sedute.map((s) => ({ ...s, modulo: (s.fase === 'test' ? 'test' : s.fase === 'scarico' ? 'scarico' : obiettivo === 'mantenimento' ? 'mantenimento' : 'ipertrofia') as Seduta['modulo'] }));
   if (!conTest) {
     sedute = sedute.filter((s) => s.fase !== 'test').map((s, i) => ({ ...s, numero: i + 1, id: `${b.id}-${i + 1}`, ciclo: s.ciclo - 1 }));
@@ -143,8 +159,8 @@ export function cambiaObiettivo(blocco: Blocco, profilo: ProfiloModulo, obiettiv
   if (obiettivo.tipo === 'definizione') {
     nuovo = nuovoBloccoPreservazione(parametri, profiloConObiettivo, obiettivo.settimane, !Object.keys(carichi).length, numero, true);
   } else {
-    const bloccoNuovo = nuovoBloccoIpertrofia(parametri, profiloConObiettivo, obiettivo.tipo, false, numero, true);
-    nuovo = serveTest(bloccoNuovo, carichi) && !carichiRecenti(carichi) ? nuovoBloccoIpertrofia(parametri, profiloConObiettivo, obiettivo.tipo, true, numero, false) : bloccoNuovo;
+    const bloccoNuovo = nuovoBloccoIpertrofia(parametri, profiloConObiettivo, obiettivo.tipo, false, numero, true, obiettivo.settimane);
+    nuovo = serveTest(bloccoNuovo, carichi) && !carichiRecenti(carichi) ? nuovoBloccoIpertrofia(parametri, profiloConObiettivo, obiettivo.tipo, true, numero, false, obiettivo.settimane) : bloccoNuovo;
   }
   return {
     chiuso,

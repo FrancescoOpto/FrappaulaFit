@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import type { EsercizioSeduta, Fase, Gruppo, RegistroEsercizio, Seduta as TSeduta, SerieRegistrata } from '../../tipi';
 import { CARICO_MODO, NOMI_GRUPPI, esercizio as trovaEsercizio } from '../../data/esercizi';
 import { alternative } from '../../motore/generatore';
-import { durataStimata, minuti, prescrizione, serieRip } from '../../motore/prescrizione';
+import { durataStimata, minuti, prescrizione, rigaDi, serieRip } from '../../motore/prescrizione';
 import { percentualeRM, stimaMassimale } from '../../motore/carichi';
 import {
   aggiornaSerie,
@@ -386,7 +386,7 @@ export function Seduta({ id }: { id: string }) {
     return Boolean(r && r.serie.filter((x) => !x.stripping).every((x) => x.fatta));
   };
   const fatte = s.esercizi.filter(esercizioCompleto).length;
-  const durata = s.fase === 'test' ? 0 : durataStimata(s.esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieRip(e.ruolo, s.fase as Exclude<Fase, 'test'>, s.cicloFase, e)[0], superserie: e.superserie })), impostazioni.value.recuperi);
+  const durata = s.fase === 'test' ? 0 : durataStimata(s.esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieRip(e.ruolo, s.fase as Exclude<Fase, 'test'>, rigaDi(s), e)[0], superserie: e.superserie })), impostazioni.value.recuperi);
   const testMancanti = s.fase === 'test' ? s.esercizi.filter((e) => !b.test[e.esercizio_id]).length : 0;
   const testFatti = s.esercizi.length - testMancanti;
   const tuttiTestDelBlocco = b.sedute.filter((x) => x.fase === 'test').every((x) => x.stato === 'completata' || x.id === s.id);

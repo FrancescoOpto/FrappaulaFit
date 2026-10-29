@@ -204,7 +204,7 @@ export function Progressi({ esercizioId, scheda }: { esercizioId?: string; sched
           const arr = m.get(es.esercizio_id) ?? [];
           arr.push({
             data: s.data ?? reg.iniziata,
-            etichetta: `B${bl.numero} ${NOMI_FASI[s.fase]} c${s.cicloFase}`,
+            etichetta: `B${s.bloccoRif ?? bl.numero} ${NOMI_FASI[s.fase]} c${s.cicloFase}`,
             kg,
             rip,
             volume: Math.round(vol),

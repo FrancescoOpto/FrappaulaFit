@@ -111,8 +111,16 @@ export async function azzeraTutto(): Promise<void> {
 function bloccoPerObiettivo(p: Profilo, numero: number, conTest: boolean, ponte = false): Blocco {
   const ob = p.obiettivoAttivo;
   if (ob?.tipo === 'definizione') return nuovoBloccoPreservazione(p.parametri, p, ob.settimane, conTest, numero, ponte);
-  if (ob?.tipo === 'mantenimento') return nuovoBloccoIpertrofia(p.parametri, p, 'mantenimento', conTest, numero, ponte);
-  return nuovoBloccoIpertrofia(p.parametri, p, 'massa', conTest, numero, ponte);
+  // Massa e Mantenimento: piano su misura per la durata richiesta (SPEC_PIANIFICATORE v2 §6b).
+  if (ob?.tipo === 'mantenimento') return nuovoBloccoIpertrofia(p.parametri, p, 'mantenimento', conTest, numero, ponte, ob.settimane);
+  return nuovoBloccoIpertrofia(p.parametri, p, 'massa', conTest, numero, ponte, ob?.settimane);
+}
+
+/** Stato del blocco dalle sedute: "test" se la prossima seduta è di test (anche a metà piano), "completato" se sono tutte fatte. */
+export function statoBlocco(sedute: Seduta[]): Blocco['stato'] {
+  const prossima = sedute.find((s) => s.stato !== 'completata');
+  if (!prossima) return 'completato';
+  return prossima.fase === 'test' ? 'test' : 'in_corso';
 }
 
 export async function creaProfilo(nome: string, sesso: 'M' | 'F', parametri: ParametriGeneratore, obiettivo: Obiettivo | ObiettivoAttivo = 'massa', datiCorporei?: DatiCorporei): Promise<void> {
@@ -362,7 +370,7 @@ export function caricoCorrenteDi(e: Pick<EsercizioSeduta, 'esercizio_id' | 'seco
 }
 
 /** Prescrizione completa di un esercizio in una seduta: test, correzioni, promozioni e carico corrente. */
-export function prescrizioneDi(e: EsercizioSeduta, s: Pick<Seduta, 'fase' | 'cicloFase'>) {
+export function prescrizioneDi(e: EsercizioSeduta, s: Pick<Seduta, 'fase' | 'cicloFase' | 'rigaTabella'>) {
   const b = stato.value.blocco!;
   const p = stato.value.profilo!;
   return prescrizione(e, s, b.test, impostazioniDi(p), b.correzioni[e.esercizio_id] ?? 0, p.fondamentali_promossi ?? [], b.carichiCorrenti?.[chiaveCorrente(e)]);
@@ -554,11 +562,8 @@ export async function completaSeduta(id: string): Promise<void> {
     }
   }
   const sedute = b.sedute.map((x) => (x.id === id ? { ...x, stato: 'completata' as const, data: x.data ?? new Date().toISOString() } : x));
-  const tutteTestFatte = sedute.filter((x) => x.fase === 'test').every((x) => x.stato === 'completata');
-  const tutteFatte = sedute.every((x) => x.stato === 'completata');
-  const statoBlocco: Blocco['stato'] = tutteFatte ? 'completato' : tutteTestFatte ? 'in_corso' : 'test';
   const registro = reg ? { ...stato.value.registro, [id]: { ...reg, completata: new Date().toISOString() } } : stato.value.registro;
-  await aggiorna({ blocco: { ...b, sedute, correzioni, stato: statoBlocco }, registro }, ['blocco', 'registro']);
+  await aggiorna({ blocco: { ...b, sedute, correzioni, stato: statoBlocco(sedute) }, registro }, ['blocco', 'registro']);
   // Cambio di obiettivo in attesa: si applica appena il ciclo è completo (SPEC_PIANIFICATORE §6).
   const p = stato.value.profilo;
   const cicloCompleto = sedute.filter((x) => x.ciclo === s.ciclo).every((x) => x.stato === 'completata');
@@ -585,11 +590,10 @@ export async function annullaSeduta(id: string): Promise<void> {
   delete registro[id];
   const snap = reg?.snapshot;
   const sedute = b.sedute.map((x) => (x.id === id ? { ...x, stato: 'futura' as const, data: undefined } : x));
-  const tutteTestFatte = sedute.filter((x) => x.fase === 'test').every((x) => x.stato === 'completata');
   const bloccoNuovo: Blocco = {
     ...b,
     sedute,
-    stato: tutteTestFatte ? 'in_corso' : 'test',
+    stato: statoBlocco(sedute),
     carichiCorrenti: snap ? snap.carichiCorrenti : b.carichiCorrenti,
     test: snap ? snap.test : b.test,
     correzioni: snap ? snap.correzioni : b.correzioni,
@@ -627,8 +631,7 @@ export async function azzeraDatiProva(): Promise<void> {
     delete registro[x.id];
     return { ...x, stato: 'futura' as const, data: undefined };
   });
-  const tutteTestFatte = sedute.filter((x) => x.fase === 'test').every((x) => x.stato === 'completata');
-  const bloccoNuovo: Blocco = { ...b, sedute, test, carichiCorrenti: {}, correzioni: {}, note: [], stato: tutteTestFatte ? 'in_corso' : 'test' };
+  const bloccoNuovo: Blocco = { ...b, sedute, test, carichiCorrenti: {}, correzioni: {}, note: [], stato: statoBlocco(sedute) };
   await aggiorna({ blocco: bloccoNuovo, registro, profilo: { ...p, carichi } }, ['blocco', 'registro', 'profilo']);
 }
 
@@ -637,7 +640,7 @@ export async function riapriSeduta(id: string): Promise<void> {
   const b = stato.value.blocco;
   if (!b) return;
   const sedute = b.sedute.map((x) => (x.id === id ? { ...x, stato: 'in_corso' as const } : x));
-  await aggiorna({ blocco: { ...b, sedute, stato: b.stato === 'completato' ? 'in_corso' : b.stato } }, ['blocco']);
+  await aggiorna({ blocco: { ...b, sedute, stato: statoBlocco(sedute) } }, ['blocco']);
 }
 
 // ---------- Check-in ----------

@@ -1,5 +1,6 @@
-import type { Fase, Obiettivo, OpzionePiano, StatoEnergetico, Tappa } from '../tipi';
+import type { Fase, Obiettivo, OpzionePiano, SegmentoPiano, StatoEnergetico, Tappa } from '../tipi';
 import { sequenzaPreservazione } from './preservazione';
+import { compongoPiano } from './composizione';
 import { FASI_BLOCCO } from '../data/tabelle';
 
 // Pianificatore a obiettivo (SPEC §15) [Ipotesi]: dalle settimane disponibili propone combinazioni di blocchi.
@@ -87,7 +88,39 @@ export interface RichiestaPiano {
   N: number;
   /** L'utente ha carichi recenti nel profilo: il test iniziale si può saltare. */
   carichiRecenti?: boolean;
+  /** Derivata dall'obiettivo (v2 §1); si può forzare solo per i calcoli. */
   energia?: StatoEnergetico;
+  /** Mantenimento: blocco di riferimento di partenza (1 default, 2 alternativa). */
+  bloccoBase?: 1 | 2;
+}
+
+/** Tappe di un piano composto (§6b): una per segmento, con fase e blocco di riferimento. */
+export function tappeDaComposizione(comp: SegmentoPiano[], obiettivo: Obiettivo, energia: StatoEnergetico): Tappa[] {
+  return comp.map((s) => ({
+    modulo: s.fase === 'test' ? 'test' : s.fase === 'scarico' ? 'scarico' : obiettivo === 'mantenimento' ? 'mantenimento' : 'ipertrofia',
+    obiettivo,
+    cicli: s.cicli,
+    energia,
+    fase: s.fase,
+    bloccoRif: s.bloccoRif,
+  }));
+}
+
+const NOME_FASE_BREVE: Record<string, string> = { fase1: 'volume (Fase 1)', fase2: 'ripetizioni (Fase 2)', fase3: 'intensità (Fase 3)' };
+
+function percheComposizione(comp: SegmentoPiano[], obiettivo: Obiettivo, conTest: boolean): string {
+  const lavoro = comp.filter((s) => s.fase !== 'test' && s.fase !== 'scarico');
+  const fasi = [...new Set(lavoro.map((s) => s.fase))].map((f) => NOME_FASE_BREVE[f]).join(', ');
+  const blocchi = [...new Set(comp.map((s) => s.bloccoRif))];
+  const parti: string[] = [];
+  parti.push(`${lavoro.length === 1 ? 'Una sola fase' : `Fasi: ${fasi}`}, con i mattoni del Blocco ${blocchi.join(' poi del Blocco ')}.`);
+  const scarichi = comp.filter((s) => s.fase === 'scarico').length;
+  if (!scarichi) parti.push('Sotto i 6 cicli non c’è scarico: non serve.');
+  else if (comp[comp.length - 1].fase === 'scarico') parti.push(scarichi > 1 ? 'Scarico tra le fasi e in chiusura.' : 'Scarico in chiusura.');
+  else parti.push(scarichi > 1 ? 'Scarico tra la Fase 2 e la Fase 3 e tra un blocco e l’altro.' : 'Scarico tra la Fase 2 e la Fase 3, come nel blocco di riferimento.');
+  parti.push(conTest ? 'Prima una settimana di test per i carichi.' : 'Nessun nuovo test: si usano i carichi del profilo.');
+  if (obiettivo === 'mantenimento') parti.push('Senza Fase 3 né tecniche avanzate: a calorie di mantenimento basta per conservare.');
+  return parti.join(' ');
 }
 
 /** Propone i piani per obiettivo e durata (in cicli). Ogni opzione ha il "perché" e la lista di tappe. */
@@ -111,27 +144,34 @@ export function proponiPiano(r: RichiestaPiano): OpzionePiano[] {
     }];
   }
   if (r.obiettivo === 'mantenimento') {
-    const cicli = bloccoAccorciato(Math.max(6, Math.round(r.settimane)));
-    const c = cicli ?? { test: 1, fase1: 2, fase2: 2, scarico: 1 };
-    if (!conTest) delete c.test;
-    const tot = Object.values(c).reduce((a, b) => a + (b ?? 0), 0);
+    const D = Math.max(1, Math.round(r.settimane));
+    const comp = compongoPiano(D, conTest, 'mantenimento', r.bloccoBase ?? 1);
+    const c: Partial<Record<Fase, number>> = {};
+    for (const s of comp) c[s.fase] = (c[s.fase] ?? 0) + s.cicli;
     return [{
       id: 'mantenimento',
-      titolo: `Mantenimento · ${tot} cicli`,
-      settimane: tot,
-      blocchi: [{ numero: 1, cicli: c }],
+      titolo: `Mantenimento · ${D} ${D === 1 ? 'ciclo' : 'cicli'}`,
+      settimane: D,
+      blocchi: [{ numero: r.bloccoBase ?? 1, cicli: c }],
       nostraScelta: true,
-      perche: 'Blocco accorciato: Fase 1 e Fase 2 con scarico, senza il picco di forza della Fase 3 né tecniche avanzate. A calorie di mantenimento basta per conservare e consolidare.',
-      tappe: tappeDaCicli(c, r.obiettivo, energia, conTest),
+      perche: percheComposizione(comp, 'mantenimento', conTest),
+      tappe: tappeDaComposizione(comp, 'mantenimento', energia),
+      composizione: comp,
     }];
   }
-  // Massa: blocchi completi (+ accorciato), come opzioniPiano.
-  const inizio = new Date();
-  const fine = new Date(inizio.getTime() + Math.round(r.settimane) * 7 * 86_400_000);
-  return opzioniPiano(inizio, fine).map((o) => ({
-    ...o,
-    tappe: o.blocchi.flatMap((b) => tappeDaCicli(b.cicli, r.obiettivo, energia, conTest || b.numero > 1)),
-  }));
+  // Massa: piano su misura per durata (§6b).
+  const D = Math.max(1, Math.round(r.settimane));
+  const comp = compongoPiano(D, conTest, 'massa', 1);
+  return [{
+    id: 'massa',
+    titolo: `Massa · ${D} ${D === 1 ? 'ciclo' : 'cicli'}`,
+    settimane: D,
+    blocchi: [],
+    nostraScelta: false,
+    perche: percheComposizione(comp, 'massa', conTest),
+    tappe: tappeDaComposizione(comp, 'massa', energia),
+    composizione: comp,
+  }];
 }
 
 /** Durata in calendario di un piano: cicli × N sedute / sedute effettive a settimana, in settimane. */

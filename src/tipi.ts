@@ -28,6 +28,7 @@ export type Classe =
   | 'spalle_laterali'
   | 'spalle_posteriori'
   | 'petto_isolamento'
+  | 'polpacci'
   | 'addome';
 
 /** Ruolo dello slot (SPEC §4.3): decide tabella serie×rip e scala RM. */
@@ -50,6 +51,14 @@ export type Obiettivo = 'massa' | 'mantenimento' | 'definizione';
 export type StatoEnergetico = 'deficit' | 'mantenimento' | 'surplus';
 export type Attivita = 'sedentario' | 'leggero' | 'moderato' | 'alto';
 export type Modulo = 'test' | 'rientro' | 'ipertrofia' | 'mantenimento' | 'preservazione' | 'scarico';
+/** Intensità desiderata (SPEC_PIANIFICATORE v2 §6c): cambia serie, sforzo, tecniche e scarichi, mai i carichi. */
+export type Intensita = 'moderata' | 'standard' | 'alta';
+/** Segmento del piano su misura (§6b): una fase per n cicli sui dati del blocco di riferimento indicato. */
+export interface SegmentoPiano {
+  fase: FaseLavoro | 'test';
+  cicli: number;
+  bloccoRif: number;
+}
 /** Ciclo della Preservazione: "77" (3×5 @77 %), "82" (3×4 @82 %), "S" scarico. */
 export type CicloPreservazione = 77 | 82 | 'S';
 export type Sforzo = 'facile' | 'giusto' | 'limite';
@@ -107,8 +116,12 @@ export interface Tappa {
   modulo: Modulo;
   obiettivo: Obiettivo;
   cicli: number;
+  /** Derivata dall'obiettivo (v2 §1): non si chiede all'utente. */
   energia: StatoEnergetico;
   cicliPreservazione?: CicloPreservazione[];
+  /** Piano composto: fase e blocco di riferimento del segmento. */
+  fase?: FaseLavoro | 'test';
+  bloccoRif?: number;
   perche?: string;
 }
 
@@ -146,6 +159,12 @@ export interface Esercizio {
   esclude_bilanciere?: boolean;
   /** Pittogramma dello schema di movimento (SPEC_PIANIFICATORE §11c); se manca si usa quello del gruppo. */
   icona?: IconaId;
+  /** Libreria (§14b, LIBRERIA_ESERCIZI.md): classe d'uso F fondamentale / T Target / C complementare (T/C = entrambi). */
+  classe_libreria?: 'F' | 'T' | 'C' | 'T/C';
+  /** Attrezzo: L libero · M macchina/multipower · V cavo · P corpo libero. */
+  attrezzo?: 'L' | 'M' | 'V' | 'P';
+  /** Equivalenti nello stesso slot (id), 1–3 per esercizio: usati per le sostituzioni e la rotazione tra le fasi. */
+  equivalenti?: string[];
   query_youtube: string;
   personalizzato?: boolean;
 }
@@ -224,6 +243,8 @@ export interface Contenitore {
   nome: string;
   descrizione: string;
   sessioni: SessioneContenitore[];
+  /** Fattore di lavoro sul massimale per i fondamentali di questo blocco (SPEC_PIANIFICATORE §4.2: Blocco 1 = 1, Blocco 2 = 0,9). Se assente vale l'impostazione. */
+  fattore_lavoro?: number;
   /** Indice (0-based) della seduta "jolly" da saltare quando si salta una seduta. */
   jolly?: number;
   /** Programma fisso letto dai video: niente tagli per tempo né aggiunte di copertura. */
@@ -243,6 +264,12 @@ export interface ParametriGeneratore {
   esperienza: Esperienza;
   preset: Preset;
   bloccoBreve: boolean;
+  /** Intensità desiderata (§6c), default "standard". */
+  intensita?: Intensita;
+  /** Tecniche avanzate nel Mantenimento/Massa sui Blocchi 1–2 (§4.2), default off; "alta" le accende sugli isolamenti. */
+  tecniche_avanzate?: boolean;
+  /** Mantenimento: blocco di riferimento di partenza (1 default, 2 alternativa). */
+  bloccoBase?: 1 | 2;
 }
 
 export interface Impostazioni {
@@ -306,6 +333,10 @@ export interface EsercizioSeduta {
   /** Riga "resistenza" (2×15–20 a carico leggero, SPEC_PIANIFICATORE §4.5). */
   resistenza?: boolean;
   back_off?: BackOff;
+  /** Serie in più rispetto alla tabella (priorità muscolari, §6c punto 4). */
+  serie_extra?: number;
+  /** Fattore di lavoro del blocco di riferimento (contenitore), se diverso dall'impostazione. */
+  fattore_lavoro?: number;
 }
 
 export interface Seduta {
@@ -319,6 +350,10 @@ export interface Seduta {
   /** Modulo e tipo di ciclo (Preservazione: 77/82/S; "ponte" = primo ciclo dopo un cambio di modulo). */
   modulo?: Modulo;
   cicloTipo?: CicloPreservazione | 'ponte';
+  /** Riga della tabella di progressione da usare (fasi accorciate, §6b); se assente vale `cicloFase`. */
+  rigaTabella?: number;
+  /** Blocco di riferimento (1–3) dei dati di questa seduta, nei piani composti. */
+  bloccoRif?: number;
   giorno: number;
   nome: string;
   etichetta: string;
@@ -418,6 +453,8 @@ export interface Blocco {
   creato: string;
   modulo?: Modulo;
   tappe?: Tappa[];
+  /** Piano su misura (§6b): segmenti con cui sono state generate le sedute. */
+  composizione?: SegmentoPiano[];
   /** Avvisi del coach registrati per il blocco (es. ricalcolo del massimale). */
   note?: { data: string; testo: string; perche?: string }[];
 }
@@ -468,6 +505,8 @@ export interface OpzionePiano {
   perche: string;
   /** Piano a tappe (SPEC_PIANIFICATORE §6). */
   tappe?: Tappa[];
+  /** Piano su misura (§6b). */
+  composizione?: SegmentoPiano[];
 }
 
 export interface PianoObiettivo {

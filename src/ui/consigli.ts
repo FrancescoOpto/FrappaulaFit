@@ -1,6 +1,6 @@
 import type { Stato } from '../tipi';
 import { ESERCIZI_PER_ID } from '../data/esercizi';
-import { avvisoEnergia, mediePesoSettimanali, trendCarichi, valutaCirconferenze, valutaPeso, type Consiglio } from '../motore/coach';
+import { mediePesoSettimanali, trendCarichi, valutaCirconferenze, valutaPeso, type Consiglio } from '../motore/coach';
 import { calorieObiettivo, stimeTdee } from '../motore/energia';
 import { impostazioniDi } from '../store/stato';
 
@@ -14,8 +14,7 @@ export function consigli(stato: Stato): Consiglio[] {
   const ob = p.obiettivoAttivo;
   const disattivate = p.regole_disattivate ?? [];
   if (ob) {
-    const e = avvisoEnergia(ob.tipo, ob.energia, p.parametri.esperienza);
-    if (e && !ob.avvisoDeficitIgnorato) out.push(e);
+    // v2 §1: l'energia discende dall'obiettivo, nessun avviso di coerenza.
     const d = p.datiCorporei;
     if (d?.pesoKg && d.altezzaCm && d.eta) {
       const st = stimeTdee({ sesso: p.sesso, pesoKg: d.pesoKg, altezzaCm: d.altezzaCm, eta: d.eta, passiGiorno: d.passiGiorno, allenamentiSettimana: d.allenamentiSettimana ?? p.parametri.N, durataMin: d.durataSedutaMin ?? p.parametri.T, bfPct: d.bfPct, tdeeEmpirico: d.tdeeEmpirico });

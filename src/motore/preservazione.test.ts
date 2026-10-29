@@ -207,8 +207,10 @@ describe('blocco Preservazione e cambio obiettivo (§6, §7, §12.8)', () => {
     expect(d2[0].tappe?.[0].modulo).toBe('test');
     const m = proponiPiano({ obiettivo: 'mantenimento', settimane: 12, N: 4 });
     expect(m[0].blocchi[0].cicli).toEqual({ test: 1, fase1: 5, fase2: 5, scarico: 1 });
+    // v2 §6b: piano su misura, una tappa per segmento (T F1×5 F2×5 S F3×5).
     const ma = proponiPiano({ obiettivo: 'massa', settimane: 17, N: 4 });
-    expect(ma[0].tappe?.map((t) => t.modulo)).toEqual(['test', 'ipertrofia', 'scarico']);
+    expect(ma[0].tappe?.map((t) => t.fase)).toEqual(['test', 'fase1', 'fase2', 'scarico', 'fase3']);
+    expect(ma[0].tappe?.map((t) => t.modulo)).toEqual(['test', 'ipertrofia', 'ipertrofia', 'scarico', 'ipertrofia']);
   });
 });
 

@@ -5,7 +5,7 @@ Progetto personale di Francesco (titolare di Ottica Curci, Rieti): PWA di bodybu
 ## Ordine di lettura
 1. `SPEC.md` — specifica completa (struttura, formule, tabelle, schermate, parti aperte).
 1b. `TEST_INIZIO_BLOCCO.md` — **test di carico a inizio blocco (prevale su SPEC §6.1)**: stima Brzycki per i fondamentali, serie unica 10/12/14RM per gli altri.
-1c. `SPEC_PIANIFICATORE.md` — **obiettivi, energia, moduli e pianificatore a tappe (estende SPEC §3/§14, sostituisce §15)**: in caso di conflitto su obiettivo/energia/pianificatore prevale questo file.
+1c. `SPEC_PIANIFICATORE.md` — **obiettivi, energia, moduli e pianificatore a tappe (estende SPEC §3/§14, sostituisce §15)**: in caso di conflitto su obiettivo/energia/pianificatore prevale questo file. §6b/§6c: piano su misura per durata, intensità; §14b + `LIBRERIA_ESERCIZI.md`: libreria con classi ed equivalenti.
 2. `docs/INDICE_MATERIALE.md` — mappa di tutto il materiale.
 3. `docs/note_elaborate/MEMORIA_GENERALE.md` — regole metodologiche e decisioni.
 4. `docs/note_elaborate/struttura_programma_vathlete.md` — tabelle reali del Blocco 1 dell'app di riferimento (servono per i test automatici).
@@ -29,9 +29,10 @@ Progetto personale di Francesco (titolare di Ottica Curci, Rieti): PWA di bodybu
 - Prima di dichiarare finito: esegui i test e verifica l'app davvero (anche con un browser headless), non dedurlo dal codice.
 
 ## Stato (28/10/2026)
-App scritta e pubblicata su GitHub Pages (https://francescoopto.github.io/FrappaulaFit/), 119 test automatici verdi. Materiale del Blocco 1–3 e libro "Project Bodybuilding" completi. Mancano i libri su glutei e allenamento femminile (profilo donna provvisorio).
+App scritta e pubblicata su GitHub Pages (https://francescoopto.github.io/FrappaulaFit/), 138 test automatici verdi. Materiale del Blocco 1–3 e libro "Project Bodybuilding" completi. Mancano i libri su glutei e allenamento femminile (profilo donna provvisorio).
 
 ## Modifiche recenti (leggi prima di tutto)
+- 29/10 (v2, piano su misura): `motore/composizione.ts` ricompone T/F1/F2/S/F3 per la durata richiesta (§6b, `compongoPiano`); le fasi accorciate usano le righe di tabella della regola dei gradini (`righeTabella`, campo `rigaTabella` nelle sedute). Setup senza "stato energetico" (deriva dall'obiettivo), con intensità (moderata/standard/alta), priorità ed esclusioni; giorni fissi a 4. Mantenimento sui Blocchi 1–2 con opzione `tecniche_avanzate`. **Blocco 1 con `fattore_lavoro: 1`** (SPEC §4.2: carichi RM senza il 0,9; i test del Blocco 1 ora usano i massimali 81/78,75 dedotti dai video) — da confermare con un test reale. Libreria esercizi: 106 esercizi con `classe_libreria`, `attrezzo`, `equivalenti`; i contenitori generici ruotano i complementari a ogni fase.
 - 28/10 (v2): `SPEC_PIANIFICATORE.md` versione 2 applicata (vedi §0b): TDEE con passi e allenamenti (`motore/energia.ts`), Preservazione senza serie tolte e sequenza cicli rivista, scala per tempo §4.7 (`motore/preservazione.ts`, usata anche dal generatore generico), test con ripetizioni di riserva, anteprima di tutte le sedute e **modalità prova (attiva di default, da spegnere in Impostazioni → Opzioni)**, scheda "Piano" in Progressi, restyle "A · Pulita" con griglia dei cicli e icone SVG (`ui/componenti/IconaEsercizio.tsx`). Testate per modulo in `ui/etichette.ts`; etichette 77/82/S solo interne.
 - 28/10: nuovo `TEST_INIZIO_BLOCCO.md` — test a inizio di ogni blocco (stima Brzycki per i fondamentali, serie unica 10/12/14RM per gli altri). Prevale su SPEC §6.1.
 - 28/10: fondamentali permanenti = panca, squat, stacco (+ hip thrust per lei). Il military NON è fondamentale: l'esercizio guida di ogni gruppo ruota per blocco (spalle: B1 military, B2 spinte manubri seduto). Vedi TEST_INIZIO_BLOCCO.md §1b e SPEC §4.3.
