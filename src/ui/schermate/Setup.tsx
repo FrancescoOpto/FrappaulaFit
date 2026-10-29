@@ -1,10 +1,13 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { DatiCorporei, Esperienza, Gruppo, Intensita, Obiettivo, ObiettivoAttivo, ParametriGeneratore, Preset, StatoEnergetico } from '../../tipi';
 import { ESERCIZI, ESERCIZI_PER_ID, NOMI_GRUPPI } from '../../data/esercizi';
 import { generaSettimana, targetVolume } from '../../motore/generatore';
 import { minuti } from '../../motore/prescrizione';
-import { DURATA_DEFAULT, PASSI_DEFAULT, PASSI_MAX, PASSI_MIN, PASSO_STEPPER } from '../../motore/energia';
-import { ENERGIA_PER_OBIETTIVO, proponiPiano, settimaneCalendario } from '../../motore/pianificatore';
+import { PASSI_DEFAULT, PASSI_MAX, PASSI_MIN, PASSO_STEPPER } from '../../motore/energia';
+import { ENERGIA_PER_OBIETTIVO, MESI_DURATA, cicliPerObiettivo, percheIbrido, proponiPiano, seduteDefault } from '../../motore/pianificatore';
+import { NOMI_FASI } from '../../data/tabelle';
+import { eIbrido, parametriPerObiettivo } from '../../motore/moduli';
+import { applicaTema } from '../tema';
 import { descriviComposizione } from '../../motore/composizione';
 import { creaProfilo, profilo, IMPOSTAZIONI_DEFAULT } from '../../store/stato';
 import { Avviso, Scelte, Stepper } from '../componenti/comuni';
@@ -13,6 +16,17 @@ import { vai } from '../router';
 
 const GRUPPI: Gruppo[] = ['petto', 'dorso', 'spalle', 'gambe', 'bicipiti', 'tricipiti', 'addome'];
 export const NOMI_OBIETTIVO: Record<Obiettivo, string> = { massa: 'Massa', mantenimento: 'Mantenimento', definizione: 'Dimagrimento' };
+/** Obiettivi del profilo donna a sedute ibride (§12b): due scelte. */
+export const OBIETTIVI_DONNA: Obiettivo[] = ['definizione', 'mantenimento'];
+export const NOMI_OBIETTIVO_DONNA: Record<Obiettivo, string> = { massa: 'Mantenimento e costruzione muscolare', mantenimento: 'Mantenimento e costruzione muscolare', definizione: 'Dimagrimento' };
+export const DESCRIZIONE_OBIETTIVO_DONNA: Record<'definizione' | 'mantenimento', string> = {
+  mantenimento: 'Parte classica di circa 30′ con più serie, poi il circuito: 3 giri (4 se vuoi). Calorie di mantenimento.',
+  definizione: 'Parte classica di circa 25′ con meno serie ma gli stessi carichi, per proteggere la massa magra; circuito fino a 4 giri con recuperi brevi, niente tecniche estreme. In deficit.',
+};
+/** Nome dell'obiettivo secondo il profilo (la donna a sedute ibride ha i suoi due nomi). */
+export function nomeObiettivo(tipo: Obiettivo, ibrido: boolean): string {
+  return ibrido ? NOMI_OBIETTIVO_DONNA[tipo] : NOMI_OBIETTIVO[tipo];
+}
 export const NOMI_ENERGIA: Record<StatoEnergetico, string> = { deficit: 'Deficit', mantenimento: 'Calorie di mantenimento', surplus: 'Surplus' };
 export const NOMI_MODULO: Record<string, string> = { test: 'Test', rientro: 'Rientro', ipertrofia: 'Ipertrofia con forza', mantenimento: 'Ipertrofia accorciata', preservazione: 'Preservazione', scarico: 'Scarico' };
 export const NOMI_INTENSITA: Record<Intensita, string> = { moderata: 'Moderata', standard: 'Standard', alta: 'Alta' };
@@ -21,8 +35,6 @@ export const DESCRIZIONE_INTENSITA: Record<Intensita, string> = {
   standard: 'Come i blocchi di riferimento: 1–2 ripetizioni dal cedimento, cedimento solo sull’ultima serie di Target e isolamenti.',
   alta: 'Cedimento anche sull’ultima serie dei complementari (fondamentali mai); una serie in più sui gruppi prioritari; tecniche avanzate sugli isolamenti.',
 };
-/** Giorni a settimana: sempre 4 (SPEC_PIANIFICATORE v2 §6c) [Utente]. */
-const N_FISSO = 4;
 
 export function Setup() {
   const esiste = profilo.value;
@@ -31,8 +43,8 @@ export function Setup() {
   const [T, setT] = useState(60);
   const [esperienza, setEsperienza] = useState<Esperienza>('intermedio');
   const [intensita, setIntensita] = useState<Intensita>('standard');
-  const [obiettivo, setObiettivo] = useState<Obiettivo>('massa');
-  const [settimane, setSettimane] = useState<number>(DURATA_DEFAULT.massa);
+  const [obiettivo, setObiettivo] = useState<Obiettivo>(esiste?.sesso === 'F' ? 'mantenimento' : 'massa');
+  const [mesi, setMesi] = useState<number>(3);
   const [bloccoBase, setBloccoBase] = useState<1 | 2>(1);
   const [kgTarget, setKgTarget] = useState('');
   const [resistenza, setResistenza] = useState(false);
@@ -49,24 +61,39 @@ export function Setup() {
   const [mostraEsclusi, setMostraEsclusi] = useState(false);
   const [mostraDettagli, setMostraDettagli] = useState(false);
   const [salvando, setSalvando] = useState(false);
-  const N = N_FISSO;
+  // Sedute a settimana per profilo (§12c): uomo 4, donna 3; si cambiano poi in Impostazioni → Programma.
+  const N = seduteDefault(sesso);
+  const ibrido = eIbrido({ preset: sesso === 'F' ? 'donna_glutei' : 'uomo_base', N });
+  const settimane = cicliPerObiettivo(obiettivo, mesi, ibrido);
 
-  const scegliObiettivo = (o: Obiettivo) => {
-    setObiettivo(o);
-    setSettimane(DURATA_DEFAULT[o]);
+  const scegliSesso = (v: 'M' | 'F') => {
+    setSesso(v);
+    // La donna ha due obiettivi (§12b): la massa diventa "mantenimento e costruzione".
+    if (v === 'F' && obiettivo === 'massa') setObiettivo('mantenimento');
   };
+  // Anteprima dell'accento del profilo scelto (§12c).
+  useEffect(() => {
+    let tema: 'scuro' | 'chiaro' = esiste?.impostazioni.tema ?? 'scuro';
+    try {
+      if (!esiste && localStorage.getItem('frappaula-tema') === 'chiaro') tema = 'chiaro';
+    } catch {
+      /* niente archivio */
+    }
+    applicaTema(tema, sesso);
+  }, [sesso]);
 
   // L'energia discende dall'obiettivo (v2 §1): non si chiede.
   const energia = ENERGIA_PER_OBIETTIVO[obiettivo];
   const preset: Preset = sesso === 'F' ? 'donna_glutei' : 'uomo_base';
   const parametri: ParametriGeneratore = useMemo(
-    () => ({ N, T, priorita, esclusi, esperienza, preset, bloccoBreve: obiettivo === 'mantenimento', intensita, bloccoBase: obiettivo === 'mantenimento' ? bloccoBase : undefined }),
-    [T, priorita, esclusi, esperienza, preset, obiettivo, intensita, bloccoBase],
+    () => parametriPerObiettivo({ N, T, priorita, esclusi, esperienza, preset, bloccoBreve: obiettivo === 'mantenimento', intensita, bloccoBase: obiettivo === 'mantenimento' ? bloccoBase : undefined }, obiettivo),
+    [N, T, priorita, esclusi, esperienza, preset, obiettivo, intensita, bloccoBase],
   );
-  const piano = useMemo(() => proponiPiano({ obiettivo, settimane, N, bloccoBase }), [obiettivo, settimane, bloccoBase]);
+  // Profilo ibrido: stesso piano su misura del Mantenimento qualunque sia l'obiettivo (§12b).
+  const piano = useMemo(() => (ibrido ? proponiPiano({ obiettivo: 'mantenimento', settimane, N, bloccoBase: 1 }) : proponiPiano({ obiettivo, settimane, N, bloccoBase })), [ibrido, obiettivo, settimane, N, bloccoBase]);
   const anteprima = useMemo(() => {
     try {
-      const numero = obiettivo === 'definizione' && preset === 'uomo_base' ? 3 : piano[0]?.composizione?.[0]?.bloccoRif ?? 1;
+      const numero = obiettivo === 'definizione' && preset === 'uomo_base' && N === 4 ? 3 : piano[0]?.composizione?.[0]?.bloccoRif ?? 1;
       return generaSettimana(parametri, { sostituzioni: {}, esercizi_personalizzati: [], impostazioni: IMPOSTAZIONI_DEFAULT }, numero);
     } catch {
       return null;
@@ -87,10 +114,11 @@ export function Setup() {
       tipo: obiettivo,
       dal: new Date().toISOString(),
       settimane: Math.max(1, Math.round(settimane)),
+      mesi,
       energia,
       kgTarget: parseFloat(kgTarget.replace(',', '.')) || undefined,
-      resistenza: obiettivo === 'definizione' ? resistenza : undefined,
-      preferisciMacchine: obiettivo === 'definizione' ? preferisciMacchine : undefined,
+      resistenza: obiettivo === 'definizione' && !ibrido ? resistenza : undefined,
+      preferisciMacchine: obiettivo === 'definizione' && !ibrido ? preferisciMacchine : undefined,
     };
     const corpo: DatiCorporei | undefined = mostraCorpo
       ? { eta: parseInt(eta, 10) || undefined, altezzaCm: parseFloat(altezza) || undefined, pesoKg: parseFloat(peso.replace(',', '.')) || undefined, bfPct: parseFloat(bf.replace(',', '.')) || undefined, passiGiorno: passi, allenamentiSettimana: N, durataSedutaMin: T, tdeeEmpirico: parseInt(tdeeEmp, 10) || undefined }
@@ -121,8 +149,8 @@ export function Setup() {
         </div>
         <div class="campo">
           <label>Profilo di partenza</label>
-          <Scelte valori={['M', 'F']} valore={sesso} onCambia={setSesso} etichette={{ M: 'Uomo · base', F: 'Donna · focus glutei' }} />
-          {sesso === 'F' ? <p class="piccolo">Profilo provvisorio: stesso motore, hip thrust come fondamentale e glutei prioritari. Da rivedere quando arrivano i libri su glutei e allenamento femminile.</p> : null}
+          <Scelte valori={['M', 'F']} valore={sesso} onCambia={scegliSesso} etichette={{ M: 'Uomo · 4 sedute', F: 'Donna · 3 sedute' }} />
+          {sesso === 'F' ? <p class="piccolo">Tre sedute ibride A-B-C: prima la parte classica (hip thrust o squat, dorso per primo nella B), poi un circuito a giri. Dorso in tutte le sedute, glutei con tre stimoli diversi.</p> : null}
         </div>
       </div>
 
@@ -130,22 +158,34 @@ export function Setup() {
         <h2>Obiettivo e durata</h2>
         <div class="campo">
           <label>Che obiettivo hai?</label>
-          <Scelte valori={['massa', 'mantenimento', 'definizione'] as Obiettivo[]} valore={obiettivo} onCambia={scegliObiettivo} etichette={NOMI_OBIETTIVO} />
-          <p class="piccolo">{obiettivo === 'massa' ? 'Surplus calorico: ipertrofia con forza sui blocchi di riferimento.' : obiettivo === 'mantenimento' ? 'Calorie di mantenimento: Fase 1 e Fase 2 con scarico, senza Fase 3 né tecniche.' : 'Deficit: in deficit l’allenamento serve a mantenere il muscolo, non a costruirlo (Preservazione).'}</p>
+          {ibrido ? (
+            <>
+              <Scelte valori={OBIETTIVI_DONNA} valore={obiettivo} onCambia={setObiettivo} etichette={NOMI_OBIETTIVO_DONNA} />
+              <p class="piccolo">{DESCRIZIONE_OBIETTIVO_DONNA[obiettivo === 'definizione' ? 'definizione' : 'mantenimento']} Si può cambiare in corsa senza rifare il test.</p>
+            </>
+          ) : (
+            <>
+              <Scelte valori={['massa', 'mantenimento', 'definizione'] as Obiettivo[]} valore={obiettivo} onCambia={setObiettivo} etichette={NOMI_OBIETTIVO} />
+              <p class="piccolo">{obiettivo === 'massa' ? 'Surplus calorico: ipertrofia con forza sui blocchi di riferimento.' : obiettivo === 'mantenimento' ? 'Calorie di mantenimento: Fase 1 e Fase 2 con scarico, senza Fase 3 né tecniche.' : 'Deficit: in deficit l’allenamento serve a mantenere il muscolo, non a costruirlo (Preservazione).'}</p>
+            </>
+          )}
         </div>
         <div class="campo">
-          <label>Per quanti cicli? (un ciclo = un giro delle 4 sedute, circa una settimana)</label>
-          <input type="number" inputMode="numeric" min="1" max="60" value={settimane} onInput={(e) => setSettimane(parseInt((e.target as HTMLInputElement).value, 10) || 0)} />
-          <p class="piccolo">A 4 sedute a settimana sono {settimane} settimane; con 3 sedute diventano circa {Math.ceil(settimaneCalendario(settimane, N, 3))}: la sequenza non cambia, si allunga.</p>
+          <label>Per quanto tempo?</label>
+          <Scelte valori={[...MESI_DURATA]} valore={mesi} onCambia={setMesi} etichette={{ 3: '3 mesi', 6: '6 mesi', 9: '9 mesi', 12: '12 mesi' }} />
+          <p class="piccolo">{mesi} mesi ≈ {cicliPerObiettivo('massa', mesi)} settimane, cioè {cicliPerObiettivo('massa', mesi) * N} sedute a {N} a settimana. Un ciclo è un giro delle {N} sedute: se una settimana ne salti una, il piano si allunga ma la sequenza non cambia.</p>
         </div>
-        {obiettivo === 'mantenimento' ? (
+        {obiettivo === 'mantenimento' && !ibrido ? (
           <div class="campo">
             <label>Blocco di riferimento</label>
             <Scelte valori={[1, 2] as const} valore={bloccoBase} onCambia={setBloccoBase} etichette={{ 1: 'Blocco 1 (default)', 2: 'Blocco 2' }} />
             <p class="piccolo">Il Blocco 3 è il blocco di definizione: non si usa per il mantenimento.</p>
           </div>
         ) : null}
-        {obiettivo === 'definizione' ? (
+        {obiettivo === 'definizione' && ibrido ? (
+          <div class="campo"><label>Kg da perdere (facoltativo)</label><input type="number" inputMode="decimal" step="0.5" min="0" value={kgTarget} onInput={(e) => setKgTarget((e.target as HTMLInputElement).value)} placeholder="—" /></div>
+        ) : null}
+        {obiettivo === 'definizione' && !ibrido ? (
           <>
             <div class="campo"><label>Kg da perdere (facoltativo)</label><input type="number" inputMode="decimal" step="0.5" min="0" value={kgTarget} onInput={(e) => setKgTarget((e.target as HTMLInputElement).value)} placeholder="—" /></div>
             <label class="riga spazio" style="padding:4px 0"><span class="cresce">Allenare anche la resistenza<br /><span class="piccolo">2 serie da 15–20 ripetizioni a carico leggero in coda a ogni seduta.</span></span><input type="checkbox" checked={resistenza} onChange={(e) => setResistenza((e.target as HTMLInputElement).checked)} /></label>
@@ -227,17 +267,19 @@ export function Setup() {
         <div class="carta">
           <h2>Il piano</h2>
           <div class="griglia3">
-            <div class="stat"><div class="valore">{cicliTotali}</div><div class="nome">cicli (≈ settimane)</div></div>
+            <div class="stat"><div class="valore">{cicliTotali}</div><div class="nome">settimane</div></div>
             <div class="stat"><div class="valore">{cicliTotali * N}</div><div class="nome">sedute</div></div>
             <div class="stat"><div class="valore">{Math.round(anteprima.sessioni.reduce((a, s) => a + s.durataS, 0) / anteprima.sessioni.length / 60)}′</div><div class="nome">durata media</div></div>
           </div>
           {composizione ? <p><b>{descriviComposizione(composizione)}</b></p> : null}
           <div class="colonna" style="gap:6px">
-            {tappe.map((t) => (
+            {ibrido ? tappe.map((t) => (
+              <div class="riga spazio"><span><b>{t.fase ? NOMI_FASI[t.fase] : NOMI_MODULO[t.modulo]}</b>{t.fase === 'test' ? <span class="piccolo"> · 3 sedute</span> : null}</span><span class="piccolo">{t.cicli} {t.cicli === 1 ? 'settimana' : 'settimane'}</span></div>
+            )) : tappe.map((t) => (
               <div class="riga spazio"><span><b>{NOMI_MODULO[t.modulo]}</b>{t.cicliPreservazione ? <span class="piccolo"> · {t.cicliPreservazione.filter((c) => c === 'S').length} di scarico</span> : null}{t.bloccoRif ? <span class="piccolo"> · Blocco {t.bloccoRif}</span> : null}</span><span class="piccolo">{t.cicli} {t.cicli === 1 ? 'ciclo' : 'cicli'}</span></div>
             ))}
           </div>
-          <p class="piccolo">{piano[0].perche}</p>
+          <p class="piccolo">{ibrido && composizione ? percheIbrido(composizione, obiettivo) : piano[0].perche}</p>
           {anteprima.avvisi.map((a) => <Avviso>{a}</Avviso>)}
           <table class="tabella">
             <thead><tr><th>Gruppo</th><th class="num">Serie / sett.</th><th class="num">Riferimento</th></tr></thead>
@@ -247,7 +289,7 @@ export function Setup() {
               ))}
             </tbody>
           </table>
-          {obiettivo === 'definizione' ? <p class="piccolo">In Preservazione restano le stesse serie del blocco, senza tecniche (rest-pause, seconde righe); i fondamentali al 77–82 % mai a cedimento. Le seconde righe tolte abbassano un po' i totali qui sopra.</p> : null}
+          {obiettivo === 'definizione' && !ibrido ? <p class="piccolo">In Preservazione restano le stesse serie del blocco, senza tecniche (rest-pause, seconde righe); i fondamentali al 77–82 % mai a cedimento. Le seconde righe tolte abbassano un po' i totali qui sopra.</p> : null}
           <button type="button" class="bottone fantasma" onClick={() => setMostraDettagli(!mostraDettagli)}>
             {mostraDettagli ? 'Nascondi le sedute' : 'Vedi le sedute del programma'}
           </button>
@@ -257,7 +299,7 @@ export function Setup() {
               {s.esercizi.map((e) => (
                 <div class="riga spazio piccolo" style="color:var(--testo2)">
                   <span>{ESERCIZI_PER_ID[e.esercizio_id]?.nome}</span>
-                  <span class={`badge ${e.ruolo}`}>{e.ruolo}</span>
+                  {e.circuito ? <span class="chip">circuito</span> : <span class={`badge ${e.ruolo}`}>{e.ruolo}</span>}
                 </div>
               ))}
             </div>
@@ -270,7 +312,7 @@ export function Setup() {
       <button class="bottone primario pieno" disabled={!nome.trim() || !anteprima || salvando || settimane < 1} onClick={conferma}>
         {salvando ? 'Creo il piano…' : 'Crea il piano'}
       </button>
-      {esiste ? <button class="bottone fantasma pieno" onClick={() => vai('/impostazioni')}>Annulla</button> : null}
+      {esiste ? <button class="bottone fantasma pieno" onClick={() => { applicaTema(esiste.impostazioni.tema ?? 'scuro', esiste.sesso); vai('/impostazioni'); }}>Annulla</button> : null}
     </div>
   );
 }

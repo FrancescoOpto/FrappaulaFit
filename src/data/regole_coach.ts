@@ -19,7 +19,7 @@ export const REGOLE_COACH: RegolaCoach[] = [
   { id: 'taglio_tempo', sezione: 'struttura', fonte: 'ipotesi', titolo: 'Tagli ai complementari se la seduta supera il tempo', perche: 'Prima una serie ai complementari, poi quelli non prioritari; mai i fondamentali.' },
   { id: 'rientro_pausa', sezione: 'stato', fonte: 'metodo', titolo: 'Rientro dopo una pausa', perche: 'Dal libro: fino a 1 settimana riprendi, 2 ripeti l’ultimo ciclo, 3 rifai il primo, oltre kick-off.' },
   { id: 'ritest_pausa_lunga', sezione: 'stato', fonte: 'ipotesi', titolo: 'Nuovo test dopo oltre 3 settimane di stop', perche: 'Il massimale del test non vale più: scelta nostra.' },
-  { id: 'stripping', sezione: 'struttura', fonte: 'ipotesi', titolo: 'Stripping −30 % in Fase 2', perche: 'Dalle note Keep, non visto nei video: spento di default.' },
+  { id: 'stripping', sezione: 'struttura', fonte: 'ipotesi', titolo: 'Stripping −20 % in Fase 2', perche: 'Dalle note Keep, non visto nei video: spento di default; −20 % come nel libro (SPEC_PIANIFICATORE §12b).' },
   // ---- SPEC_PIANIFICATORE §8 ----
   { id: 'energia_blocca_ipertrofia', sezione: 'stato', fonte: 'evidenza', titolo: 'In deficit non si costruisce muscolo', perche: 'Con un deficit del 20 % la sintesi proteica cala di circa un quinto: l\u2019allenamento la riporta al livello di riposo, non oltre. Avviso morbido; informativo per i principianti.' },
   { id: 'ritmo_dimagrimento', sezione: 'stato', fonte: 'libro', titolo: 'Tetto di perdita: 1 % del peso a settimana (0,5 % se già magri)', perche: 'Oltre, si perde anche muscolo. Il libro cita ritmi più alti con molto grasso: non adottati.' },

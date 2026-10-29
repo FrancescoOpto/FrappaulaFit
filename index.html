@@ -12,6 +12,20 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" />
     <title>Frappaula Fit</title>
+    <script>
+      // Tema e accento salvati (§12c) applicati prima del primo disegno. Con il tema chiaro la barra di stato
+      // dell'iPhone usa il testo scuro: iOS legge questa impostazione all'apertura dell'app.
+      try {
+        var t = localStorage.getItem('frappaula-tema');
+        var p = localStorage.getItem('frappaula-profilo');
+        if (t === 'chiaro') {
+          document.documentElement.setAttribute('data-tema', 'chiaro');
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f4f4f2');
+          document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content', 'default');
+        }
+        if (p === 'F') document.documentElement.setAttribute('data-profilo', 'F');
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="app"></div>

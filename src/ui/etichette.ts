@@ -22,11 +22,20 @@ export function cicliLavoro(b: Pick<Blocco, 'sedute'>): number[] {
   return [...new Set(b.sedute.filter((s) => s.fase !== 'test').map((s) => s.ciclo))].sort((x, y) => x - y);
 }
 
-export function infoCiclo(b: Pick<Blocco, 'sedute' | 'numero' | 'modulo'>, s: Pick<Seduta, 'fase' | 'ciclo' | 'cicloFase' | 'cicloTipo' | 'bloccoRif'>): InfoCiclo {
+export function infoCiclo(b: Pick<Blocco, 'sedute' | 'numero' | 'modulo'> & Partial<Pick<Blocco, 'parametri'>>, s: Pick<Seduta, 'fase' | 'ciclo' | 'cicloFase' | 'cicloTipo' | 'bloccoRif'>): InfoCiclo {
   const lavoro = cicliLavoro(b);
   const cicloN = lavoro.length;
   const cicloK = Math.max(1, lavoro.indexOf(s.ciclo) + 1);
   const ponte = s.cicloTipo === 'ponte' ? ' · ponte' : '';
+  // Profilo donna a sedute ibride (§12b): l'obiettivo al posto del blocco.
+  const ibrido = b.parametri?.obiettivoIbrido;
+  if (ibrido) {
+    const nome = ibrido === 'definizione' ? 'Dimagrimento' : 'Costruzione';
+    const eyebrow = ibrido === 'definizione' ? 'DIMAGRIMENTO' : 'MANTENIMENTO E COSTRUZIONE';
+    if (s.fase === 'test') return { eyebrow, titolo: 'Sedute di test', testata: `${nome} · Test`, cicloK: 0, cicloN };
+    const titolo = s.fase === 'scarico' ? 'Scarico' : `${NOMI_FASI[s.fase]} · Ciclo ${s.cicloFase}${ponte}`;
+    return { eyebrow, titolo, testata: `${nome} · ${titolo}`, cicloK, cicloN };
+  }
   if (b.modulo === 'preservazione') {
     const eyebrow = NOMI_MODULO.preservazione.toUpperCase();
     if (s.fase === 'test') return { eyebrow, titolo: 'Test', testata: `${NOMI_MODULO.preservazione} · Test`, cicloK: 0, cicloN };

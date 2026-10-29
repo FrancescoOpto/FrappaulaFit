@@ -1,6 +1,7 @@
 import type { CicloPreservazione, EsercizioSeduta, Fase, FaseLavoro, Gruppo, Ruolo } from '../tipi';
 import { ESERCIZI, ESERCIZI_PER_ID } from '../data/esercizi';
 import { durataStimata, serieRip } from './prescrizione';
+import type { TempiCircuito } from '../data/tabelle';
 
 // Modulo Preservazione (SPEC_PIANIFICATORE v2 §4.3–4.5, §4.7): in deficit l'allenamento mantiene il muscolo.
 // Nessuna tabella nuova: è una trasformazione delle sessioni del blocco in corso (di norma il Blocco 3).
@@ -117,11 +118,11 @@ const GRUPPI_GRANDI_SCALA: Gruppo[] = ['petto', 'dorso', 'spalle', 'gambe'];
  *    altrimenti l'ultimo) e i complementari rimasti di quel gruppo tornano alle serie originali;
  * 3. mai sotto 2 esercizi per gruppo; Target e fondamentali mai sotto 3 serie; addome invariato.
  */
-export function scalaPerTempo(esercizi: EsercizioSeduta[], T: number, recuperi: Record<Ruolo, number>, fase: FaseLavoro = 'fase1', copre: (e: EsercizioSeduta) => boolean = () => false): EsitoScala {
+export function scalaPerTempo(esercizi: EsercizioSeduta[], T: number, recuperi: Record<Ruolo, number>, fase: FaseLavoro = 'fase1', copre: (e: EsercizioSeduta) => boolean = () => false, tempi?: TempiCircuito): EsitoScala {
   const limite = T * 60;
   const out: EsercizioSeduta[] = esercizi.map((e) => ({ ...e }));
   const serieDi = (e: EsercizioSeduta) => serieRip(e.ruolo, fase, 1, e)[0];
-  const durata = () => durataStimata(out.map((e) => ({ ruolo: e.ruolo, serie: serieDi(e), superserie: e.superserie })), recuperi);
+  const durata = () => durataStimata(out.map((e) => ({ ruolo: e.ruolo, serie: serieDi(e), superserie: e.superserie, circuito: e.circuito })), recuperi, tempi);
   const passi: string[] = [];
   if (durata() <= limite) return { esercizi: out, passi, durataS: durata() };
 
@@ -129,7 +130,8 @@ export function scalaPerTempo(esercizi: EsercizioSeduta[], T: number, recuperi: 
   for (const e of out) originali.set(e, e.serie ?? serieDi(e));
   const gruppi: Gruppo[] = [];
   for (const e of out) if (!gruppi.includes(e.gruppo)) gruppi.push(e.gruppo);
-  const riducibile = (e: EsercizioSeduta) => e.ruolo === 'C' && !e.rest_pause && !e.resistenza && e.gruppo !== 'addome';
+  // Le stazioni del circuito (§12b) non si toccano: i giri li sceglie l'utente in seduta.
+  const riducibile = (e: EsercizioSeduta) => e.ruolo === 'C' && !e.rest_pause && !e.resistenza && !e.circuito && e.gruppo !== 'addome';
 
   // Passo 1.
   for (let gi = gruppi.length - 1; gi >= 1 && durata() > limite; gi--) {

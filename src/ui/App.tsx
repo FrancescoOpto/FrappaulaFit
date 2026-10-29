@@ -2,6 +2,7 @@ import { useEffect } from 'preact/hooks';
 import { pronto, profilo, impostazioni } from '../store/stato';
 import { rotta, parti, vai } from './router';
 import { attivo, rimanente, timer, fermaTimer, aggiungiSecondi, formatoMMSS, configuraTimer } from './timer';
+import { applicaTema } from './tema';
 import { Setup } from './schermate/Setup';
 import { Home } from './schermate/Home';
 import { Seduta } from './schermate/Seduta';
@@ -44,9 +45,14 @@ function TimerBarra() {
 
 export function App() {
   const imp = impostazioni.value;
+  const sesso = profilo.value?.sesso;
   useEffect(() => {
     configuraTimer({ suoni: imp.suoni, vibrazione: imp.vibrazione, notifiche: imp.notifiche });
   }, [imp.suoni, imp.vibrazione, imp.notifiche]);
+  // Tema e accento del profilo (§12c); senza profilo (primo avvio) decide la schermata di setup.
+  useEffect(() => {
+    if (sesso) applicaTema(imp.tema ?? 'scuro', sesso);
+  }, [imp.tema, sesso]);
 
   if (!pronto.value) {
     return (

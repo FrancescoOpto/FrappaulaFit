@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { SerieRegistrata } from '../../tipi';
 import { NOMI_GRUPPI, esercizio as trovaEsercizio, linkYoutube } from '../../data/esercizi';
-import { PAUSA_REST_PAUSE_TOTALE, PAUSE_10_PIU_3 } from '../../data/tabelle';
+import { CIRCUITO, PAUSA_REST_PAUSE_TOTALE, PAUSE_10_PIU_3 } from '../../data/tabelle';
 import { percentualeRM } from '../../motore/carichi';
 import {
   aggiornaNota,
@@ -96,7 +96,7 @@ function RigaSerie({ sedutaId, slot, x, soloLettura, recupero, etichetta, ultima
   };
   return (
     <div class={`serie-riga ${x.fatta ? 'fatta' : ''}`}>
-      <div class="n">{x.stripping ? '−30%' : x.n}</div>
+      <div class="n">{x.stripping ? '−20%' : x.n}</div>
       <div>
         <input type="number" inputMode="decimal" step="0.5" min="0" value={kg} disabled={soloLettura} onInput={(e) => setKg((e.target as HTMLInputElement).value)} onBlur={salvaCampi} aria-label={`kg serie ${x.n}`} />
         <div class="prev">{x.kg_piano !== undefined && x.kg_piano !== x.kg_prev ? `piano ${x.kg_piano} kg` : x.kg_prev ? `prev. ${formatoKg(x.kg_prev)}` : 'kg'}</div>
@@ -142,7 +142,8 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
   const precEs = s.esercizi[idx - 1];
   const succEs = s.esercizi[idx + 1];
   const ultimoDelGruppo = !s.esercizi.slice(idx + 1).some((e) => e.gruppo === es.gruppo);
-  const strippingPossibile = impostazioni.value.stripping && s.fase === 'fase2' && ultimoDelGruppo && regEs && !regEs.serie.some((x) => x.stripping);
+  // Niente stripping nel circuito né in Dimagrimento per il profilo ibrido (§12b).
+  const strippingPossibile = impostazioni.value.stripping && s.fase === 'fase2' && ultimoDelGruppo && !es.circuito && b.parametri.obiettivoIbrido !== 'definizione' && regEs && !regEs.serie.some((x) => x.stripping);
   const [nota, setNota] = useState(regEs?.nota ?? '');
   const t = timer.value;
   const inTimer = attivo.value;
@@ -157,7 +158,12 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
         </div>
         <h1 style="font-size:34px">{def?.nome ?? es.esercizio_id}</h1>
         <div class="riga" style="gap:10px;flex-wrap:wrap">
-          <span class="chip"><b>{pr.serie}×{pr.rip}</b>&nbsp;@ {pr.kg !== undefined ? formatoKg(pr.kg) : '—'}</span>
+          {es.circuito && s.fase !== 'test' ? (
+            <span class="chip"><b>{registroDi(s.id)?.giri ?? pr.serie} giri × {CIRCUITO.ripMin}–{CIRCUITO.ripMax}</b>&nbsp;@ {pr.kg !== undefined ? formatoKg(pr.kg) : '—'}</span>
+          ) : (
+            <span class="chip"><b>{pr.serie}×{pr.rip}</b>&nbsp;@ {pr.kg !== undefined ? formatoKg(pr.kg) : '—'}</span>
+          )}
+          {es.circuito ? <span class="chip">stazione del circuito</span> : null}
           {pr.scalaRM ? <span class="chip">{pr.scalaRM}RM · {Math.round(percentualeRM(pr.scalaRM) * 100)}% del massimale</span> : null}
           {pr.percentuale ? <span class="chip">{Math.round(pr.percentuale * 100)}% del massimale</span> : null}
           {es.seconda_riga ? <span class="chip">seconda riga · carico a tua scelta</span> : null}
@@ -165,9 +171,9 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
           {es.back_off ? <span class="chip">back-off: {es.back_off.serie_pesanti}×{es.back_off.rip} + {es.back_off.serie_max}×max a −{Math.round(es.back_off.riduzione * 100)}%</span> : null}
           {es.resistenza ? <span class="chip">resistenza · 15–20 rip leggere</span> : null}
           {s.cicloTipo === 'ponte' ? <span class="chip">ciclo ponte</span> : null}
-          <span class="chip">recupero {recupero}″</span>
+          {es.circuito ? null : <span class="chip">recupero {recupero}″</span>}
         </div>
-        {s.fase !== 'test' ? <p class="piccolo"><b>Sforzo:</b> {sforzoPer(es.ruolo, p.parametri.intensita, b.modulo)}</p> : null}
+        {s.fase !== 'test' ? <p class="piccolo"><b>Sforzo:</b> {es.circuito ? `${CIRCUITO.ripMin}–${CIRCUITO.ripMax} ripetizioni con 1–2 di riserva. Se in tutti i giri arrivi a ${CIRCUITO.ripMax}, la volta dopo l'app propone un passo di carico in più.` : sforzoPer(es.ruolo, p.parametri.intensita, b.modulo)}</p> : null}
         {correzione ? <p class="piccolo">Carico corretto del {Math.round(correzione * 1000) / 10}% per ripetizioni mancate nei cicli precedenti (modificabile in Impostazioni → Test).</p> : null}
         {corrente && s.fase !== 'test' ? (
           <div class="riga spazio" style="flex-wrap:wrap;gap:8px">
@@ -213,7 +219,7 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
           )}
           <p class="piccolo">Il kg che scrivi diventa il carico di questo esercizio anche per le sedute successive.</p>
           {strippingPossibile && !soloLettura ? (
-            <button class="bottone fantasma pieno" onClick={() => void aggiungiStripping(s.id, slot)}>Aggiungi serie extra a −30% (stripping)</button>
+            <button class="bottone fantasma pieno" onClick={() => void aggiungiStripping(s.id, slot)}>Aggiungi serie extra a −20% (stripping)</button>
           ) : null}
         </div>
       ) : (
@@ -230,7 +236,7 @@ export function Esercizio({ sedutaId, slot }: { sedutaId: string; slot: number }
           <div class="riga spazio"><h3>Ciclo scorso</h3><span class="piccolo">{prec.seduta.nome} · ciclo {prec.seduta.cicloFase}</span></div>
           <div class="riga" style="flex-wrap:wrap;gap:6px">
             {prec.es.serie.filter((x) => x.fatta).map((x) => (
-              <span class="chip">{x.kg ?? x.kg_prev}×{x.rip ?? x.rip_prev}{x.stripping ? ' (−30%)' : ''}</span>
+              <span class="chip">{x.kg ?? x.kg_prev}×{x.rip ?? x.rip_prev}{x.stripping ? ' (−20%)' : ''}</span>
             ))}
           </div>
           {prec.es.nota ? <p class="piccolo">“{prec.es.nota}”</p> : null}

@@ -27,6 +27,7 @@ import {
   SOGLIA_MAX_GRUPPO_GRANDE,
   SOGLIA_MIN_GRUPPO_GRANDE,
   TARGET_SETTIMANALE,
+  tempiCircuito,
 } from '../data/tabelle';
 import { durataStimata, minuti, serieRip } from './prescrizione';
 import { scalaPerTempo } from './preservazione';
@@ -109,7 +110,8 @@ export const TETTO_SERIE_PRIORITA = 20;
 export function applicaIntensitaEPriorita(esercizi: EsercizioSeduta[], parametri: Pick<ParametriGeneratore, 'priorita' | 'intensita'>): void {
   const intensita = parametri.intensita ?? 'standard';
   for (const e of esercizi) {
-    if (e.ruolo === 'AB' || e.rest_pause || e.seconda_riga || e.senza_carico) continue;
+    // Le stazioni del circuito (§12b) hanno i giri come serie: priorità e intensità non le toccano.
+    if (e.ruolo === 'AB' || e.rest_pause || e.seconda_riga || e.senza_carico || e.circuito) continue;
     const prioritario = parametri.priorita.includes(e.gruppo);
     if (e.ruolo === 'C') {
       let serie = e.serie ?? 3;
@@ -122,7 +124,7 @@ export function applicaIntensitaEPriorita(esercizi: EsercizioSeduta[], parametri
   }
   if (parametri.priorita.length) {
     // Gruppi prioritari all'inizio (ordine stabile tra i gruppi, l'addome resta in coda).
-    const peso = (e: EsercizioSeduta) => (e.ruolo === 'AB' ? 2 : parametri.priorita.includes(e.gruppo) ? 0 : 1);
+    const peso = (e: EsercizioSeduta) => (e.circuito ? 3 : e.ruolo === 'AB' ? 2 : parametri.priorita.includes(e.gruppo) ? 0 : 1);
     esercizi.sort((a, b) => peso(a) - peso(b));
   }
 }
@@ -143,7 +145,19 @@ function limitaPriorita(sessioni: SessioneGenerata[], parametri: ParametriGenera
   }
 }
 
-function generaSessione(sessione: SessioneContenitore, parametri: ParametriGeneratore, profilo: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati' | 'fondamentali_promossi'> | undefined, recuperi: Record<Ruolo, number>, avvisi: string[], numeroBlocco: number, fisso = false, fattoreContenitore?: number): SessioneGenerata {
+/**
+ * Dimagrimento nel profilo ibrido (§12b): la parte classica fa una serie in meno (minimo 2) con gli stessi carichi;
+ * i fondamentali (R1) e il circuito restano com'erano.
+ */
+export function applicaDimagrimentoIbrido(esercizi: EsercizioSeduta[]): void {
+  for (const e of esercizi) {
+    if (e.circuito || e.ruolo === 'R1' || e.ruolo === 'L' || e.ruolo === 'AB' || e.rest_pause || e.seconda_riga) continue;
+    if (e.ruolo === 'C') e.serie = Math.max(2, (e.serie ?? 3) - 1);
+    else e.serie_extra = (e.serie_extra ?? 0) - 1 || undefined;
+  }
+}
+
+function generaSessione(sessione: SessioneContenitore, parametri: ParametriGeneratore, profilo: Pick<Profilo, 'sostituzioni' | 'esercizi_personalizzati' | 'fondamentali_promossi'> | undefined, recuperi: Record<Ruolo, number>, avvisi: string[], numeroBlocco: number, fisso = false, fattoreContenitore?: number, ibrido = false): SessioneGenerata {
   const usati = new Set<string>();
   const esercizi: EsercizioSeduta[] = [];
   const promossi = profilo?.fondamentali_promossi ?? [];
@@ -175,19 +189,22 @@ function generaSessione(sessione: SessioneContenitore, parametri: ParametriGener
       senza_carico: slot.seconda_riga ? true : undefined,
       seconda_riga: slot.seconda_riga,
       fattore_lavoro: fattoreContenitore,
+      circuito: slot.circuito,
     });
   });
   applicaIntensitaEPriorita(esercizi, parametri);
+  if (ibrido && parametri.obiettivoIbrido === 'definizione') applicaDimagrimentoIbrido(esercizi);
+  const tempi = tempiCircuito(parametri.obiettivoIbrido);
   if (fisso) {
     // Programma letto dai video: nessun taglio, solo l'avviso sulla durata (in generaSettimana).
-    return { nome: sessione.nome, etichetta: sessione.etichetta, esercizi, durataS: durataStimata(esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieBase(e), superserie: e.superserie })), recuperi) };
+    return { nome: sessione.nome, etichetta: sessione.etichetta, esercizi, durataS: durataStimata(esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieBase(e), superserie: e.superserie, circuito: e.circuito })), recuperi, tempi) };
   }
 
   // Scala per tempo (SPEC_PIANIFICATORE v2 §4.7, sostituisce il riempimento di SPEC §4.4): T è un tetto.
   // Se la seduta sta dentro T non si tocca nulla; altrimenti complementari dal 2° gruppo a 2 serie, poi via
   // il complementare meno prioritario (quelli che coprono un sottogruppo per ultimi), mai sotto 2 esercizi per gruppo.
   const copre = (e: EsercizioSeduta) => Boolean(sessione.slot[e.slot]?.copre) || parametri.priorita.includes(e.gruppo);
-  const esito = scalaPerTempo(esercizi, parametri.T, recuperi, 'fase1', copre);
+  const esito = scalaPerTempo(esercizi, parametri.T, recuperi, 'fase1', copre, tempi);
   return { nome: sessione.nome, etichetta: sessione.etichetta, esercizi: esito.esercizi, durataS: esito.durataS };
 }
 
@@ -217,20 +234,23 @@ export function generaSettimana(parametri: ParametriGeneratore, profilo?: Profil
   const contenitore = contenitorePer(parametri.N, parametri.preset, numeroBlocco);
   if (contenitore.avviso) avvisi.push(contenitore.avviso);
   if (!contenitore.fisso && parametri.preset === 'uomo_base') avvisi.push(`Con ${parametri.N} sedute la struttura è generica (regole nostre): il programma letto dai video esiste solo a 4 giorni. [Da definire]`);
+  if (parametri.preset === 'donna_glutei' && !contenitore.ibrido) avvisi.push(`La seduta ibrida con circuito (SPEC_PIANIFICATORE §12b) è definita a 3 sedute: con ${parametri.N} sedute resta la struttura generica provvisoria.`);
+  const tempi = tempiCircuito(parametri.obiettivoIbrido);
   const recuperi = profilo?.impostazioni?.recuperi ?? RECUPERI_DEFAULT;
 
-  const sessioni = contenitore.sessioni.map((s) => generaSessione(s, parametri, profilo, recuperi, avvisi, numeroBlocco, contenitore.fisso, contenitore.fattore_lavoro));
+  const sessioni = contenitore.sessioni.map((s) => generaSessione(s, parametri, profilo, recuperi, avvisi, numeroBlocco, contenitore.fisso, contenitore.fattore_lavoro, contenitore.ibrido));
   limitaPriorita(sessioni, parametri);
 
   // Copertura dei sottogruppi (SPEC §4.3): prima rialza le serie di un C esistente che copre il sottogruppo
   // (nella seduta con più spazio), poi, se non c'è, aggiunge lo slot di riserva.
   const ricalcola = (s: SessioneGenerata) => {
-    s.durataS = durataStimata(s.esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieBase(e), superserie: e.superserie })), recuperi);
+    s.durataS = durataStimata(s.esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieBase(e), superserie: e.superserie, circuito: e.circuito })), recuperi, tempi);
   };
   const copertura = coperturaSettimanale(sessioni, contenitore);
   for (const sg of Object.keys(copertura) as Sottogruppo[]) {
     let guardia = 0;
-    while (!contenitore.fisso && copertura[sg] < COPERTURA_MINIMA && guardia++ < 4) {
+    // Le sedute ibride (§12b) hanno una struttura voluta: nessuna aggiunta automatica di copertura.
+    while (!contenitore.fisso && !contenitore.ibrido && copertura[sg] < COPERTURA_MINIMA && guardia++ < 4) {
       const fb = COPERTURA_FALLBACK[sg];
       const esistenti = sessioni
         .flatMap((s, si) => s.esercizi.map((e) => ({ s, e, slot: contenitore.sessioni[si]?.slot[e.slot] })))
@@ -261,7 +281,8 @@ export function generaSettimana(parametri: ParametriGeneratore, profilo?: Profil
   }
 
   const volume = volumeSettimanale(sessioni);
-  for (const g of GRUPPI_GRANDI) {
+  // Le sedute ibride (§12b) concentrano il volume su glutei e dorso per scelta: niente avvisi generici di volume.
+  for (const g of contenitore.ibrido ? [] : GRUPPI_GRANDI) {
     if (volume[g] < SOGLIA_MIN_GRUPPO_GRANDE) {
       avvisi.push(`${NOMI_GRUPPI[g]}: ${volume[g]} serie/settimana, sotto il minimo (${SOGLIA_MIN_GRUPPO_GRANDE}). Considera più sedute o più tempo.`);
     } else if (volume[g] > SOGLIA_MAX_GRUPPO_GRANDE) {
@@ -272,7 +293,7 @@ export function generaSettimana(parametri: ParametriGeneratore, profilo?: Profil
     if (s.durataS > parametri.T * 60 + 120) avvisi.push(`${s.nome}: durata stimata ${minuti(s.durataS)}’ oltre il limite di ${parametri.T}’.`);
   }
   for (const sg of Object.keys(copertura) as Sottogruppo[]) {
-    if (!contenitore.fisso && copertura[sg] < COPERTURA_MINIMA) avvisi.push(`${NOMI_SOTTOGRUPPI[sg]}: solo ${copertura[sg]} serie dirette a settimana.`);
+    if (!contenitore.fisso && !contenitore.ibrido && copertura[sg] < COPERTURA_MINIMA) avvisi.push(`${NOMI_SOTTOGRUPPI[sg]}: solo ${copertura[sg]} serie dirette a settimana.`);
   }
 
   const fasi = parametri.bloccoBreve ? FASI_BLOCCO_BREVE : FASI_BLOCCO;
@@ -320,7 +341,9 @@ export function eserciziPerFase(sessione: SessioneGenerata, contenitoreSessione:
     if (faseVarianti && slot && !slot.varianti?.[faseVarianti] && e.ruolo === 'C' && !e.rest_pause && !contenitoreFisso(contenitoreSessione)) {
       // Rotazione dei complementari a ogni fase con gli equivalenti della libreria (§6b, §14b) [Ipotesi]:
       // Fase 2 → primo equivalente, Fase 3 → secondo (o il default: mai lo stesso tre fasi di seguito).
-      const eq = (ESERCIZI_PER_ID[e.esercizio_id]?.equivalenti ?? []).filter((id) => ESERCIZI_PER_ID[id] && ESERCIZI_PER_ID[id].gruppo === e.gruppo && !parametri.esclusi.includes(id) && !sessione.esercizi.some((x) => x.esercizio_id === id));
+      // Lo stimolo sui glutei (§12b) resta lo stesso: un'abduzione ruota solo su un'altra abduzione.
+      const stimolo = ESERCIZI_PER_ID[e.esercizio_id]?.stimolo_gluteo;
+      const eq = (ESERCIZI_PER_ID[e.esercizio_id]?.equivalenti ?? []).filter((id) => ESERCIZI_PER_ID[id] && ESERCIZI_PER_ID[id].gruppo === e.gruppo && (!stimolo || ESERCIZI_PER_ID[id].stimolo_gluteo === stimolo) && !parametri.esclusi.includes(id) && !sessione.esercizi.some((x) => x.esercizio_id === id));
       const scelta = faseVarianti === 'fase2' ? eq[0] : eq[1];
       if (scelta) base = { ...base, esercizio_id: sostituzioni[scelta] ?? scelta, eredita_da: e.esercizio_id };
     }
@@ -350,7 +373,9 @@ export function eserciziPerFase(sessione: SessioneGenerata, contenitoreSessione:
     }
     out.push(base);
   }
-  if (fase !== 'test' && fase !== 'scarico' && (parametri.tecniche_avanzate || parametri.intensita === 'alta') && !haTecniche(contenitoreSessione)) applicaTecnicheAvanzate(out);
+  // Dimagrimento nel profilo ibrido: niente tecniche di intensità (§12b).
+  const dimagrimentoIbrido = parametri.obiettivoIbrido === 'definizione' && Boolean(contenitoreSessione?.slot.some((x) => x.circuito));
+  if (fase !== 'test' && fase !== 'scarico' && !dimagrimentoIbrido && (parametri.tecniche_avanzate || parametri.intensita === 'alta') && !haTecniche(contenitoreSessione)) applicaTecnicheAvanzate(out);
   return out;
 }
 
@@ -370,7 +395,7 @@ function haTecniche(cs: SessioneContenitore | undefined): boolean {
  */
 export function applicaTecnicheAvanzate(out: EsercizioSeduta[]): void {
   for (const g of ['bicipiti', 'tricipiti'] as const) {
-    const ultimo = [...out].reverse().find((e) => e.gruppo === g && e.ruolo === 'C' && ESERCIZI_PER_ID[e.esercizio_id]?.tipo === 'isolamento' && !e.rest_pause);
+    const ultimo = [...out].reverse().find((e) => e.gruppo === g && e.ruolo === 'C' && !e.circuito && ESERCIZI_PER_ID[e.esercizio_id]?.tipo === 'isolamento' && !e.rest_pause);
     if (ultimo) Object.assign(ultimo, { serie: 1, rip: 40, rest_pause: 'totale', serie_fisse: true });
   }
   const target = out.find((e) => e.ruolo === 'R2' && !e.seconda_riga);

@@ -1,13 +1,13 @@
 import { useState } from 'preact/hooks';
 import type { Fase, Seduta } from '../../tipi';
-import { RIENTRO } from '../../data/tabelle';
+import { RIENTRO, tempiCircuito } from '../../data/tabelle';
 import { NOMI_GRUPPI } from '../../data/esercizi';
 import { blocco, profilo, prossimaSeduta, giorniDallUltimaSeduta, impostazioni, prescrizioneDi, stato } from '../../store/stato';
 import { durataStimata, minuti, rigaDi, serieRip } from '../../motore/prescrizione';
 import { Avviso, formatoData } from '../componenti/comuni';
 import { Icona } from '../componenti/IconaEsercizio';
 import { consigli } from '../consigli';
-import { NOMI_MODULO, NOMI_OBIETTIVO } from './Setup';
+import { NOMI_MODULO, nomeObiettivo } from './Setup';
 import { infoCiclo } from '../etichette';
 import { vai } from '../router';
 
@@ -16,7 +16,8 @@ import { vai } from '../router';
 
 function durataSeduta(s: Seduta): number {
   if (s.fase === 'test') return 0;
-  return durataStimata(s.esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieRip(e.ruolo, s.fase as Exclude<Fase, 'test'>, rigaDi(s), e)[0], superserie: e.superserie })), impostazioni.value.recuperi);
+  // Circuito (§12b): giri e tempi del profilo ibrido.
+  return durataStimata(s.esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieRip(e.ruolo, s.fase as Exclude<Fase, 'test'>, rigaDi(s), e)[0], superserie: e.superserie, circuito: e.circuito })), impostazioni.value.recuperi, tempiCircuito(blocco.value?.parametri.obiettivoIbrido));
 }
 
 function serieSeduta(s: Seduta): number {
@@ -84,7 +85,8 @@ export function Home() {
   const cicloCorrente = prossima?.ciclo ?? b.sedute[b.sedute.length - 1]?.ciclo;
   const soloCorrente = nCicli > 8 && !tuttoIlPiano;
   const seduteCiclo = b.sedute.filter((s) => s.ciclo === cicloCorrente);
-  const obiettivo = p.obiettivoAttivo ? NOMI_OBIETTIVO[p.obiettivoAttivo.tipo] : undefined;
+  const ibrido = Boolean(b.parametri.obiettivoIbrido);
+  const obiettivo = p.obiettivoAttivo ? nomeObiettivo(p.obiettivoAttivo.tipo, ibrido) : undefined;
   const oggi = new Date().toISOString().slice(0, 10);
 
   return (
@@ -100,7 +102,7 @@ export function Home() {
       <div class="colonna" style="gap:10px">
         <div class="eyebrow">{info.eyebrow}</div>
         <h1 class="titolo-percorso">{titolo}</h1>
-        <p class="muto">{obiettivo ? `${obiettivo} · ` : ''}{NOMI_MODULO[b.modulo ?? 'ipertrofia']} · {b.parametri.N} sedute per ciclo</p>
+        <p class="muto">{obiettivo ? `${obiettivo} · ` : ''}{ibrido ? 'parte classica + circuito' : NOMI_MODULO[b.modulo ?? 'ipertrofia']} · {b.parametri.N} sedute per ciclo</p>
       </div>
 
       <div class="colonna" style="gap:8px">
@@ -148,7 +150,7 @@ export function Home() {
 
       <div class="colonna" style="gap:4px">
         <div class="sezione-titolo">
-          <h2>{prossima?.fase === 'test' ? 'Settimana di test' : 'Questo ciclo'}</h2>
+          <h2>{prossima?.fase === 'test' ? (ibrido ? 'Sedute di test' : 'Settimana di test') : 'Questo ciclo'}</h2>
           <span class="piccolo">{seduteCiclo.filter((s) => s.stato === 'completata').length}/{seduteCiclo.length}</span>
         </div>
         <div class="lista-sedute">

@@ -178,3 +178,43 @@ export function proponiPiano(r: RichiestaPiano): OpzionePiano[] {
 export function settimaneCalendario(cicli: number, N: number, seduteASettimana: number): number {
   return Math.round(((cicli * N) / Math.max(1, seduteASettimana)) * 10) / 10;
 }
+
+// ---------- Durata in mesi e sedute per profilo (SPEC_PIANIFICATORE §12c) ----------
+
+/** Riga di spiegazione del piano per il profilo donna a sedute ibride (§12b). */
+export function percheIbrido(comp: SegmentoPiano[], obiettivo: Obiettivo): string {
+  const test = comp.filter((s) => s.fase === 'test').length;
+  const lavoro = sommaCicliLavoro(comp);
+  return `${test ? 'Prima 3 sedute di test per i carichi, poi ' : ''}${lavoro} settimane di Fase 1 (volume) e Fase 2 (ripetizioni) con scarico${test > 1 ? ' e un nuovo test a fine blocco' : ''}. Ogni seduta: parte classica, poi il circuito. ${obiettivo === 'definizione' ? 'Dimagrimento: meno serie classiche agli stessi carichi, recuperi del circuito più brevi.' : 'Mantenimento e costruzione: serie classiche piene, circuito a 3 giri (4 se vuoi).'}`;
+}
+
+function sommaCicliLavoro(comp: SegmentoPiano[]): number {
+  return comp.filter((s) => s.fase !== 'test').reduce((a, s) => a + s.cicli, 0);
+}
+
+/** Durate proposte all'avvio, in mesi (minimo 3). */
+export const MESI_DURATA = [3, 6, 9, 12] as const;
+
+/** Sedute a settimana di default: uomo 4, donna 3 (modificabile in Impostazioni). */
+export function seduteDefault(sesso: 'M' | 'F'): number {
+  return sesso === 'F' ? 3 : 4;
+}
+
+/** Cicli (= settimane, un ciclo è un giro delle N sedute) in `mesi`: 3 mesi ≈ 13 settimane. */
+export function cicliDaMesi(mesi: number): number {
+  return Math.max(1, Math.round((mesi * 52) / 12));
+}
+
+/**
+ * Durata da salvare nell'obiettivo: i piani di Massa e Mantenimento (e il profilo ibrido) contano il Test nei cicli;
+ * la Preservazione no, quindi in Dimagrimento si toglie il ciclo di test per restare nei mesi scelti.
+ */
+export function cicliPerObiettivo(tipo: Obiettivo, mesi: number, ibrido = false): number {
+  const D = cicliDaMesi(mesi);
+  return tipo === 'definizione' && !ibrido ? Math.max(1, D - 1) : D;
+}
+
+/** Mesi più vicini a una durata in cicli (per i profili creati prima di §12c). */
+export function mesiDaCicli(cicli: number): number {
+  return Math.max(1, Math.round((cicli * 12) / 52));
+}

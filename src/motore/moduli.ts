@@ -1,4 +1,4 @@
-import type { Blocco, CaricoProfilo, CicloPreservazione, Fase, ObiettivoAttivo, ParametriGeneratore, Profilo, RisultatoTest, Seduta, Tappa } from '../tipi';
+import type { Blocco, CaricoProfilo, CicloPreservazione, Fase, Obiettivo, ObiettivoAttivo, ParametriGeneratore, Profilo, RisultatoTest, Seduta, Tappa } from '../tipi';
 import { contenitorePer } from '../data/contenitori';
 import { eserciziPerFase, generaSettimana, nuovoBlocco, nuovoBloccoComposto, primoCicloModificabile, type ProfiloGen } from './generatore';
 import { compongoPiano } from './composizione';
@@ -135,6 +135,29 @@ export function nuovoBloccoIpertrofia(parametri: ParametriGeneratore, profilo: P
   return { ...b, sedute, stato: conTest ? 'test' : 'in_corso', test: conTest ? {} : testDalProfilo(profilo.carichi), modulo: obiettivo === 'mantenimento' ? 'mantenimento' : 'ipertrofia', tappe };
 }
 
+/** Profilo donna a sedute ibride (§12b): preset donna a 3 sedute. */
+export function eIbrido(parametri: Pick<ParametriGeneratore, 'preset' | 'N'>): boolean {
+  return parametri.preset === 'donna_glutei' && parametri.N === 3;
+}
+
+/** Parametri con l'obiettivo del profilo ibrido (§12b): "massa" non esiste per lei e vale come mantenimento e costruzione. */
+export function parametriPerObiettivo(parametri: ParametriGeneratore, tipo: Obiettivo): ParametriGeneratore {
+  if (!eIbrido(parametri)) return parametri;
+  return { ...parametri, obiettivoIbrido: tipo === 'definizione' ? 'definizione' : 'mantenimento', bloccoBreve: true, bloccoBase: undefined };
+}
+
+/**
+ * Blocco del profilo donna a sedute ibride (§12b): stesso piano su misura del Mantenimento (Fase 1, Fase 2, scarico,
+ * nuovo test a fine blocco) con le sedute A-B-C. L'obiettivo cambia solo la parte classica e i tempi del circuito.
+ */
+export function nuovoBloccoIbrido(parametri: ParametriGeneratore, profilo: ProfiloModulo, tipo: Obiettivo, conTest: boolean, numero: number, ponte = false, cicli = 13): Blocco {
+  const par = parametriPerObiettivo(parametri, tipo);
+  const b = nuovoBloccoIpertrofia(par, profilo, 'mantenimento', conTest, numero, ponte, cicli);
+  const obiettivo: Obiettivo = tipo === 'definizione' ? 'definizione' : 'mantenimento';
+  const energia = ENERGIA_PER_OBIETTIVO[obiettivo];
+  return { ...b, tappe: b.tappe?.map((t) => ({ ...t, obiettivo, energia })) };
+}
+
 export interface EsitoCambio {
   /** Blocco in corso, chiuso al confine di ciclo (le sedute oltre vengono tolte). */
   chiuso: Blocco;
@@ -156,7 +179,11 @@ export function cambiaObiettivo(blocco: Blocco, profilo: ProfiloModulo, obiettiv
   const profiloConObiettivo: ProfiloModulo = { ...profilo, obiettivoAttivo: obiettivo };
   const carichi = profilo.carichi ?? {};
   let nuovo: Blocco;
-  if (obiettivo.tipo === 'definizione') {
+  if (eIbrido(parametri)) {
+    // Profilo ibrido (§12b): si cambia obiettivo in corsa senza rifare il test.
+    const tentativo = nuovoBloccoIbrido(parametri, profiloConObiettivo, obiettivo.tipo, false, numero, true, obiettivo.settimane);
+    nuovo = serveTest(tentativo, carichi) && !carichiRecenti(carichi) ? nuovoBloccoIbrido(parametri, profiloConObiettivo, obiettivo.tipo, true, numero, false, obiettivo.settimane) : tentativo;
+  } else if (obiettivo.tipo === 'definizione') {
     nuovo = nuovoBloccoPreservazione(parametri, profiloConObiettivo, obiettivo.settimane, !Object.keys(carichi).length, numero, true);
   } else {
     const bloccoNuovo = nuovoBloccoIpertrofia(parametri, profiloConObiettivo, obiettivo.tipo, false, numero, true, obiettivo.settimane);

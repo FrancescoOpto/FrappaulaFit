@@ -1,7 +1,9 @@
 /* Frappaula Fit — stile "A · Pulita" (SPEC_PIANIFICATORE v2 §11c): righe sottili, tipografia grande,
-   tema scuro con accento arancione, nessun gradiente, nessuna emoji, icone a tratto. */
+   nessun gradiente, nessuna emoji, icone a tratto. Tema scuro o chiaro e accento per profilo (§12c):
+   <html data-tema="scuro|chiaro" data-profilo="M|F">. Tutti i colori passano da queste variabili. */
 
 :root {
+  color-scheme: dark;
   --sfondo: #0e0f11;
   --carta: #17181b;
   --carta2: #202226;
@@ -18,10 +20,71 @@
   --verde: #3ccf7a;
   --verde-sfondo: #12281c;
   --giallo: #f5b942;
+  /* Colori derivati (prima fissi nel foglio): barre, ombre, velo dei modali, avvisi, chip selezionati. */
+  --barra-sfondo: rgba(14, 15, 17, 0.96);
+  --nav-sfondo: rgba(14, 15, 17, 0.97);
+  --ombra: rgba(0, 0, 0, 0.45);
+  --timer-bottone: rgba(0, 0, 0, 0.22);
+  --velo: rgba(0, 0, 0, 0.6);
+  --su-scuro: #fff;
+  --accento-tenue: rgba(240, 118, 30, 0.12);
+  --avviso-sfondo: rgba(245, 185, 66, 0.1);
+  --avviso-bordo: rgba(245, 185, 66, 0.35);
+  --avviso-testo: #ffd98a;
+  --errore-sfondo: rgba(217, 43, 51, 0.12);
+  --errore-bordo: rgba(217, 43, 51, 0.5);
   --raggio: 14px;
   --raggio-grande: 18px;
   --font: 'Barlow', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-titolo: 'Barlow Condensed', 'Barlow', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Profilo donna, tema scuro: rosa tenue (§12c). */
+:root[data-profilo='F'] {
+  --accento: #e07a9f;
+  --accento2: #f2a6c0;
+  --accento-testo: #1a0610;
+  --accento-tenue: rgba(224, 122, 159, 0.12);
+}
+
+/* Tema chiaro (§12c): palette chiara; uomo con arancione più scuro per il contrasto. */
+:root[data-tema='chiaro'] {
+  color-scheme: light;
+  --sfondo: #f4f4f2;
+  --carta: #fff;
+  --carta2: #eeeef0;
+  --bordo: #dadade;
+  --filo: #e7e7ea;
+  --testo: #16171a;
+  --testo2: #52555c;
+  --testo3: #6c6f77;
+  --verde: #1c9a58;
+  --verde-sfondo: #e2f4ea;
+  --giallo: #a86d10;
+  --rosso: #d92b33;
+  --rosso2: #c0262d;
+  --accento: #e0620d;
+  --accento2: #b34d08;
+  --accento-testo: #1b0d03;
+  --accento-tenue: rgba(224, 98, 13, 0.12);
+  --barra-sfondo: rgba(255, 255, 255, 0.96);
+  --nav-sfondo: rgba(255, 255, 255, 0.97);
+  --ombra: rgba(22, 23, 26, 0.18);
+  --timer-bottone: rgba(0, 0, 0, 0.12);
+  --velo: rgba(22, 23, 26, 0.4);
+  --avviso-sfondo: rgba(168, 109, 16, 0.08);
+  --avviso-bordo: rgba(168, 109, 16, 0.4);
+  --avviso-testo: #7a4e08;
+  --errore-sfondo: rgba(217, 43, 51, 0.07);
+  --errore-bordo: rgba(217, 43, 51, 0.45);
+}
+
+/* Profilo donna, tema chiaro: rosa più deciso; il testo sui pulsanti resta scuro (§12c). */
+:root[data-tema='chiaro'][data-profilo='F'] {
+  --accento: #d14f82;
+  --accento2: #a83568;
+  --accento-testo: #2a0a18;
+  --accento-tenue: rgba(209, 79, 130, 0.12);
 }
 
 * {
@@ -276,7 +339,7 @@ p {
 .bottone.scuro {
   background: var(--accento-testo);
   border-color: var(--accento-testo);
-  color: #fff;
+  color: var(--su-scuro);
 }
 
 .bottone.fantasma {
@@ -419,7 +482,7 @@ input[type='radio'] {
 .scelta.attiva {
   border-color: var(--accento);
   color: var(--accento2);
-  background: rgba(240, 118, 30, 0.1);
+  background: var(--accento-tenue);
 }
 
 .stepper {
@@ -613,7 +676,8 @@ input[type='radio'] {
 }
 
 .prossima-seduta .eyebrow {
-  color: rgba(20, 10, 2, 0.7);
+  color: var(--accento-testo);
+  opacity: 0.7;
 }
 
 .prossima-seduta h2 {
@@ -625,7 +689,8 @@ input[type='radio'] {
 
 .prossima-seduta .meta {
   font-size: 14px;
-  color: rgba(20, 10, 2, 0.8);
+  color: var(--accento-testo);
+  opacity: 0.8;
 }
 
 .prossima-seduta .bottone.scuro {
@@ -883,7 +948,7 @@ input[type='radio'] {
   right: 0;
   bottom: 60px;
   z-index: 20;
-  background: rgba(14, 15, 17, 0.96);
+  background: var(--barra-sfondo);
   border-top: 1px solid var(--filo);
   backdrop-filter: blur(8px);
 }
@@ -959,7 +1024,7 @@ input[type='radio'] {
   display: flex;
   align-items: center;
   gap: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 24px var(--ombra);
   font-variant-numeric: tabular-nums;
 }
 
@@ -972,7 +1037,7 @@ input[type='radio'] {
 }
 
 .timer-barra button {
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--timer-bottone);
   border: 0;
   color: var(--accento-testo);
   border-radius: 999px;
@@ -1007,7 +1072,7 @@ input[type='radio'] {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(14, 15, 17, 0.97);
+  background: var(--nav-sfondo);
   border-top: 1px solid var(--filo);
   display: flex;
   justify-content: space-around;
@@ -1042,9 +1107,9 @@ input[type='radio'] {
 /* ---------- Avvisi, tabelle, varie ---------- */
 
 .avviso {
-  background: rgba(245, 185, 66, 0.1);
-  border: 1px solid rgba(245, 185, 66, 0.35);
-  color: #ffd98a;
+  background: var(--avviso-sfondo);
+  border: 1px solid var(--avviso-bordo);
+  color: var(--avviso-testo);
   border-radius: 12px;
   padding: 10px 12px;
   font-size: 14px;
@@ -1058,8 +1123,8 @@ input[type='radio'] {
 }
 
 .avviso.errore {
-  background: rgba(217, 43, 51, 0.12);
-  border-color: rgba(217, 43, 51, 0.5);
+  background: var(--errore-sfondo);
+  border-color: var(--errore-bordo);
   color: var(--rosso2);
 }
 
@@ -1145,7 +1210,7 @@ input[type='radio'] {
 .modale-sfondo {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--velo);
   z-index: 30;
   display: flex;
   align-items: flex-end;
@@ -1193,4 +1258,87 @@ input[type='radio'] {
   h1.titolo-percorso {
     font-size: 68px;
   }
+}
+
+/* ---------- Circuito PHA (§12b) ---------- */
+
+.circuito {
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio-grande);
+  background: var(--carta);
+  padding: 14px 14px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.circuito.attivo {
+  border-color: var(--accento);
+}
+
+.circuito .giri {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.circuito .pallini {
+  display: flex;
+  gap: 6px;
+}
+
+.circuito .pallini span {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--testo3);
+}
+
+.circuito .pallini span.fatto {
+  background: var(--accento);
+  border-color: var(--accento);
+}
+
+.circuito .pallini span.corrente {
+  border-color: var(--accento);
+}
+
+.stazione {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--filo);
+}
+
+.stazione .numero {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1.5px solid var(--testo3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex: none;
+}
+
+.stazione.fatta .numero {
+  background: var(--verde);
+  border-color: var(--verde);
+  color: var(--carta);
+}
+
+.stazione.corrente .numero {
+  border-color: var(--accento);
+  color: var(--accento2);
+}
+
+.stazione .nome {
+  font-weight: 600;
+}
+
+.stazione.fatta .nome {
+  color: var(--testo2);
 }

@@ -6,7 +6,7 @@ Fonti: `Libro` = Project Bodybuilding (note in `docs/note_elaborate/cap*.md`), `
 ## 0. Ambito e rapporto con il codice esistente
 - Questa spec **estende** `SPEC.md` §3 (struttura), §14 (coach) e **sostituisce §15** (pianificatore). In caso di conflitto su obiettivo, energia, pianificatore e passaggio tra programmi **prevale questo file**. Per tutto il resto (generatore sedute, test, tabelle dei Blocchi 1–3, persistenza carichi §9.2b) resta valido `SPEC.md`.
 - **Il codice esistente non va riscritto.** Esistono già: `Obiettivo = 'massa' | 'mantenimento' | 'definizione'` in `tipi.ts` (solo dato), `motore/pianificatore.ts` (solo blocchi completi/accorciati), `data/regole_coach.ts` (struttura), `data/blocco1–3.ts`, `motore/correnti.ts`, `Setup.tsx`. Si **estendono**; i test esistenti devono restare verdi.
-- **Fuori ambito di questo file:** profilo e programma della moglie (spec separata, in arrivo), Anno 2–3 del programma di riferimento (esercizi e tabelle non ancora noti), Blocco 4. Il **sesso** però è un input (serve alle formule).
+- **Fuori ambito di questo file:** profilo e programma della moglie (ora in §12b e §12c), Anno 2–3 del programma di riferimento (esercizi e tabelle non ancora noti), Blocco 4. Il **sesso** però è un input (serve alle formule).
 - Il nome interno `definizione` resta (tipo esistente); nell'interfaccia l'etichetta è **"Dimagrimento"**.
 
 ## 0b. Cosa cambia nella v2 (da applicare al codice già scritto)
@@ -24,7 +24,7 @@ Fonti: `Libro` = Project Bodybuilding (note in `docs/note_elaborate/cap*.md`), `
 
 ## 1. Il ragionamento in una pagina [Mia decisione]
 Quando l'utente entra (primo avvio, reset dati, o "Cambia obiettivo") l'app decide **in questo ordine**:
-1. **Che obiettivo hai?** Massa · Mantenimento · Dimagrimento. **Per quanto tempo?** (cicli/settimane)
+1. **Che obiettivo hai?** Massa · Mantenimento · Dimagrimento. **Per quanto tempo?** 3 · 6 · 9 · 12 mesi (minimo 3; vedi §12c)
 2. **Stato energetico: non si chiede** [Utente, 29/10]. Discende dall'obiettivo (Massa = surplus, Mantenimento = calorie di mantenimento, Dimagrimento = deficit) e serve solo al calcolatore opzionale di §3 e alle regole del coach sul peso. Il principio resta il fondamento della Preservazione: in deficit la sintesi proteica cala (−19 % con deficit del 20 %; −27 % con ~500 kcal per 5 giorni) e l'allenamento la riporta solo ai valori di riposo [Certo, Schoenfeld cap. 9], quindi **in deficit l'allenamento serve a mantenere il muscolo**.
 3. **Cosa so già di te?** Carichi e massimali nel profilo (§7). Se ci sono, **nessun nuovo test** passando da un programma all'altro.
 4. L'app sceglie il **modulo** (§4) e costruisce la sequenza di **cicli** (§5–§6) per la durata richiesta, mostrando il "perché" in una riga.
@@ -39,11 +39,11 @@ Quando l'utente entra (primo avvio, reset dati, o "Cambia obiettivo") l'app deci
 **Nessun avviso di coerenza obiettivo/energia** (campo rimosso). Chi si allena da poco può comunque migliorare la composizione a calorie di mantenimento (ricomposizione, Libro) [Probabile].
 
 ## 2. Dati da raccogliere (onboarding e Impostazioni)
-Esistenti: nome, sesso, N giorni/settimana (**default 4**), durata seduta, priorità, esclusioni, esperienza, preset. **Nuovi:**
+Esistenti: nome, sesso, N giorni/settimana (**default 4 uomo, 3 donna**), durata seduta, priorità, esclusioni, esperienza, preset. **Nuovi:**
 - Età, altezza (cm), peso (kg), % grasso (opzionale).
 - **Passi al giorno** (stepper da 1.000 in 1.000) e **allenamenti a settimana**: sostituiscono il livello di attività (§3.1).
 - **TDEE noto** (opzionale): "L'ho misurato con 10–14 giorni di conteggio calorie a peso stabile" → prevale sulla formula (Libro, cap. 2 §2.3).
-- Obiettivo, durata in settimane (default per obiettivo: dimagrimento 4, mantenimento 12, massa 17), **kg da perdere/prendere** (opzionale), flag **"Allenare anche la resistenza"** (§4.5).
+- Obiettivo, durata in mesi 3/6/9/12 (§12c; l'app la converte in sedute), **kg da perdere/prendere** (opzionale), flag **"Allenare anche la resistenza"** (§4.5).
 - Mai chiedere cose non usate: se l'utente salta la parte energia, l'app funziona lo stesso (solo allenamento, nessun calcolo calorico).
 
 ## 3. Modulo Energia (calcolatore, opzionale) [Libro + Schoenfeld]
@@ -309,8 +309,48 @@ Dati, motore, nomi delle voci del menu, flussi di Setup/Check-in/Energia (ricevo
 
 **Piano su misura (§6b):** test su `componiMassa(R)` e `compongoPiano(D, test)`: R=3 → `F1×3`; R=7 → `F1×4 F2×3 S`; R=10 → `F1×5 F2×4 S`; R=11 → `F1×5 F2×5 S`; R=12 → `F1×4 F2×4 S F3×3`; R=16 → `F1×5 F2×5 S F3×5`; D=18 con Test → `T B1 F1×5 F2×5 S F3×5 S`; D=26 → secondo blocco (Blocco 2) con Test dopo lo scarico di chiusura. Somma dei cicli = D in tutti i casi. Mantenimento senza F3.
 
+## 12b. Profilo Donna: seduta ibrida classico + circuito PHA [Utente, 29/10; sostituisce SPEC.md §8 PROVVISORIO]
+
+### Struttura
+- **3 sedute fisse a settimana** (A–B–C); il **ciclo = 3 sedute**, non una settimana (§5). Rotazione A-B-C indipendente dal giorno.
+- **Seduta ibrida** [Utente]: parte **classica** (fondamentale per primo, recupero pieno 2–3', progressione dei carichi) + parte **circuito PHA** (blocco raggruppato, vedi sotto). Il circuito non sostituisce la parte classica.
+- **Dorso prioritario** ("aprire il dorso") [Utente]: presente in **tutte e 3** le sedute, almeno una trazione verticale + un rematore, circa 10–12 serie/settimana [Probabile]. Nessun fondamentale fisso per il dorso.
+- Glutei: ogni seduta di gambe copre i tre stimoli (tag `stimolo_gluteo` nella libreria: **estensione / flessione / abduzione**), per non ripetere lo stesso.
+- Test di inizio: **3 sedute di test** (non 4), stessa logica di §7.
+
+### Bozza delle sedute (da rifinire con la libreria; esercizi indicativi)
+- **S1 gambe + glutei con dorso**: classico = hip thrust, stacco rumeno; circuito = abduzione, lat machine, leg curl, pulley, core.
+- **S2 parte alta, dorso per primo**: classico = trazione verticale, rematore, spinte; circuito = kick back, alzate laterali, abduzione.
+- **S3 gambe + glutei con richiamo dorso**: classico = squat o pressa, split squat; circuito = gambe + dorso orizzontale.
+
+### Circuito PHA (parametri dal materiale Gemini, adattati; i dati fisiologici di Gemini non sono verificati e non vanno in app)
+- 5 stazioni tipiche, alternando alto/basso; **transizioni 20–30"**; **recupero a fine giro ~2'30"**; **10–15 RM con 1–2 RIR**. Un giro ≈ 8', tre giri ≈ 25'.
+- Esercizi pesanti e multiarticolari restano nella parte classica.
+- Nell'app è un **blocco raggruppato**: l'app elenca **2 o più esercizi** (tipicamente 5) e **lei sceglie quanti giri fare** (default 3, selezionabile 2–4). **Un timer per giro** (transizioni + recupero fine giro) e un contatore giri.
+- Progressione: doppia progressione (ripetizioni nel range, poi carico) [Ipotesi].
+
+### Obiettivo (due scelte per il suo profilo)
+**"Dimagrimento"** oppure **"Mantenimento e costruzione muscolare"**. Si può cambiare in corsa senza rifare il test. Lo sforzo del circuito è **identico** (RIR 1–2, 10–15 RM): cambia solo la ripartizione del tempo.
+- **Mantenimento e costruzione**: parte classica ≈ 30' con più serie; circuito ≈ 25' (3 giri, 4 opzionali).
+- **Dimagrimento**: parte classica ≈ 25' con **meno serie ma carichi mantenuti** (proteggere la massa magra) [Probabile]; circuito fino a 4 giri con recuperi brevi; **niente tecniche di intensità estreme**.
+- Tetto T = 60': con 4 giri la parte classica si riduce per restare entro il tempo.
+
+### Cosa NON implementare dal materiale femminile
+"Female Revolution Method" (infiammazione alta/media/bassa: n=12 autogestito, venduto come ebook), ramificazioni ginoide/androide, le percentuali di volume 20/30–40/40–50, le affermazioni fisiologiche di Gemini. Protocollo post-allenamento di 10' (camminata + gambe al muro): solo nota facoltativa.
+
+### Catalogo tecniche (dal libro, solo su esercizi di isolamento)
+Rest-pause, serie interrotta, myoreps, stripping di carico (**default −20%**, non −30%: il −30% non era verificato), stripping a ripetizioni fisse, 1.5 ripetizioni, tripla contrazione, picco di contrazione (2–10"), burns. **Limiti**: max 2 rest-pause/stripping consecutivi, max 3 esercizi per seduta con tecniche, tecniche posizionali 1–3 serie, burns a fine seduta. Il rest-pause del libro (15–20", stesso carico) è diverso da quello del Blocco 3.
+
+## 12c. Impostazioni: durata, sedute per profilo, tema [Utente, 29/10]
+- **Durata in mesi**, non in cicli: l'avvio chiede **3 · 6 · 9 · 12 mesi** (minimo 3). L'app converte in sedute: uomo 4/settimana (3 mesi ≈ 13 settimane ≈ 52 sedute), donna 3/settimana (≈ 39 sedute). I cicli si contano in sedute, non in settimane. Il testo di setup mostra la composizione risultante (§6b).
+- **Sedute a settimana per profilo**: uomo 4, donna 3 (modificabile in Impostazioni).
+- **Tasto tema** in Impostazioni: scuro / chiaro, salvato per profilo. Per il tema chiaro sostituire i colori fissi di `stile.css` con variabili: `.barra-seduta` (`rgba(14,15,17,0.96)`, ~r.886), barra di navigazione (`rgba(14,15,17,0.97)`, ~r.1010), ombre (`rgba(0,0,0,…)` r.962, 975, 1148), testo `#fff` dei pulsanti (r.279), `rgba(240,118,30,0.1)` (r.422).
+- **Palette chiara**: `--sfondo #f4f4f2 --carta #fff --carta2 #eeeef0 --bordo #dadade --filo #e7e7ea --testo #16171a --testo2 #52555c --testo3 #6c6f77 --verde #1c9a58 --verde-sfondo #e2f4ea --giallo #a86d10 --rosso #d92b33 --rosso2 #c0262d`.
+- **Accento per profilo**: uomo scuro `#f0761e / #ffa054 / #140a02`, uomo chiaro `#e0620d / #b34d08 / #1b0d03`; donna scuro (rosa tenue) `#e07a9f / #f2a6c0 / #1a0610`, donna chiaro `#d14f82 / #a83568 / #2a0a18` (accento / accento2 / accento-testo). Chip selezionati: accento a opacità 0,12. Nel tema chiaro `--accento-testo` resta scuro per leggibilità dei pulsanti.
+
 ## 13. Parti aperte (non inventare)
-- Profilo e programma della moglie: spec separata (foto/screen in arrivo).
+- Profilo moglie: scritto in §12b; aperti: esercizi del circuito per seduta (bozza), regola di progressione del circuito [Ipotesi], mapping dei due obiettivi nel codice.
+- **Idea da tenere (NON ancora specificata):** misure corporee in cm configurabili (uomo: vita, petto, bicipite; donna: coscia, glutei, vita) con grafico nel tempo, in Impostazioni avanzate.
 - Testo delle note sugli aumenti forzati in Fase 3 e sulle tecniche (back-off) dell'app di riferimento; Anno 2–3; esistenza del Blocco 4.
 - Seconda riga Target ×12 del Blocco 3: nel video sembra un back-off ([Ipotesi]); resta serie normale a ×12.
 - Se le percentuali 77/82/87 del Blocco 3 dipendono dalle ripetizioni del test.

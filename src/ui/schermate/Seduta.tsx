@@ -4,12 +4,14 @@ import { CARICO_MODO, NOMI_GRUPPI, esercizio as trovaEsercizio } from '../../dat
 import { alternative } from '../../motore/generatore';
 import { durataStimata, minuti, prescrizione, rigaDi, serieRip } from '../../motore/prescrizione';
 import { percentualeRM, stimaMassimale } from '../../motore/carichi';
+import { CIRCUITO, tempiCircuito } from '../../data/tabelle';
 import {
   aggiornaSerie,
   annullaSeduta,
   avviabile,
   blocco,
   completaSeduta,
+  impostaGiri,
   impostazioni,
   inAnteprima,
   iniziaSeduta,
@@ -247,7 +249,7 @@ function SerieEspanse({ s, es, reg, campi, setCampi, soloLettura }: { s: TSeduta
             <div class={`serie-inline fatta`}>
               <button type="button" class="cerchio" aria-label={`Serie ${x.n} fatta: tocca per riaprirla`} disabled={soloLettura} onClick={() => void aggiornaSerie(s.id, es.slot, x.n, { fatta: false })}><Icona nome="spunta" dimensione={14} /></button>
               <span class="valore">{testoFatta(x)}</span>
-              {x.stripping ? <span class="piccolo">stripping −30 %</span> : null}
+              {x.stripping ? <span class="piccolo">stripping −20 %</span> : null}
               {x.n === ultima && !x.stripping ? (
                 <div class="riga cresce" style="gap:4px;justify-content:flex-end;flex-wrap:wrap">
                   {(['facile', 'giusto', 'limite'] as const).map((v) => (
@@ -310,7 +312,7 @@ function RigaEsercizio({ s, es, aperto, onApri, onSostituisci, campi, setCampi }
             <Badge ruolo={es.ruolo} />
           </div>
           <div class="dettaglio">
-            <span>{pr.serie} × {pr.rip}</span>
+            <span>{reg ? reg.serie.filter((x) => !x.stripping).length : pr.serie} × {pr.rip}</span>
             <span>·</span>
             <span>{pr.kg !== undefined ? formatoKg(pr.kg) : es.senza_carico ? 'carico a scelta' : 'senza test'}{pr.corrente ? ' (tuo)' : ''}</span>
             <span>·</span>
@@ -332,6 +334,97 @@ function RigaEsercizio({ s, es, aperto, onApri, onSostituisci, campi, setCampi }
           </div>
         </>
       ) : null}
+    </div>
+  );
+}
+
+/** Valore speciale di "esercizio aperto": il circuito. */
+const APERTO_CIRCUITO = -999;
+
+/** Stazione e giro correnti del circuito: la prima stazione non fatta, giro per giro (§12b). */
+export function stazioneCorrente(stazioni: EsercizioSeduta[], reg: { esercizi: Record<number, RegistroEsercizio> } | undefined, giri: number): { es: EsercizioSeduta; giro: number } | undefined {
+  for (let g = 1; g <= giri; g++) {
+    for (const e of stazioni) {
+      const x = reg?.esercizi[e.slot]?.serie.find((y) => y.n === g);
+      if (x && !x.fatta) return { es: e, giro: g };
+    }
+  }
+  return undefined;
+}
+
+function secondiTesto(sec: number): string {
+  return sec >= 60 ? recuperoTesto(sec) : `${sec}″`;
+}
+
+/**
+ * Circuito PHA (SPEC_PIANIFICATORE §12b): blocco raggruppato di stazioni, giri a scelta (2–4), un timer per giro
+ * (transizione tra le stazioni e recupero a fine giro) e il contatore dei giri.
+ */
+function BloccoCircuito({ s, stazioni, giri, corrente, attivoOra, onAttiva, onSostituisci, campi, setCampi }: { s: TSeduta; stazioni: EsercizioSeduta[]; giri: number; corrente?: { es: EsercizioSeduta; giro: number }; attivoOra: boolean; onAttiva: () => void; onSostituisci: (e: EsercizioSeduta) => void; campi: CampiSerie | null; setCampi: (c: CampiSerie | null) => void }) {
+  const p = profilo.value!;
+  const b = blocco.value!;
+  const reg = registroDi(s.id);
+  const tempi = tempiCircuito(b.parametri.obiettivoIbrido);
+  const passo = impostazioni.value.arrotondamento;
+  const inCorso = s.stato === 'in_corso';
+  const giroCorrente = corrente?.giro ?? giri;
+  const giriFatti = Array.from({ length: giri }, (_, i) => i + 1).filter((g) => stazioni.every((e) => reg?.esercizi[e.slot]?.serie.find((x) => x.n === g)?.fatta)).length;
+  const serieCorr = corrente ? reg?.esercizi[corrente.es.slot]?.serie.find((x) => x.n === corrente.giro) : undefined;
+  // Quando cambia la stazione corrente, i campi ripartono dai valori previsti.
+  useEffect(() => {
+    if (!attivoOra || !corrente || !serieCorr) return;
+    if (campi && campi.slot === corrente.es.slot && campi.n === corrente.giro) return;
+    setCampi({ slot: corrente.es.slot, n: corrente.giro, kg: serieCorr.kg !== undefined ? String(serieCorr.kg) : serieCorr.kg_prev ? String(serieCorr.kg_prev) : '', rip: serieCorr.rip !== undefined ? String(serieCorr.rip) : String(serieCorr.rip_prev) });
+  }, [attivoOra, corrente?.es.slot, corrente?.giro, serieCorr?.kg_prev]);
+  const minimoGiri = Math.max(CIRCUITO.giriMin, giriFatti + (corrente && corrente.giro > giriFatti && stazioni.some((e) => reg?.esercizi[e.slot]?.serie.find((x) => x.n === corrente.giro)?.fatta) ? 1 : 0));
+  const sceltaGiri = Array.from({ length: CIRCUITO.giriMax - CIRCUITO.giriMin + 1 }, (_, i) => CIRCUITO.giriMin + i).filter((g) => g >= minimoGiri);
+
+  return (
+    <div class={`circuito ${attivoOra ? 'attivo' : ''}`}>
+      <div class="riga spazio" style="align-items:baseline">
+        <span class="eyebrow">Circuito · {stazioni.length} stazioni</span>
+        <span class="piccolo">{s.fase === 'test' ? '' : !reg ? `${giri} giri` : giriFatti >= giri ? `${giri} giri fatti` : `giro ${Math.min(giroCorrente, giri)} di ${giri}`}</span>
+      </div>
+      <div class="giri">
+        <div class="pallini" aria-label={`${giriFatti} giri su ${giri}`}>
+          {Array.from({ length: giri }, (_, i) => <span class={i < giriFatti ? 'fatto' : i === giriFatti && inCorso ? 'corrente' : ''} />)}
+        </div>
+        <span class="piccolo">transizioni {secondiTesto(tempi.transizione)} · fine giro {secondiTesto(tempi.recuperoGiro)} · {CIRCUITO.ripMin}–{CIRCUITO.ripMax} rip, 1–2 di riserva</span>
+      </div>
+      {inCorso ? (
+        <div class="riga" style="gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="piccolo">Giri</span>
+          <Scelte valori={sceltaGiri} valore={giri} onCambia={(g) => void impostaGiri(s.id, g)} />
+        </div>
+      ) : null}
+      {reg?.notaGiri ? <p class="piccolo">{reg.notaGiri}</p> : null}
+      {stazioni.map((e, i) => {
+        const def = trovaEsercizio(e.esercizio_id, p.esercizi_personalizzati);
+        const pr = prescrizioneDi(e, s);
+        const serie = reg?.esercizi[e.slot]?.serie.find((x) => x.n === giroCorrente);
+        const fatta = Boolean(serie?.fatta) || (giriFatti >= giri && giri > 0 && Boolean(reg));
+        const eCorrente = attivoOra && corrente?.es.slot === e.slot;
+        const kg = serie ? serie.kg ?? serie.kg_prev : pr.kg;
+        return (
+          <div class={`stazione ${fatta ? 'fatta' : ''} ${eCorrente ? 'corrente' : ''}`}>
+            <span class="numero">{fatta ? <Icona nome="spunta" dimensione={14} /> : i + 1}</span>
+            <div class="cresce" style="min-width:0">
+              <div class="riga spazio" style="gap:8px">
+                <button type="button" class="nome" style="background:none;border:0;padding:0;text-align:left;cursor:pointer" onClick={() => vai(`/seduta/${s.id}/es/${e.slot}`)}>{def?.nome ?? e.esercizio_id}</button>
+                {inCorso && !fatta ? <button class="icona-bottone" aria-label="Sostituisci esercizio" onClick={() => onSostituisci(e)}><Icona nome="scambia" dimensione={18} /></button> : null}
+              </div>
+              <div class="piccolo">{kg ? formatoKg(kg) : 'carico da scegliere'} × {serie?.fatta ? `${serie.rip ?? serie.rip_prev} rip` : `${CIRCUITO.ripMin}–${CIRCUITO.ripMax}`}{NOMI_GRUPPI[e.gruppo] ? ` · ${NOMI_GRUPPI[e.gruppo].toLowerCase()}` : ''}</div>
+              {eCorrente && campi && campi.slot === e.slot && campi.n === corrente!.giro ? (
+                <div class="controlli" style="margin-top:8px">
+                  <Controllo valore={campi.kg} passo={passo} onCambia={(v) => setCampi({ ...campi, kg: v })} unita="kg" etichettaAria={`kg ${def?.nome ?? ''}`} />
+                  <Controllo valore={campi.rip} passo={1} onCambia={(v) => setCampi({ ...campi, rip: v })} unita="rip" etichettaAria={`ripetizioni ${def?.nome ?? ''}`} />
+                </div>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+      {inCorso && !attivoOra && corrente ? <button class="bottone pieno" onClick={onAttiva}>Vai al circuito</button> : null}
     </div>
   );
 }
@@ -386,13 +479,20 @@ export function Seduta({ id }: { id: string }) {
     return Boolean(r && r.serie.filter((x) => !x.stripping).every((x) => x.fatta));
   };
   const fatte = s.esercizi.filter(esercizioCompleto).length;
-  const durata = s.fase === 'test' ? 0 : durataStimata(s.esercizi.map((e) => ({ ruolo: e.ruolo, serie: serieRip(e.ruolo, s.fase as Exclude<Fase, 'test'>, rigaDi(s), e)[0], superserie: e.superserie })), impostazioni.value.recuperi);
+  // Circuito (§12b): stazioni a giri, separate dalla parte classica.
+  const stazioni = s.fase === 'test' ? [] : s.esercizi.filter((e) => e.circuito);
+  const classiche = s.fase === 'test' ? s.esercizi : s.esercizi.filter((e) => !e.circuito);
+  const giri = stazioni.length ? reg?.giri ?? prescrizioneDi(stazioni[0], s).serie : 0;
+  const serieClassica = (e: EsercizioSeduta) => reg?.esercizi[e.slot]?.serie.filter((x) => !x.stripping).length ?? serieRip(e.ruolo, s.fase as Exclude<Fase, 'test'>, rigaDi(s), e)[0];
+  const durata = s.fase === 'test' ? 0 : durataStimata(s.esercizi.map((e) => ({ ruolo: e.ruolo, serie: e.circuito ? giri : serieClassica(e), superserie: e.superserie, circuito: e.circuito })), impostazioni.value.recuperi, tempiCircuito(b.parametri.obiettivoIbrido));
   const testMancanti = s.fase === 'test' ? s.esercizi.filter((e) => !b.test[e.esercizio_id]).length : 0;
   const testFatti = s.esercizi.length - testMancanti;
   const tuttiTestDelBlocco = b.sedute.filter((x) => x.fase === 'test').every((x) => x.stato === 'completata' || x.id === s.id);
-  const gruppiSeduta = gruppi(s);
-  const primoIncompleto = s.esercizi.find((e) => !esercizioCompleto(e));
-  const apertoSlot = s.stato === 'in_corso' ? (apertoScelto !== null && s.esercizi.some((e) => e.slot === apertoScelto) ? apertoScelto : primoIncompleto?.slot ?? null) : null;
+  const gruppiSeduta = gruppi({ ...s, esercizi: classiche });
+  const primoIncompleto = classiche.find((e) => !esercizioCompleto(e));
+  const apertoSlot = s.stato === 'in_corso' ? (apertoScelto !== null && classiche.some((e) => e.slot === apertoScelto) ? apertoScelto : apertoScelto === APERTO_CIRCUITO ? null : primoIncompleto?.slot ?? null) : null;
+  const corrente = stazioni.length ? stazioneCorrente(stazioni, reg, giri) : undefined;
+  const modoCircuito = s.stato === 'in_corso' && apertoSlot === null && Boolean(corrente);
   const esAperto = apertoSlot !== null ? s.esercizi.find((e) => e.slot === apertoSlot) : undefined;
   const regAperto = esAperto ? reg?.esercizi[esAperto.slot] : undefined;
   const serieCorrente = regAperto?.serie.find((x) => !x.fatta);
@@ -403,6 +503,26 @@ export function Seduta({ id }: { id: string }) {
     setConfermaCompleta(false);
     if (s.fase === 'test') setCongratulazioni(true);
     else vai('/');
+  };
+
+  /** Stazione fatta: registra la serie del giro e avvia la transizione o, a fine giro, il recupero (§12b). */
+  const stazioneFatta = () => {
+    if (!corrente) return;
+    const { es: e, giro } = corrente;
+    const mie = campi && campi.slot === e.slot && campi.n === giro;
+    const kg = mie ? parseFloat(campi!.kg.replace(',', '.')) : undefined;
+    const rip = mie ? parseInt(campi!.rip, 10) : undefined;
+    void aggiornaSerie(s.id, e.slot, giro, { kg: Number.isFinite(kg) ? kg : undefined, rip: Number.isFinite(rip) ? rip : undefined, fatta: true });
+    const tempi = tempiCircuito(b.parametri.obiettivoIbrido);
+    const i = stazioni.findIndex((x) => x.slot === e.slot);
+    const prossima = stazioni.slice(i + 1).find((x) => !reg?.esercizi[x.slot]?.serie.find((y) => y.n === giro)?.fatta);
+    if (prossima) {
+      avviaTimer(tempi.transizione, `Prossima: ${trovaEsercizio(prossima.esercizio_id, p.esercizi_personalizzati)?.nome ?? ''}`);
+    } else if (giro < giri) {
+      avviaTimer(tempi.recuperoGiro, `Fine giro ${giro} di ${giri}: recupero`);
+    } else {
+      fermaTimer();
+    }
   };
 
   const serieFatta = () => {
@@ -418,7 +538,7 @@ export function Seduta({ id }: { id: string }) {
     avviaTimer(impostazioni.value.recuperi[esAperto.ruolo], def?.nome ?? '');
     // Ultima serie dell'esercizio: si passa al prossimo incompleto.
     const rimaste = regAperto!.serie.filter((x) => !x.fatta && !x.stripping && x.n !== serieCorrente.n).length;
-    if (rimaste === 0) setApertoScelto(null);
+    if (rimaste === 0) setApertoScelto(stazioni.length && classiche.every((x) => x.slot === esAperto.slot || esercizioCompleto(x)) ? APERTO_CIRCUITO : null);
   };
 
   if (congratulazioni) {
@@ -488,6 +608,11 @@ export function Seduta({ id }: { id: string }) {
         </div>
       ))}
 
+      {stazioni.length ? (
+        <BloccoCircuito s={s} stazioni={stazioni} giri={giri} corrente={corrente} attivoOra={modoCircuito} onAttiva={() => setApertoScelto(APERTO_CIRCUITO)} onSostituisci={(e) => setSost(e)} campi={campi} setCampi={setCampi} />
+      ) : null}
+      {stazioni.length && (tuttoFatto || s.stato === 'completata') ? <p class="piccolo">Facoltativo, a fine seduta: 10′ di camminata tranquilla e qualche minuto sdraiata con le gambe al muro.</p> : null}
+
       {s.stato !== 'completata' && s.fase === 'test' && puoIniziare ? (
         <button class="bottone pieno" disabled={testMancanti > 0} onClick={completa}>
           {testMancanti > 0 ? `Manca ancora ${testMancanti} ${testMancanti === 1 ? 'esercizio' : 'esercizi'}` : 'Completa seduta di test'}
@@ -521,6 +646,8 @@ export function Seduta({ id }: { id: string }) {
       {s.stato === 'in_corso' && !confermaCompleta ? (
         tuttoFatto ? (
           <BarraSeduta testo="Completa seduta" onFatta={() => void completa()} />
+        ) : modoCircuito ? (
+          <BarraSeduta testo="Stazione fatta" onFatta={stazioneFatta} />
         ) : esAperto && serieCorrente ? (
           <BarraSeduta testo={serieCorrente.rest_pause ? 'Apri rest-pause' : 'Serie fatta'} onFatta={serieFatta} />
         ) : (

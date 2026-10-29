@@ -124,9 +124,11 @@ R2, R3, C, AB: **carico fisso del test** per tutto il blocco; cambia solo il vol
 - In Fase 1 il passaggio ciclo 3 → 4 di R1 **cambia carico** (da 9RM a 7RM) e riporta le rip a 5. In Fase 2 R1 tiene il carico 7RM e lavora sul volume.
 - In Fase 2/3 si cambiano alcune **varianti** dei complementari (es. croci manubri → croci ai cavi, curl 60° → 45°) senza cambiare la logica; i complementari nuovi non hanno carico prescritto: lo sceglie l'utente (o eredita quello dell'esercizio simile).
 - **Dubbio chiuso [Certo, 29/10]**: i carichi sono 0,9 × RM (4×5 in Fase 3 = 80 % del 1RM, 4×3 = 85 %), quindi sostenibili; il dubbio nasceva dall'avere ignorato il 0,9. Soluzione adottata: **autocorrezione** — se in una serie le ripetizioni fatte < prescritte, il peso della serie successiva è precompilato a −5%; se succede per 2 sedute di fila sullo stesso esercizio, il carico del ciclo successivo scende del 2,5% (modificabile dall'utente). 
-- **Stripping −30%** sull'ultima serie dell'ultimo esercizio di ogni gruppo, solo Fase 2: viene dalle note Keep dell'utente e **non è verificato nei video**; implementarlo come opzione (default: spento), con testo "serie extra a −30%, fino al cedimento".
+- **Stripping −30% (default da rivedere a −20%, vedi SPEC_PIANIFICATORE §12b)** sull'ultima serie dell'ultimo esercizio di ogni gruppo, solo Fase 2: viene dalle note Keep dell'utente e **non è verificato nei video**; implementarlo come opzione (default: spento), con testo "serie extra a −30%, fino al cedimento".
 
-## 8. Profilo moglie — **PROVVISORIO** [Mia decisione, da rivedere con i libri glutei/donna non ancora ricevuti]
+## 8. Profilo moglie — **SUPERATO: vedi `SPEC_PIANIFICATORE.md` §12b/§12c** (testo sotto = storico)
+
+### Storico (provvisorio) [Mia decisione, da rivedere con i libri glutei/donna non ancora ricevuti]
 - **Non è un programma scritto a mano**: è lo stesso generatore (§4) con il preset *Donna – focus glutei*: stesso motore e stesse regole (il libro: le regole di allenamento sono le stesse, cambiano biotipo e focus).
 - Parametri del preset: gruppo prioritario = **glutei** (target diretto 12–16 serie/sett. in ≥2 sedute, sottogruppo a sé); fondamentali: **hip thrust**, squat, panca piana, stacco da terra (military come guida spalle, Target); stacco rumeno come R2/C di cerniera; target spalle/braccia ridotti (−20%) per fare capacità. [Ipotesi]
 - Regola dei 2 R1 per seduta: con 4 fondamentali permanenti in N=3 il generatore mette hip thrust + stacco in S2, panca + squat in S1; la seduta jolly ospita il lift **L** (2ª esposizione, scala leggera).

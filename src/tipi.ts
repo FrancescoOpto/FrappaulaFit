@@ -83,8 +83,10 @@ export interface DatiCorporei {
 export interface ObiettivoAttivo {
   tipo: Obiettivo;
   dal: string;
-  /** Durata richiesta in settimane (= cicli, SPEC_PIANIFICATORE §5). */
+  /** Durata richiesta in cicli (un ciclo = N sedute, SPEC_PIANIFICATORE §5). */
   settimane: number;
+  /** Durata scelta in mesi (3/6/9/12, §12c): `settimane` ne è la conversione. */
+  mesi?: number;
   energia: StatoEnergetico;
   kgTarget?: number;
   resistenza?: boolean;
@@ -165,9 +167,16 @@ export interface Esercizio {
   attrezzo?: 'L' | 'M' | 'V' | 'P';
   /** Equivalenti nello stesso slot (id), 1–3 per esercizio: usati per le sostituzioni e la rotazione tra le fasi. */
   equivalenti?: string[];
+  /**
+   * Stimolo sui glutei (SPEC_PIANIFICATORE §12b): estensione dell'anca (hip thrust, ponte, kickback), flessione
+   * (anca flessa sotto carico: squat, affondi, stacco rumeno) [Ipotesi sul significato], abduzione.
+   */
+  stimolo_gluteo?: StimoloGluteo;
   query_youtube: string;
   personalizzato?: boolean;
 }
+
+export type StimoloGluteo = 'estensione' | 'flessione' | 'abduzione';
 
 /** Icone per schema di movimento (una per schema, non per esercizio). */
 export type IconaId =
@@ -221,6 +230,8 @@ export interface Slot {
   scarico?: { serie: number; rip: number };
   /** Tecnica back-off (solo programmi personalizzati). */
   back_off?: BackOff;
+  /** Stazione di un circuito PHA (SPEC_PIANIFICATORE §12b): gli slot con lo stesso id formano un blocco a giri. serie = giri di default. */
+  circuito?: string;
 }
 
 export interface VarianteSlot {
@@ -251,6 +262,8 @@ export interface Contenitore {
   fisso?: boolean;
   /** Avviso da mostrare (es. N=5 sconsigliato). */
   avviso?: string;
+  /** Seduta ibrida del profilo donna (§12b): parte classica + circuito PHA; niente slot di copertura aggiunti. */
+  ibrido?: boolean;
 }
 
 export type Esperienza = 'principiante' | 'intermedio' | 'avanzato';
@@ -270,7 +283,14 @@ export interface ParametriGeneratore {
   tecniche_avanzate?: boolean;
   /** Mantenimento: blocco di riferimento di partenza (1 default, 2 alternativa). */
   bloccoBase?: 1 | 2;
+  /**
+   * Profilo donna a sedute ibride (§12b): "definizione" = Dimagrimento (parte classica con meno serie, circuito con
+   * recuperi brevi, niente tecniche), "mantenimento" = Mantenimento e costruzione muscolare.
+   */
+  obiettivoIbrido?: 'definizione' | 'mantenimento';
 }
+
+export type Tema = 'scuro' | 'chiaro';
 
 export interface Impostazioni {
   arrotondamento: 0.5 | 1 | 2.5;
@@ -283,6 +303,8 @@ export interface Impostazioni {
   stripping: boolean;
   /** Modalità prova (SPEC_PIANIFICATORE §11b): qualsiasi seduta si può avviare fuori ordine. Attiva di default nel collaudo. */
   modalita_prova?: boolean;
+  /** Tema dell'interfaccia (§12c), salvato nel profilo. Default scuro. */
+  tema?: Tema;
 }
 
 export interface Profilo {
@@ -337,6 +359,8 @@ export interface EsercizioSeduta {
   serie_extra?: number;
   /** Fattore di lavoro del blocco di riferimento (contenitore), se diverso dall'impostazione. */
   fattore_lavoro?: number;
+  /** Stazione del circuito PHA (§12b): serie = giri, ripetizioni nel range 10–15 con 1–2 di riserva. */
+  circuito?: string;
 }
 
 export interface Seduta {
@@ -401,7 +425,7 @@ export interface SerieRegistrata {
   kg?: number;
   rip?: number;
   fatta: boolean;
-  /** Serie extra di stripping (−30%). */
+  /** Serie extra di stripping (−20 %, SPEC_PIANIFICATORE §12b). */
   stripping?: boolean;
   /** Rest-pause: ripetizioni di ogni mini-serie (la somma va in `rip`). */
   mini?: number[];
@@ -425,6 +449,10 @@ export interface RegistroSeduta {
   esercizi: Record<number, RegistroEsercizio>;
   /** Stato dei carichi all'avvio, per "Annulla seduta" (SPEC_PIANIFICATORE §11b). */
   snapshot?: SnapshotCarichi;
+  /** Giri del circuito scelti per questa seduta (§12b, 2–4). */
+  giri?: number;
+  /** Serie tolte alla parte classica per stare nel tetto di tempo con più giri. */
+  notaGiri?: string;
 }
 
 export interface SnapshotCarichi {

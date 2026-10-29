@@ -21,13 +21,14 @@ import type {
   TestMode,
 } from '../tipi';
 import { CHIAVI, type Chiave, caricaMeta, caricaStato, salvaChiave, salvaMeta, cancellaTutto, STATO_VUOTO } from './db';
-import { AUTOCORREZIONE_CICLO, AUTOCORREZIONE_SERIE, FATTORE_LAVORO_DEFAULT, RECUPERI_DEFAULT, STRIPPING } from '../data/tabelle';
+import { AUTOCORREZIONE_CICLO, AUTOCORREZIONE_SERIE, FATTORE_LAVORO_DEFAULT, RECUPERI_DEFAULT, STRIPPING, tempiCircuito } from '../data/tabelle';
 import { nuovoBlocco, rigeneraSeduteFuture } from '../motore/generatore';
 import { prescrizione } from '../motore/prescrizione';
+import { progressioneCircuito, ridistribuisciGiri } from '../motore/circuito';
 import { arrotonda, stimaMassimale } from '../motore/carichi';
 import { nuovoCaricoCorrente } from '../motore/correnti';
 import { valutaRicalcolo } from '../motore/ricalcolo';
-import { cambiaObiettivo as cambiaObiettivoPuro, carichiRecenti, nuovoBloccoIpertrofia, nuovoBloccoPreservazione, serveTest } from '../motore/moduli';
+import { cambiaObiettivo as cambiaObiettivoPuro, carichiRecenti, eIbrido, nuovoBloccoIbrido, nuovoBloccoIpertrofia, nuovoBloccoPreservazione, parametriPerObiettivo, serveTest } from '../motore/moduli';
 import { ENERGIA_PER_OBIETTIVO } from '../motore/pianificatore';
 import { ESERCIZI_PER_ID } from '../data/esercizi';
 
@@ -110,6 +111,8 @@ export async function azzeraTutto(): Promise<void> {
 /** Blocco iniziale per l'obiettivo attivo (SPEC_PIANIFICATORE §4): massa/mantenimento con test, dimagrimento = test + Preservazione. */
 function bloccoPerObiettivo(p: Profilo, numero: number, conTest: boolean, ponte = false): Blocco {
   const ob = p.obiettivoAttivo;
+  // Profilo donna a sedute ibride (§12b): Dimagrimento oppure Mantenimento e costruzione, stessa struttura.
+  if (eIbrido(p.parametri)) return nuovoBloccoIbrido(p.parametri, p, ob?.tipo ?? 'mantenimento', conTest, numero, ponte, ob?.settimane);
   if (ob?.tipo === 'definizione') return nuovoBloccoPreservazione(p.parametri, p, ob.settimane, conTest, numero, ponte);
   // Massa e Mantenimento: piano su misura per la durata richiesta (SPEC_PIANIFICATORE v2 §6b).
   if (ob?.tipo === 'mantenimento') return nuovoBloccoIpertrofia(p.parametri, p, 'mantenimento', conTest, numero, ponte, ob.settimane);
@@ -164,7 +167,7 @@ export async function cambiaObiettivo(ob: ObiettivoAttivo, quando: 'confine' | '
   const p = stato.value.profilo;
   const b = stato.value.blocco;
   if (!p) return '';
-  const profiloNuovo: Profilo = { ...p, obiettivo: ob.tipo, obiettivoAttivo: ob, obiettivoInAttesa: undefined };
+  const profiloNuovo: Profilo = { ...p, obiettivo: ob.tipo, obiettivoAttivo: ob, obiettivoInAttesa: undefined, parametri: parametriPerObiettivo(p.parametri, ob.tipo) };
   if (!b || b.stato === 'completato') {
     const numero = (b?.numero ?? 0) + 1;
     const passati = b ? [...stato.value.blocchiPassati, b] : stato.value.blocchiPassati;
@@ -239,7 +242,7 @@ export async function nuovoBloccoSuccessivo(): Promise<void> {
   const b = stato.value.blocco;
   if (!p) return;
   const passati = b ? [...stato.value.blocchiPassati, { ...b, stato: 'completato' as const }] : stato.value.blocchiPassati;
-  const nuovo = nuovoBlocco(p.parametri, p, (b?.numero ?? 0) + 1);
+  const nuovo = eIbrido(p.parametri) ? bloccoPerObiettivo(p, (b?.numero ?? 0) + 1, true) : nuovoBlocco(p.parametri, p, (b?.numero ?? 0) + 1);
   await aggiorna({ blocco: nuovo, blocchiPassati: passati }, ['blocco', 'blocchiPassati']);
 }
 
@@ -350,6 +353,9 @@ export async function iniziaSeduta(id: string): Promise<void> {
     for (let n = 1; n <= pr.serie; n++) serie.push({ n, kg_prev: pr.kg ?? 0, kg_piano: pr.kgPiano, rip_prev: pr.rip, fatta: false, rest_pause: e.rest_pause });
     reg.esercizi[e.slot] = { esercizio_id: e.esercizio_id, serie };
   }
+  // Circuito (§12b): i giri di default sono le serie delle stazioni (3, nello scarico 2); si cambiano in seduta.
+  const stazioni = s.esercizi.filter((e) => e.circuito);
+  if (stazioni.length && s.fase !== 'test') reg.giri = Math.max(...stazioni.map((e) => reg.esercizi[e.slot]?.serie.length ?? 0));
   batch(() => {});
   await aggiorna({ registro: { ...stato.value.registro, [id]: reg } }, ['registro']);
   await salvaSeduta({ ...s, stato: 'in_corso', data: reg.iniziata });
@@ -357,6 +363,22 @@ export async function iniziaSeduta(id: string): Promise<void> {
 
 export function registroDi(id: string): RegistroSeduta | undefined {
   return stato.value.registro[id];
+}
+
+/**
+ * Giri del circuito per una seduta in corso (§12b, 2–4). Le stazioni ricevono o perdono i giri non ancora fatti;
+ * se con più giri la seduta supera il tetto T, la parte classica perde serie non fatte (dall'ultimo Target o
+ * complementare, mai i fondamentali, mai sotto 2) finché rientra. Tornando a meno giri le serie tornano.
+ */
+export async function impostaGiri(sedutaId: string, giri: number): Promise<void> {
+  const reg = stato.value.registro[sedutaId];
+  const s = sedutaPerId(sedutaId);
+  const b = stato.value.blocco;
+  const p = stato.value.profilo;
+  if (!reg || !s || !b || !p || s.fase === 'test') return;
+  const esito = ridistribuisciGiri(s, reg.esercizi, giri, (e) => prescrizioneDi(e, s), impostazioniDi(p).recuperi, b.parametri.T, tempiCircuito(b.parametri.obiettivoIbrido));
+  const notaGiri = esito.tolte ? `Con ${esito.giri} giri la parte classica ha ${esito.tolte} serie in meno, per stare nei ${b.parametri.T}′.` : undefined;
+  await aggiorna({ registro: { ...stato.value.registro, [sedutaId]: { ...reg, esercizi: esito.esercizi, giri: esito.giri, notaGiri } } }, ['registro']);
 }
 
 /** Chiave del carico corrente: la seconda riga ×12 ha un carico suo, separato dal Target dello stesso esercizio. */
@@ -477,7 +499,7 @@ export async function aggiornaNota(sedutaId: string, slot: number, nota: string)
   await aggiorna({ registro: { ...stato.value.registro, [sedutaId]: nuovoReg } }, ['registro']);
 }
 
-/** Aggiunge la serie di stripping (−30%) all'esercizio (opzione, SPEC §7). */
+/** Aggiunge la serie di stripping (−20 %) all'esercizio (opzione, SPEC §7 e SPEC_PIANIFICATORE §12b). */
 export async function aggiungiStripping(sedutaId: string, slot: number): Promise<void> {
   const reg = stato.value.registro[sedutaId];
   const p = stato.value.profilo;
@@ -561,9 +583,16 @@ export async function completaSeduta(id: string): Promise<void> {
       if (mancatePrec) correzioni[es.esercizio_id] = Math.round(((correzioni[es.esercizio_id] ?? 0) + AUTOCORREZIONE_CICLO) * 1000) / 1000;
     }
   }
+  // Doppia progressione del circuito (§12b) [Ipotesi]: 15 ripetizioni in tutti i giri → +1 passo la volta dopo.
+  let carichiCorrenti = b.carichiCorrenti;
+  const pp = stato.value.profilo;
+  if (reg && pp) {
+    const nuovi = progressioneCircuito(s, reg.esercizi, passoCarico, impostazioniDi(pp).arrotondamento);
+    for (const [eid, kg] of Object.entries(nuovi)) carichiCorrenti = { ...(carichiCorrenti ?? {}), [eid]: { kg, aggiornato: new Date().toISOString(), seduta_id: id, origine: 'proposta' } };
+  }
   const sedute = b.sedute.map((x) => (x.id === id ? { ...x, stato: 'completata' as const, data: x.data ?? new Date().toISOString() } : x));
   const registro = reg ? { ...stato.value.registro, [id]: { ...reg, completata: new Date().toISOString() } } : stato.value.registro;
-  await aggiorna({ blocco: { ...b, sedute, correzioni, stato: statoBlocco(sedute) }, registro }, ['blocco', 'registro']);
+  await aggiorna({ blocco: { ...b, sedute, correzioni, carichiCorrenti, stato: statoBlocco(sedute) }, registro }, ['blocco', 'registro']);
   // Cambio di obiettivo in attesa: si applica appena il ciclo è completo (SPEC_PIANIFICATORE §6).
   const p = stato.value.profilo;
   const cicloCompleto = sedute.filter((x) => x.ciclo === s.ciclo).every((x) => x.stato === 'completata');

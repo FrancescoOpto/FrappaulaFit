@@ -212,7 +212,32 @@ export const COPERTURA_FALLBACK: Record<Sottogruppo, { esercizio: string; serie:
 /** Autocorrezione (SPEC §7). */
 export const AUTOCORREZIONE_SERIE = -0.05;
 export const AUTOCORREZIONE_CICLO = -0.025;
-export const STRIPPING = -0.3;
+/** Stripping di carico: −20 % (SPEC_PIANIFICATORE §12b; il −30 % delle note non era verificato). */
+export const STRIPPING = -0.2;
+
+/**
+ * Circuito PHA del profilo donna (SPEC_PIANIFICATORE §12b): transizioni 20–30″, recupero a fine giro ~2′30″,
+ * 10–15 RM con 1–2 di riserva, 3 giri di default (2–4 a scelta). In Dimagrimento recuperi più brevi [Ipotesi: 20″ e 2′].
+ */
+export const CIRCUITO = {
+  giriDefault: 3,
+  giriMin: 2,
+  giriMax: 4,
+  ripMin: 10,
+  ripMax: 15,
+  mantenimento: { transizione: 30, recuperoGiro: 150 },
+  definizione: { transizione: 20, recuperoGiro: 120 },
+} as const;
+
+export interface TempiCircuito {
+  transizione: number;
+  recuperoGiro: number;
+}
+
+/** Tempi del circuito per l'obiettivo del profilo ibrido (default: mantenimento e costruzione). */
+export function tempiCircuito(obiettivo?: 'definizione' | 'mantenimento'): TempiCircuito {
+  return obiettivo === 'definizione' ? CIRCUITO.definizione : CIRCUITO.mantenimento;
+}
 
 /** Rientro dopo una pausa (SPEC §3). */
 export const RIENTRO = [

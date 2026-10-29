@@ -3,7 +3,7 @@ import type { DatiCorporei } from '../../tipi';
 import { PASSI_DEFAULT, PASSI_MAX, PASSI_MIN, PASSO_STEPPER, calorieObiettivo, macro, stimeTdee } from '../../motore/energia';
 import { aggiornaDatiCorporei, aggiornaObiettivoAttivo, profilo, stato } from '../../store/stato';
 import { Avviso, Stepper } from '../componenti/comuni';
-import { NOMI_OBIETTIVO } from './Setup';
+import { nomeObiettivo } from './Setup';
 
 /**
  * Sezione Energia (SPEC_PIANIFICATORE v2 §3.1, §11): mini calcolatore TDEE con passi (stepper da 1.000)
@@ -100,7 +100,7 @@ export function Energia() {
           </p>
           {cal ? (
             <>
-              <h3>Calorie per {NOMI_OBIETTIVO[ob.tipo].toLowerCase()}</h3>
+              <h3>Calorie per {nomeObiettivo(ob.tipo, Boolean(p?.parametri.obiettivoIbrido)).toLowerCase()}</h3>
               <div class="griglia2">
                 <div class="stat"><div class="valore">{kcalFinale}</div><div class="nome">kcal al giorno{parseInt(kcalOverride, 10) > 0 ? ' (tue)' : ''}</div></div>
                 <div class="stat"><div class="valore">{cal.delta > 0 ? '−' : cal.delta < 0 ? '+' : ''}{Math.abs(cal.delta)}</div><div class="nome">rispetto al fabbisogno</div></div>

@@ -128,7 +128,7 @@ const RICHIAMO: SessioneContenitore = {
   ],
 };
 
-// --- Preset "Donna – focus glutei" (SPEC §8, PROVVISORIO: in attesa dei libri glutei/donna) ---
+// --- Preset "Donna – focus glutei" (SPEC §8, storico): resta solo per 2, 4 e 5 sedute. A 3 sedute vale la seduta ibrida (§12b). ---
 // Fondamentali permanenti: hip thrust, squat, panca, stacco. Regola dei 2 R1: panca+squat in S1,
 // hip thrust+stacco in S2; la guida spalle (Target a carico fisso) nella jolly. Spalle/braccia −20% ≈ una serie in meno.
 
@@ -219,13 +219,66 @@ const DONNA_FULL_B: SessioneContenitore = {
   ],
 };
 
+// --- Profilo donna a sedute ibride (SPEC_PIANIFICATORE §12b, sostituisce SPEC §8 a 3 sedute) ---
+// Parte classica (fondamentale o Target per primo, recuperi pieni, progressione dei carichi) + circuito PHA a giri
+// (5 stazioni alternando alto/basso, 10–15 RM con 1–2 di riserva). Dorso in tutte e tre le sedute; nelle sedute di
+// gambe i glutei ricevono i tre stimoli (estensione, flessione, abduzione). Esercizi dalla bozza §12b [Ipotesi]:
+// in S2 le "spinte" sono la panca con manubri (Target), non la panca piana, per stare nei 60′ con il circuito.
+
+const PHA = 'pha';
+
+const DONNA_IBRIDA_A: SessioneContenitore = {
+  nome: 'Seduta A',
+  etichetta: 'Gambe e glutei · dorso nel circuito',
+  slot: [
+    s({ gruppo: 'gambe', ruolo: 'R1', classe: 'hip_thrust', default: 'hip_thrust', copre: 'glutei' }),
+    s({ gruppo: 'gambe', ruolo: 'R2', classe: 'cerniera_anca', default: 'stacco_rumeno', copre: 'femorali' }),
+    s({ gruppo: 'gambe', ruolo: 'C', classe: 'hip_thrust', default: 'abductor', serie: 3, rip: 12, circuito: PHA, copre: 'glutei' }),
+    s({ gruppo: 'dorso', ruolo: 'C', classe: 'trazione_verticale', default: 'lat_machine', serie: 3, rip: 12, circuito: PHA }),
+    s({ gruppo: 'gambe', ruolo: 'C', classe: 'femorali_isolamento', default: 'leg_curl', serie: 3, rip: 12, circuito: PHA, copre: 'femorali' }),
+    s({ gruppo: 'dorso', ruolo: 'C', classe: 'trazione_orizzontale', default: 'pulley', serie: 3, rip: 12, circuito: PHA }),
+    s({ gruppo: 'addome', ruolo: 'C', classe: 'addome', default: 'crunch_cavo', serie: 3, rip: 12, circuito: PHA }),
+  ],
+};
+
+const DONNA_IBRIDA_B: SessioneContenitore = {
+  nome: 'Seduta B',
+  etichetta: 'Parte alta · dorso per primo',
+  slot: [
+    s({ gruppo: 'dorso', ruolo: 'R2', classe: 'trazione_verticale', default: 'lat_larga' }),
+    s({ gruppo: 'dorso', ruolo: 'R3', classe: 'trazione_orizzontale', default: 'rematore_manubrio' }),
+    s({ gruppo: 'petto', ruolo: 'R3', classe: 'spinta_orizzontale', default: 'panca_manubri' }),
+    s({ gruppo: 'gambe', ruolo: 'C', classe: 'hip_thrust', default: 'kickback_glutei', serie: 3, rip: 12, circuito: PHA, copre: 'glutei' }),
+    s({ gruppo: 'spalle', ruolo: 'C', classe: 'spalle_laterali', default: 'alzate_laterali', serie: 3, rip: 12, circuito: PHA, copre: 'spalle_laterali' }),
+    s({ gruppo: 'gambe', ruolo: 'C', classe: 'hip_thrust', default: 'abduzioni_cavo', serie: 3, rip: 12, circuito: PHA, copre: 'glutei' }),
+    s({ gruppo: 'tricipiti', ruolo: 'C', classe: 'tricipiti', default: 'push_down_corda', serie: 3, rip: 12, circuito: PHA, copre: 'tricipiti' }),
+    s({ gruppo: 'addome', ruolo: 'C', classe: 'addome', default: 'crunch_inverso', serie: 3, rip: 12, circuito: PHA }),
+  ],
+};
+
+const DONNA_IBRIDA_C: SessioneContenitore = {
+  nome: 'Seduta C',
+  etichetta: 'Gambe e glutei · richiamo dorso',
+  slot: [
+    s({ gruppo: 'gambe', ruolo: 'R1', classe: 'squat', default: 'squat', copre: 'quadricipiti' }),
+    s({ gruppo: 'gambe', ruolo: 'R2', classe: 'squat', default: 'squat_bulgaro', copre: 'quadricipiti' }),
+    s({ gruppo: 'gambe', ruolo: 'C', classe: 'hip_thrust', default: 'glute_bridge', serie: 3, rip: 12, circuito: PHA, copre: 'glutei' }),
+    s({ gruppo: 'dorso', ruolo: 'C', classe: 'trazione_orizzontale', default: 'rematore_macchina', serie: 3, rip: 12, circuito: PHA }),
+    s({ gruppo: 'gambe', ruolo: 'C', classe: 'hip_thrust', default: 'abductor', serie: 3, rip: 12, circuito: PHA, copre: 'glutei' }),
+    s({ gruppo: 'spalle', ruolo: 'C', classe: 'spalle_posteriori', default: 'face_pull', serie: 3, rip: 12, circuito: PHA, copre: 'spalle_posteriori' }),
+    s({ gruppo: 'gambe', ruolo: 'C', classe: 'quadricipiti_isolamento', default: 'leg_extension', serie: 3, rip: 12, circuito: PHA, copre: 'quadricipiti' }),
+  ],
+};
+
+export const SEDUTE_IBRIDE = [DONNA_IBRIDA_A, DONNA_IBRIDA_B, DONNA_IBRIDA_C];
+
 export const CONTENITORI: Contenitore[] = [
   { id: 'u2', N: 2, nome: 'Full A / Full B', descrizione: 'Tutti i gruppi in ogni seduta, esercizi diversi (bi-frequenza).', sessioni: [FULL_A, FULL_B] },
   { id: 'u3', N: 3, nome: '2+1 Split', descrizione: 'Split A (petto, gambe, braccia), Split B (spalle, dorso, stacco), Full C jolly.', sessioni: [SPLIT_A, SPLIT_B, FULL_C], jolly: 2 },
   { id: 'u4', N: 4, nome: 'Bi-Split', descrizione: 'A1 B1 A2 B2: A1/B1 pesanti, A2/B2 più leggere.', sessioni: [SPLIT_A, SPLIT_B, SPLIT_A2, SPLIT_B2] },
   { id: 'u5', N: 5, nome: 'Bi-Split + richiamo', descrizione: 'Bi-Split più una quinta seduta di soli complementari.', sessioni: [SPLIT_A, SPLIT_B, SPLIT_A2, SPLIT_B2, RICHIAMO], avviso: 'Il libro sconsiglia 5 sedute: il recupero diventa critico. [Ipotesi da validare]' },
   { id: 'd2', N: 2, nome: 'Full A / Full B (glutei)', descrizione: 'Tutti i gruppi in ogni seduta, focus glutei.', sessioni: [DONNA_FULL_A, DONNA_FULL_B] },
-  { id: 'd3', N: 3, nome: '2+1 Split (glutei)', descrizione: 'Split A (gambe, petto), Split B (glutei, dorso, spalle), Full C jolly.', sessioni: [DONNA_S1, DONNA_S2, DONNA_S3], jolly: 2 },
+  { id: 'd3', N: 3, nome: 'Sedute ibride A-B-C', descrizione: 'Parte classica + circuito a giri; dorso in tutte e tre le sedute, glutei con tre stimoli (SPEC_PIANIFICATORE §12b).', sessioni: [DONNA_IBRIDA_A, DONNA_IBRIDA_B, DONNA_IBRIDA_C], ibrido: true },
   { id: 'd4', N: 4, nome: 'Bi-Split (glutei)', descrizione: 'A1 B1 A2 B2 con glutei in tre sedute.', sessioni: [DONNA_S1, DONNA_S2, DONNA_S3, DONNA_S4] },
   { id: 'd5', N: 5, nome: 'Bi-Split + richiamo (glutei)', descrizione: 'Bi-Split più una quinta seduta di soli complementari.', sessioni: [DONNA_S1, DONNA_S2, DONNA_S3, DONNA_S4, RICHIAMO], avviso: 'Il libro sconsiglia 5 sedute: il recupero diventa critico. [Ipotesi da validare]' },
 ];

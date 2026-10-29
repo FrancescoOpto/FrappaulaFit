@@ -30,9 +30,10 @@ import { accedi, configSync, erroreSync, esci, registrati, salvaConfigSync, sess
 import { Avviso, Scelte, Testata, formatoData } from '../componenti/comuni';
 import { Icona } from '../componenti/IconaEsercizio';
 import { Energia } from './Energia';
-import { DESCRIZIONE_INTENSITA, NOMI_INTENSITA, NOMI_MODULO, NOMI_OBIETTIVO } from './Setup';
-import { DURATA_DEFAULT } from '../../motore/energia';
-import { ENERGIA_PER_OBIETTIVO, proponiPiano } from '../../motore/pianificatore';
+import { DESCRIZIONE_INTENSITA, DESCRIZIONE_OBIETTIVO_DONNA, NOMI_INTENSITA, NOMI_MODULO, NOMI_OBIETTIVO, NOMI_OBIETTIVO_DONNA, OBIETTIVI_DONNA, nomeObiettivo } from './Setup';
+import { ENERGIA_PER_OBIETTIVO, MESI_DURATA, cicliPerObiettivo, mesiDaCicli, percheIbrido, proponiPiano } from '../../motore/pianificatore';
+import { NOMI_FASI } from '../../data/tabelle';
+import { eIbrido } from '../../motore/moduli';
 import { descriviComposizione } from '../../motore/composizione';
 import type { ObiettivoAttivo } from '../../tipi';
 import { avviaTimer, chiediPermessoNotifiche, sbloccaAudio } from '../timer';
@@ -70,7 +71,7 @@ function Programma() {
   return (
     <div class="colonna" style="gap:14px">
       <p class="muto">Le modifiche valgono dal prossimo confine di ciclo: le sedute già fatte e i carichi restano.</p>
-      <div class="campo"><label>Sedute a settimana</label><Scelte valori={[2, 3, 4, 5]} valore={par.N} onCambia={(N) => setPar({ ...par, N })} /><p class="piccolo">Il programma dei video esiste a 4 giorni: con altri valori la struttura è generica (regole nostre).</p></div>
+      <div class="campo"><label>Sedute a settimana</label><Scelte valori={[2, 3, 4, 5]} valore={par.N} onCambia={(N) => setPar({ ...par, N })} /><p class="piccolo">{par.preset === 'donna_glutei' ? 'Default 3: le sedute ibride con circuito esistono a 3 sedute; con altri valori la struttura è quella generica provvisoria.' : 'Default 4: il programma dei video esiste a 4 giorni; con altri valori la struttura è generica (regole nostre).'}</p></div>
       <div class="campo"><label>Minuti per seduta (tetto)</label><Scelte valori={[45, 60, 75, 90]} valore={par.T} onCambia={(T) => setPar({ ...par, T })} /></div>
       <div class="campo">
         <label>Intensità desiderata</label>
@@ -112,18 +113,20 @@ function CambioObiettivo() {
   const p = profilo.value!;
   const b = blocco.value;
   const attuale = p.obiettivoAttivo;
-  const [tipo, setTipo] = useState<Obiettivo>(attuale?.tipo ?? 'massa');
-  const [settimane, setSettimane] = useState<number>(attuale?.settimane ?? DURATA_DEFAULT[attuale?.tipo ?? 'massa']);
+  const ibrido = eIbrido(p.parametri);
+  const [tipo, setTipo] = useState<Obiettivo>(attuale?.tipo === 'massa' && ibrido ? 'mantenimento' : attuale?.tipo ?? (ibrido ? 'mantenimento' : 'massa'));
+  const [mesi, setMesi] = useState<number>(attuale?.mesi ?? 3);
+  const settimane = cicliPerObiettivo(tipo, mesi, ibrido);
   const [kgTarget, setKgTarget] = useState(attuale?.kgTarget ? String(attuale.kgTarget) : '');
   const [resistenza, setResistenza] = useState(attuale?.resistenza ?? false);
   const [macchine, setMacchine] = useState(attuale?.preferisciMacchine ?? false);
   const [esito, setEsito] = useState<string | null>(null);
   const [confermaSubito, setConfermaSubito] = useState(false);
-  const scegli = (o: Obiettivo) => { setTipo(o); setSettimane(DURATA_DEFAULT[o]); };
+  const scegli = (o: Obiettivo) => setTipo(o);
   // L'energia discende dall'obiettivo (v2 §1): non si chiede.
   const energia = ENERGIA_PER_OBIETTIVO[tipo];
-  const piano = proponiPiano({ obiettivo: tipo, settimane, N: p.parametri.N, carichiRecenti: Object.keys(p.carichi ?? {}).length > 0, bloccoBase: p.parametri.bloccoBase });
-  const nuovo = (): ObiettivoAttivo => ({ tipo, dal: new Date().toISOString(), settimane: Math.max(1, settimane), energia, kgTarget: parseFloat(kgTarget.replace(',', '.')) || undefined, resistenza: tipo === 'definizione' ? resistenza : undefined, preferisciMacchine: tipo === 'definizione' ? macchine : undefined, kcalTarget: attuale?.kcalTarget });
+  const piano = proponiPiano({ obiettivo: ibrido ? 'mantenimento' : tipo, settimane, N: p.parametri.N, carichiRecenti: Object.keys(p.carichi ?? {}).length > 0, bloccoBase: ibrido ? 1 : p.parametri.bloccoBase });
+  const nuovo = (): ObiettivoAttivo => ({ tipo, dal: new Date().toISOString(), settimane: Math.max(1, settimane), mesi, energia, kgTarget: parseFloat(kgTarget.replace(',', '.')) || undefined, resistenza: tipo === 'definizione' ? resistenza : undefined, preferisciMacchine: tipo === 'definizione' ? macchine : undefined, kcalTarget: attuale?.kcalTarget });
   const applica = async (quando: 'confine' | 'subito') => {
     const msg = await cambiaObiettivo(nuovo(), quando);
     setEsito(msg);
@@ -131,11 +134,15 @@ function CambioObiettivo() {
   };
   return (
     <div class="colonna" style="gap:12px">
-      {attuale ? <p class="muto">Obiettivo attuale: <b>{NOMI_OBIETTIVO[attuale.tipo]}</b> per {attuale.settimane} cicli{b?.modulo ? ` · modulo ${NOMI_MODULO[b.modulo] ?? b.modulo}` : ''}.</p> : null}
-      {p.obiettivoInAttesa ? <Avviso tipo="info">Cambio in attesa: {NOMI_OBIETTIVO[p.obiettivoInAttesa.tipo]} dal prossimo confine di ciclo.</Avviso> : null}
-      <div class="campo"><label>Obiettivo</label><Scelte valori={['massa', 'mantenimento', 'definizione'] as Obiettivo[]} valore={tipo} onCambia={scegli} etichette={NOMI_OBIETTIVO} /></div>
-      <div class="campo"><label>Cicli (≈ settimane)</label><input type="number" inputMode="numeric" min="1" max="60" value={settimane} onInput={(e) => setSettimane(parseInt((e.target as HTMLInputElement).value, 10) || 0)} /></div>
-      {tipo === 'definizione' ? (
+      {attuale ? <p class="muto">Obiettivo attuale: <b>{nomeObiettivo(attuale.tipo, ibrido)}</b> per {attuale.mesi ?? mesiDaCicli(attuale.settimane)} mesi ({attuale.settimane} settimane){b?.modulo && !ibrido ? ` · modulo ${NOMI_MODULO[b.modulo] ?? b.modulo}` : ''}.</p> : null}
+      {p.obiettivoInAttesa ? <Avviso tipo="info">Cambio in attesa: {nomeObiettivo(p.obiettivoInAttesa.tipo, ibrido)} dal prossimo confine di ciclo.</Avviso> : null}
+      {ibrido ? (
+        <div class="campo"><label>Obiettivo</label><Scelte valori={OBIETTIVI_DONNA} valore={tipo} onCambia={scegli} etichette={NOMI_OBIETTIVO_DONNA} /><p class="piccolo">{DESCRIZIONE_OBIETTIVO_DONNA[tipo === 'definizione' ? 'definizione' : 'mantenimento']}</p></div>
+      ) : (
+        <div class="campo"><label>Obiettivo</label><Scelte valori={['massa', 'mantenimento', 'definizione'] as Obiettivo[]} valore={tipo} onCambia={scegli} etichette={NOMI_OBIETTIVO} /></div>
+      )}
+      <div class="campo"><label>Per quanto tempo?</label><Scelte valori={[...MESI_DURATA]} valore={mesi} onCambia={setMesi} etichette={{ 3: '3 mesi', 6: '6 mesi', 9: '9 mesi', 12: '12 mesi' }} /><p class="piccolo">{mesi} mesi ≈ {cicliPerObiettivo('massa', mesi)} settimane, {cicliPerObiettivo('massa', mesi) * p.parametri.N} sedute.</p></div>
+      {tipo === 'definizione' && !ibrido ? (
         <>
           <div class="campo"><label>Kg da perdere (facoltativo)</label><input type="number" inputMode="decimal" step="0.5" value={kgTarget} onInput={(e) => setKgTarget((e.target as HTMLInputElement).value)} placeholder="—" /></div>
           <label class="riga spazio" style="padding:4px 0"><span>Allenare anche la resistenza</span><input type="checkbox" checked={resistenza} onChange={(e) => setResistenza((e.target as HTMLInputElement).checked)} /></label>
@@ -145,8 +152,8 @@ function CambioObiettivo() {
       {piano[0] ? (
         <div class="colonna" style="gap:4px">
           {piano[0].composizione ? <p><b>{descriviComposizione(piano[0].composizione)}</b></p> : null}
-          {piano[0].tappe?.map((t) => <div class="riga spazio piccolo"><span><b>{NOMI_MODULO[t.modulo]}</b>{t.cicliPreservazione ? ` · ${t.cicliPreservazione.filter((c) => c === 'S').length} di scarico` : ''}{t.bloccoRif ? ` · Blocco ${t.bloccoRif}` : ''}</span><span>{t.cicli} cicli</span></div>)}
-          <p class="piccolo">{piano[0].perche}</p>
+          {piano[0].tappe?.map((t) => <div class="riga spazio piccolo"><span><b>{ibrido && t.fase ? NOMI_FASI[t.fase] : NOMI_MODULO[t.modulo]}</b>{t.cicliPreservazione ? ` · ${t.cicliPreservazione.filter((c) => c === 'S').length} di scarico` : ''}{t.bloccoRif && !ibrido ? ` · Blocco ${t.bloccoRif}` : ''}</span><span>{t.cicli} {ibrido ? (t.cicli === 1 ? 'settimana' : 'settimane') : t.cicli === 1 ? 'ciclo' : 'cicli'}</span></div>)}
+          <p class="piccolo">{ibrido && piano[0].composizione ? percheIbrido(piano[0].composizione, tipo) : piano[0].perche}</p>
         </div>
       ) : null}
       <p class="piccolo">Il cambio parte alla fine del ciclo in corso (meglio allo scarico): le sedute fatte e i carichi del profilo restano; il primo ciclo del nuovo modulo è un ciclo ponte, senza rifare i test.</p>
@@ -369,7 +376,8 @@ export function Impostazioni({ sezione }: { sezione?: string }) {
 
       <Sezione id="profilo" titolo="Profilo" aperta={aperta === 'profilo'} onToggle={() => toggle('profilo')}>
         <div class="campo"><label>Nome</label><div class="riga"><input type="text" value={nome} onInput={(e) => setNome((e.target as HTMLInputElement).value)} /><button class="bottone piccolo" style="min-height:46px" disabled={nome.trim() === p.nome || !nome.trim()} onClick={() => void aggiornaProfilo({ nome: nome.trim() })}>Salva</button></div></div>
-        <div class="campo"><label>Profilo</label><Scelte valori={['M', 'F']} valore={p.sesso} onCambia={(v) => void aggiornaProfilo({ sesso: v })} etichette={{ M: 'Uomo · base', F: 'Donna · focus glutei' }} /><p class="piccolo">Il preset cambia solo le sedute del prossimo blocco (o rigenerandole da “Programma”).</p></div>
+        <div class="campo"><label>Profilo</label><Scelte valori={['M', 'F']} valore={p.sesso} onCambia={(v) => void aggiornaProfilo({ sesso: v })} etichette={{ M: 'Uomo', F: 'Donna' }} /><p class="piccolo">Cambia l'accento dei colori e i calcoli dell'energia. Il programma resta quello creato all'avvio: per passare alle sedute dell'altro profilo crea un nuovo profilo.</p></div>
+        <div class="campo"><label>Tema</label><Scelte valori={['scuro', 'chiaro'] as const} valore={imp.tema ?? 'scuro'} onCambia={(v) => void aggiornaImpostazioni({ tema: v })} etichette={{ scuro: 'Scuro', chiaro: 'Chiaro' }} /><p class="piccolo">Salvato nel profilo. Su iPhone la barra di stato si adegua alla prossima apertura dell'app.</p></div>
         <button class="bottone fantasma pieno" onClick={() => vai('/nuovo-profilo')}>Crea un nuovo profilo su questo dispositivo…</button>
       </Sezione>
 
@@ -405,7 +413,7 @@ export function Impostazioni({ sezione }: { sezione?: string }) {
       </Sezione>
 
       <Sezione id="opzioni" titolo="Opzioni di allenamento" aperta={aperta === 'opzioni'} onToggle={() => toggle('opzioni')}>
-        <label class="riga spazio" style="padding:6px 0"><span class="cresce">Stripping −30% in Fase 2<br /><span class="piccolo">Serie extra a −30% fino al cedimento sull'ultimo esercizio di ogni gruppo. Dalle tue note Keep, non verificato nei video: per questo è spento di default.</span></span><input type="checkbox" checked={imp.stripping} onChange={(e) => void aggiornaImpostazioni({ stripping: (e.target as HTMLInputElement).checked })} /></label>
+        <label class="riga spazio" style="padding:6px 0"><span class="cresce">Stripping −20% in Fase 2<br /><span class="piccolo">Serie extra a −20% fino al cedimento sull'ultimo esercizio di ogni gruppo (il −30% delle note Keep non era verificato; il libro indica −20%). Spento di default; mai nel circuito e mai in Dimagrimento per lei.</span></span><input type="checkbox" checked={imp.stripping} onChange={(e) => void aggiornaImpostazioni({ stripping: (e.target as HTMLInputElement).checked })} /></label>
         <div class="separatore" />
         <label class="riga spazio" style="padding:6px 0"><span class="cresce">Modalità prova<br /><span class="piccolo">Permette di avviare e completare qualsiasi seduta fuori ordine, per collaudare l'app. Le sedute fatte in prova aggiornano carichi e massimali come quelle vere: usa "Annulla seduta" o il pulsante qui sotto. Attiva di default in questa fase; da spegnere quando ti alleni davvero.</span></span><input type="checkbox" checked={imp.modalita_prova ?? true} onChange={(e) => void aggiornaImpostazioni({ modalita_prova: (e.target as HTMLInputElement).checked })} /></label>
         {!confermaAzzeraProva ? (

@@ -33,8 +33,8 @@ describe('contenitori: vincoli strutturali (SPEC §4.3)', () => {
     }
   });
 
-  it('ogni gruppo grande compare in ≥2 sedute se N ≥ 3', () => {
-    for (const c of CONTENITORI.filter((x) => x.N >= 3)) {
+  it('ogni gruppo grande compare in ≥2 sedute se N ≥ 3 (le sedute ibride del profilo donna hanno vincoli propri, vedi ibrido.test.ts)', () => {
+    for (const c of CONTENITORI.filter((x) => x.N >= 3 && !x.ibrido)) {
       for (const g of ['petto', 'dorso', 'spalle', 'gambe'] as const) {
         const n = c.sessioni.filter((s) => s.slot.some((x) => x.gruppo === g)).length;
         expect(n, `${c.id} ${g}`).toBeGreaterThanOrEqual(2);
@@ -124,9 +124,9 @@ describe('esclusioni e alternative (SPEC §4.5, §5)', () => {
   });
 });
 
-describe('preset donna (PROVVISORIO, SPEC §8)', () => {
-  it('N=3: hip thrust e stacco in S2, panca e squat in S1, guida spalle (Target) nella jolly', () => {
-    const r = generaSettimana({ ...base, preset: 'donna_glutei', priorita: ['gambe'] }, profilo);
+describe('preset donna generico (storico SPEC §8: resta a 2, 4 e 5 sedute; a 3 vale la seduta ibrida §12b)', () => {
+  it('N=4: hip thrust e stacco in S2, panca e squat in S1, guida spalle (Target) nella terza seduta', () => {
+    const r = generaSettimana({ ...base, N: 4, preset: 'donna_glutei', priorita: ['gambe'] }, profilo);
     const ids = (i: number) => r.sessioni[i].esercizi.map((e) => e.esercizio_id);
     expect(ids(0)).toContain('panca_piana');
     expect(ids(0)).toContain('squat');

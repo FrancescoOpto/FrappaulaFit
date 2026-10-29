@@ -1,5 +1,5 @@
 import type { CaricoCorrente, EsercizioSeduta, Fase, Impostazioni, RestPause, RisultatoTest, Ruolo, Seduta, TabellaProg, TestMode } from '../tipi';
-import { CARICO_PER_TABELLA, ESECUZIONE_SERIE_S, FATTORE_LAVORO_DEFAULT, RISCALDAMENTO_S, SCALE_RM, TABELLE, type SerieRip } from '../data/tabelle';
+import { CARICO_PER_TABELLA, CIRCUITO, ESECUZIONE_SERIE_S, FATTORE_LAVORO_DEFAULT, RISCALDAMENTO_S, SCALE_RM, TABELLE, type SerieRip, type TempiCircuito } from '../data/tabelle';
 import { ESERCIZI_PER_ID } from '../data/esercizi';
 import { arrotonda, caricoRM, rm1DaTest } from './carichi';
 import { applicaCorrente } from './correnti';
@@ -52,7 +52,8 @@ export function serieRip(ruolo: Ruolo, fase: Exclude<Fase, 'test'>, cicloFase: n
   const extra = slot?.serie_extra ?? 0;
   if (slot?.serie_fisse && slot.serie !== undefined && slot.rip !== undefined) return [slot.serie + extra, slot.rip];
   if (ruolo === 'C') {
-    const serie = (slot?.serie ?? 3) + extra;
+    // Serie in meno (extra < 0, parte classica in Dimagrimento §12b): mai sotto 2.
+    const serie = extra < 0 ? Math.max(2, (slot?.serie ?? 3) + extra) : (slot?.serie ?? 3) + extra;
     const rip = slot?.rip ?? 10;
     switch (fase) {
       // Complementari: serie×rip dello slot, invariati in Fase 1–3 (Blocco 2 giorno A: nessun +1 in Fase 2);
@@ -69,6 +70,8 @@ export function serieRip(ruolo: Ruolo, fase: Exclude<Fase, 'test'>, cicloFase: n
   if (!tab.length) return [0, 0];
   const idx = Math.min(Math.max(cicloFase, 1), tab.length) - 1;
   // Priorità muscolari (SPEC_PIANIFICATORE §6c punto 4): +1 serie anche ai Target, non nello scarico.
+  // Serie in meno (Dimagrimento ibrido §12b): mai sotto 2.
+  if (extra < 0) return [Math.max(2, tab[idx][0] + extra), tab[idx][1]];
   return extra && fase !== 'scarico' ? [tab[idx][0] + extra, tab[idx][1]] : tab[idx];
 }
 
@@ -151,15 +154,25 @@ export function prescrizione(
   return { serie, rip, kg: applicaCorrente(es.ruolo, kgPiano, corrente, passo), kgPiano, corrente, ereditatoDa, rest_pause: es.rest_pause };
 }
 
-/** Durata stimata in secondi (SPEC §9.5): riscaldamento + Σ serie × (45 s + recupero); superserie condividono il recupero. */
+/**
+ * Durata stimata in secondi (SPEC §9.5): riscaldamento + Σ serie × (45 s + recupero); superserie condividono il recupero.
+ * Circuito (§12b): giri × (stazioni × 45 s + transizioni tra le stazioni + recupero di fine giro); giri = serie delle stazioni.
+ */
 export function durataStimata(
-  esercizi: { ruolo: Ruolo; serie: number; superserie?: string }[],
+  esercizi: { ruolo: Ruolo; serie: number; superserie?: string; circuito?: string }[],
   recuperi: Record<Ruolo, number>,
+  tempiCircuito: TempiCircuito = CIRCUITO.mantenimento,
 ): number {
   let tot = RISCALDAMENTO_S;
   const superserieViste = new Map<string, number>();
+  const circuiti = new Map<string, { stazioni: number; giri: number }>();
   for (const e of esercizi) {
-    if (e.superserie) {
+    if (e.circuito) {
+      const c = circuiti.get(e.circuito) ?? { stazioni: 0, giri: 0 };
+      c.stazioni++;
+      c.giri = Math.max(c.giri, e.serie);
+      circuiti.set(e.circuito, c);
+    } else if (e.superserie) {
       // Ogni giro di superserie: esecuzioni di tutti gli esercizi + un recupero. Si conta al primo esercizio del gruppo.
       const giri = superserieViste.get(e.superserie);
       if (giri === undefined) {
@@ -172,6 +185,7 @@ export function durataStimata(
       tot += e.serie * (ESECUZIONE_SERIE_S + recuperi[e.ruolo]);
     }
   }
+  for (const c of circuiti.values()) tot += c.giri * (c.stazioni * ESECUZIONE_SERIE_S + (c.stazioni - 1) * tempiCircuito.transizione + tempiCircuito.recuperoGiro);
   return tot;
 }
 
