@@ -38,6 +38,7 @@ import { descriviComposizione } from '../../motore/composizione';
 import type { ObiettivoAttivo } from '../../tipi';
 import { avviaTimer, chiediPermessoNotifiche, sbloccaAudio } from '../timer';
 import { vai } from '../router';
+import { cercaAggiornamento } from '../aggiornamento';
 
 const GRUPPI: Gruppo[] = ['petto', 'dorso', 'spalle', 'gambe', 'bicipiti', 'tricipiti', 'addome'];
 const RUOLI: Ruolo[] = ['R1', 'R2', 'R3', 'L', 'C', 'AB'];
@@ -329,6 +330,18 @@ function NuovoEsercizio() {
   );
 }
 
+/** Controllo manuale degli aggiornamenti dell'app installata. */
+function Aggiornamenti() {
+  const [msg, setMsg] = useState<string | null>(null);
+  const [lavoro, setLavoro] = useState(false);
+  return (
+    <div class="colonna" style="gap:8px">
+      <button class="bottone pieno" disabled={lavoro} onClick={async () => { setLavoro(true); setMsg(await cercaAggiornamento()); setLavoro(false); }}>{lavoro ? 'Controllo…' : 'Cerca aggiornamenti'}</button>
+      {msg ? <Avviso tipo="info">{msg}</Avviso> : null}
+    </div>
+  );
+}
+
 export function Impostazioni({ sezione }: { sezione?: string }) {
   void stato.value;
   const p = profilo.value!;
@@ -470,7 +483,8 @@ export function Impostazioni({ sezione }: { sezione?: string }) {
         )}
       </Sezione>
 
-      <p class="piccolo centrato">Frappaula Fit · versione {__APP_VERSION__}</p>
+      <Aggiornamenti />
+      <p class="piccolo centrato">Frappaula Fit · versione {__APP_VERSION__} · build {__APP_BUILD__}</p>
     </div>
   );
 }

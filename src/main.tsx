@@ -1,11 +1,11 @@
 import { render } from 'preact';
-import { registerSW } from 'virtual:pwa-register';
 import './ui/stile.css';
 import { App } from './ui/App';
 import { avvia } from './store/stato';
 import { avviaSyncAutomatica } from './store/sync';
+import { avviaAggiornamenti } from './ui/aggiornamento';
 
-registerSW({ immediate: true });
+avviaAggiornamenti();
 
 void avvia().then(() => {
   avviaSyncAutomatica();

@@ -1,11 +1,26 @@
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execSync } from 'node:child_process';
+
+// Codice della build mostrato in Impostazioni: commit e ora di Roma, per capire sul telefono quale versione gira.
+function codiceBuild(): string {
+  let sha = process.env.GITHUB_SHA?.slice(0, 7);
+  if (!sha) {
+    try {
+      sha = execSync('git rev-parse --short HEAD').toString().trim();
+    } catch {
+      sha = 'locale';
+    }
+  }
+  const quando = new Date().toLocaleString('it-IT', { timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return `${sha} · ${quando}`;
+}
 
 // In produzione l'app vive su GitHub Pages sotto /FrappaulaFit/.
 export default defineConfig(({ mode }) => ({
   base: mode === 'production' ? '/FrappaulaFit/' : '/',
-  define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.1.0') },
+  define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.1.0'), __APP_BUILD__: JSON.stringify(codiceBuild()) },
   plugins: [
     preact(),
     VitePWA({
