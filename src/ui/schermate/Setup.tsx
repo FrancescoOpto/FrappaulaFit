@@ -61,6 +61,8 @@ export function Setup() {
   const [mostraEsclusi, setMostraEsclusi] = useState(false);
   const [mostraDettagli, setMostraDettagli] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  // Primo passo: solo uomo o donna; poi le altre domande, adattate al profilo scelto.
+  const [passo, setPasso] = useState<1 | 2>(1);
   // Sedute a settimana per profilo (§12c): uomo 4, donna 3; si cambiano poi in Impostazioni → Programma.
   const N = seduteDefault(sesso);
   const ibrido = eIbrido({ preset: sesso === 'F' ? 'donna_glutei' : 'uomo_base', N });
@@ -132,26 +134,48 @@ export function Setup() {
   const composizione = piano[0]?.composizione;
   const cicliTotali = piano[0]?.settimane ?? 0;
 
+  if (passo === 1) {
+    const sceglie = (v: 'M' | 'F') => {
+      scegliSesso(v);
+      setPasso(2);
+      window.scrollTo(0, 0);
+    };
+    return (
+      <div class="pagina">
+        <div class="colonna" style="gap:10px;margin-top:12px">
+          <div class="eyebrow">Frappaula Fit</div>
+          <h1>{esiste ? 'Nuovo profilo' : 'Benvenuto'}</h1>
+          <p class="muto">Per chi è questo profilo? Da qui dipendono il programma e i colori dell'app.</p>
+        </div>
+        {esiste ? <Avviso>Creare un nuovo profilo sostituisce quello attuale su questo dispositivo. Esporta prima un backup dalle Impostazioni.</Avviso> : null}
+        <button type="button" class="carta" style="text-align:left;cursor:pointer;color:inherit;gap:6px" onClick={() => sceglie('M')}>
+          <h2>Uomo</h2>
+          <span class="muto">4 sedute a settimana: il programma a blocchi con fondamentali, test e carichi calcolati.</span>
+        </button>
+        <button type="button" class="carta" style="text-align:left;cursor:pointer;color:inherit;gap:6px" onClick={() => sceglie('F')}>
+          <h2>Donna</h2>
+          <span class="muto">3 sedute a settimana: parte classica e poi un circuito a giri, con focus su glutei e dorso.</span>
+        </button>
+        {esiste ? <button class="bottone fantasma pieno" onClick={() => { applicaTema(esiste.impostazioni.tema ?? 'scuro', esiste.sesso); vai('/impostazioni'); }}>Annulla</button> : null}
+      </div>
+    );
+  }
+
   return (
     <div class="pagina">
+      <button type="button" class="bottone fantasma piccolo" style="align-self:flex-start" onClick={() => setPasso(1)}>← {sesso === 'F' ? 'Donna' : 'Uomo'} · cambia</button>
       <div class="colonna" style="gap:10px;margin-top:12px">
         <div class="eyebrow">Frappaula Fit</div>
         <h1>{esiste ? 'Nuovo profilo' : 'Impostiamo il programma'}</h1>
         <p class="muto">Poche domande: da queste l'app costruisce il piano. Tutto si può cambiare dopo, dalle Impostazioni.</p>
       </div>
 
-      {esiste ? <Avviso>Creare un nuovo profilo sostituisce quello attuale su questo dispositivo. Esporta prima un backup dalle Impostazioni.</Avviso> : null}
-
       <div class="carta">
         <div class="campo">
           <label>Come ti chiami?</label>
           <input type="text" value={nome} onInput={(e) => setNome((e.target as HTMLInputElement).value)} placeholder="Nome" autocomplete="given-name" />
         </div>
-        <div class="campo">
-          <label>Profilo di partenza</label>
-          <Scelte valori={['M', 'F']} valore={sesso} onCambia={scegliSesso} etichette={{ M: 'Uomo · 4 sedute', F: 'Donna · 3 sedute' }} />
-          {sesso === 'F' ? <p class="piccolo">Tre sedute ibride A-B-C: prima la parte classica (hip thrust o squat, dorso per primo nella B), poi un circuito a giri. Dorso in tutte le sedute, glutei con tre stimoli diversi.</p> : null}
-        </div>
+        {sesso === 'F' ? <p class="piccolo">Tre sedute ibride A-B-C: prima la parte classica (hip thrust o squat, dorso per primo nella B), poi un circuito a giri. Dorso in tutte le sedute, glutei con tre stimoli diversi.</p> : <p class="piccolo">Quattro sedute a settimana sul programma a blocchi: si parte da una settimana di test dei carichi.</p>}
       </div>
 
       <div class="carta">
