@@ -408,6 +408,7 @@ function BloccoCircuito({ s, stazioni, giri, corrente, attivoOra, onAttiva, onSo
         return (
           <div class={`stazione ${fatta ? 'fatta' : ''} ${eCorrente ? 'corrente' : ''}`}>
             <span class="numero">{fatta ? <Icona nome="spunta" dimensione={14} /> : i + 1}</span>
+            <IconaEsercizio def={def} piccola />
             <div class="cresce" style="min-width:0">
               <div class="riga spazio" style="gap:8px">
                 <button type="button" class="nome" style="background:none;border:0;padding:0;text-align:left;cursor:pointer" onClick={() => vai(`/seduta/${s.id}/es/${e.slot}`)}>{def?.nome ?? e.esercizio_id}</button>

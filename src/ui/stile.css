@@ -808,8 +808,8 @@ input[type='radio'] {
 }
 
 .icona-esercizio {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   color: var(--testo2);
   display: inline-flex;
@@ -818,8 +818,8 @@ input[type='radio'] {
 }
 
 .icona-esercizio.piccola {
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
 }
 
 .icona-esercizio svg {
@@ -1341,4 +1341,43 @@ input[type='radio'] {
 
 .stazione.fatta .nome {
   color: var(--testo2);
+}
+
+/* Scelta Uomo/Donna del primo passo del Setup: tutta l'area è il pulsante (i figli non intercettano il tocco). */
+.scelta-profilo {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--carta);
+  border: 1px solid var(--filo);
+  border-radius: var(--raggio);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.scelta-profilo > * {
+  pointer-events: none;
+}
+
+.scelta-profilo:active {
+  border-color: var(--accento);
+  background: var(--accento-tenue);
+}
+
+.scelta-profilo .titolo {
+  font-family: var(--font-titolo);
+  font-size: 22px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.scelta-profilo .testo {
+  font-size: 14px;
+  color: var(--testo2);
+  line-height: 1.35;
 }

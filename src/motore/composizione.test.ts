@@ -51,9 +51,11 @@ describe('compongoPiano(D, test, modulo): somma dei cicli = D', () => {
     expect(d26.filter((s) => s.bloccoRif === 2).length).toBe(4);
     for (const D of [1, 2, 5, 9, 15, 19, 30, 51]) expect(sommaCicli(compongoPiano(D, true, 'massa')), `D=${D}`).toBe(D);
   });
-  it('dopo il Blocco 3 si riparte dal Blocco 1 (D=60: blocchi 1, 2, 3, 1)', () => {
+  it('Massa alterna i Blocchi 1 → 2 → 1, il Blocco 3 resta al Dimagrimento (SPEC_PIANIFICATORE §6b, 31/10; D=60: blocchi 1, 2, 1, 2)', () => {
     const d60 = compongoPiano(60, true, 'massa');
-    expect([...new Set(d60.map((s) => s.bloccoRif))]).toEqual([1, 2, 3, 1].filter((v, i, a) => a.indexOf(v) === i));
+    const blocchi = d60.filter((s) => s.fase !== 'test').map((s) => s.bloccoRif).filter((v, i, a) => i === 0 || a[i - 1] !== v);
+    expect(blocchi).toEqual([1, 2, 1, 2]);
+    expect(d60.some((s) => s.bloccoRif === 3)).toBe(false);
     expect(d60.filter((s) => s.fase === 'test').length).toBe(4);
     expect(sommaCicli(d60)).toBe(60);
   });

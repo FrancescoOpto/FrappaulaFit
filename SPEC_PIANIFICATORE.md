@@ -102,6 +102,8 @@ Come oggi: Test → Fase 1 → Fase 2 → Scarico → Fase 3 (17 cicli per il bl
 - **Scarico:** come lo Scarico del blocco di riferimento, senza modifiche.
 - **Tempo:** si applica la scala di §4.7 se la durata stimata supera T. Il coach può proporre di ridurre il volume solo se i carichi calano (§8, `trend_carichi`).
 - **Preferenze:** opzione `preferisci_macchine` (default **off**; consigliata se la forza cala > 10 % o in "definizione estrema"): sostituisce i multiarticolari liberi non fondamentali con l'alternativa guidata della stessa classe (Libro, Shred).
+- **Regola di avvio [Utente, 31/10]:** chi sceglie Dimagrimento può partire **subito** dalla Preservazione solo se ha **massimali recenti nel profilo** (o li inserisce) **e** esperienza di allenamento regolare. Altrimenti (rientro dopo pausa, principiante, nessun massimale): prima **Test + un breve ciclo di Fase 1** (Blocchi 1/2), poi Preservazione. L'app chiede in setup "Ti alleni con regolarità? Hai massimali recenti?" e mostra nell'anteprima quale delle due strade sta prendendo, con il "perché" in una riga. [Ipotesi sulla soglia di esperienza, da tarare]
+- **Blocco 3 solo per Dimagrimento [Utente, 31/10]:** nella catena Massa (§6b) l'ordine diventa **1 → 2 → 1**; il Blocco 3 non entra mai in Massa né in Mantenimento (se non come opzione `tecniche_avanzate`, §4.2). Sostituisce l'ordine 1 → 2 → 3 → 1 e l'avviso del coach in "Parte aperta" di §6b.
 - **Verifica:** Code riporta (non assume) il totale di serie a settimana prima/dopo la trasformazione sul Blocco 3 W1 (97 serie nel riferimento).
 
 ### 4.4 Sequenza dei cicli della Preservazione
@@ -154,7 +156,7 @@ Un **piano** è una lista ordinata di **tappe**: `{ modulo, obiettivo, cicli, en
 - **R ≤ 5:** solo F1 (troncata a R cicli); nessuno scarico.
 - **6 ≤ R ≤ 11:** F1 + F2 + S. Cicli di lavoro w = R−1; F1 = min(5, ⌈w/2⌉), F2 = w−F1. (Due stimoli diversi + scarico finale: è il caso "due mesi prima dell'estate" = D 8 → T F1×3 F2×3 S, oppure senza Test F1×4 F2×3 S.)
 - **12 ≤ R ≤ 16:** F1 + F2 + S + F3. w = R−1; F3 = min(5, max(3, ⌊w/3⌋)); r = w−F3; F1 = min(5, ⌈r/2⌉), F2 = r−F1. R=16 = blocco di riferimento intero (5·5·1·5).
-- **R ≥ 17:** blocco intero (16) + **scarico di chiusura** + **nuovo Test** + blocco successivo, con i dati dei Blocchi nell'ordine 1 → 2 → 3 → 1 [Utente: "dopo il Blocco 3 scarico, nuovo test, si riparte dal Blocco 1"]; l'ultimo blocco si accorcia con le regole sopra.
+- **R ≥ 17:** blocco intero (16) + **scarico di chiusura** + **nuovo Test** + blocco successivo, con i dati dei Blocchi nell'ordine 1 → 2 → 1 (il Blocco 3 è riservato al Dimagrimento, §4.3) [Utente, rivisto 31/10; prima 1 → 2 → 3 → 1: "dopo il Blocco 3 scarico, nuovo test, si riparte dal Blocco 1"]; l'ultimo blocco si accorcia con le regole sopra.
 - **Variazione:** a ogni cambio di fase il generatore cambia, come nei dati di riferimento, la maggior parte dei complementari con un **equivalente** della libreria (§14b, `LIBRERIA_ESERCIZI.md`); i fondamentali non cambiano. Nei piani con una sola fase, a metà fase i complementari possono ruotare su richiesta dell'utente.
 - Esempi verificati (T incluso): D=4 `T F1×3` · D=8 `T F1×3 F2×3 S` · D=12 `T F1×5 F2×5 S` · D=13 `T F1×4 F2×4 S F3×3` · D=17 `T F1×5 F2×5 S F3×5` · D=18 aggiunge `S` · D=20 `… S T B2 F1`.
 
@@ -168,7 +170,7 @@ Invariata (§4.3–§4.4).
 Nel passo "Durata" l'utente scrive i cicli (o le settimane): l'anteprima mostra la **composizione** ("5 volume · 4 ripetizioni · scarico"), il totale di sedute e la durata in calendario, con il "perché" in una riga. Dalla scheda "Piano" (§11b) si vedono già tutte le progressioni.
 
 ### Parte aperta
-Il Blocco 3 è il blocco di definizione (ebook 3): nel modulo Massa, l'ordine 1 → 2 → 3 → 1 voluto dall'utente lo include. Il coach segnala una volta che i Target/tecniche del Blocco 3 sono pensati per il deficit. [Ipotesi]
+Il Blocco 3 è il blocco di definizione (ebook 3): **escluso dalla catena Massa** (ordine 1 → 2 → 1) e usato solo nella Preservazione (§4.3). [Utente, 31/10]
 
 ## 6c. Algoritmo di costruzione del programma [Utente, 29/10]
 Il pianificatore è una **funzione pura e deterministica** (stessi input → stesso piano, testabile) che attraversa questi passi nell'ordine e registra per ciascuno il "perché" in una riga:

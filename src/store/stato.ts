@@ -23,6 +23,7 @@ import type {
 import { CHIAVI, type Chiave, caricaMeta, caricaStato, salvaChiave, salvaMeta, cancellaTutto, STATO_VUOTO } from './db';
 import { AUTOCORREZIONE_CICLO, AUTOCORREZIONE_SERIE, FATTORE_LAVORO_DEFAULT, RECUPERI_DEFAULT, STRIPPING, tempiCircuito } from '../data/tabelle';
 import { nuovoBlocco, rigeneraSeduteFuture } from '../motore/generatore';
+import { bloccoSuccessivo } from '../motore/composizione';
 import { prescrizione } from '../motore/prescrizione';
 import { progressioneCircuito, ridistribuisciGiri } from '../motore/circuito';
 import { arrotonda, stimaMassimale } from '../motore/carichi';
@@ -242,7 +243,10 @@ export async function nuovoBloccoSuccessivo(): Promise<void> {
   const b = stato.value.blocco;
   if (!p) return;
   const passati = b ? [...stato.value.blocchiPassati, { ...b, stato: 'completato' as const }] : stato.value.blocchiPassati;
-  const nuovo = eIbrido(p.parametri) ? bloccoPerObiettivo(p, (b?.numero ?? 0) + 1, true) : nuovoBlocco(p.parametri, p, (b?.numero ?? 0) + 1);
+  // Massa e Mantenimento alternano i Blocchi 1 e 2; il Blocco 3 è solo per il Dimagrimento (SPEC_PIANIFICATORE §4.3, 31/10).
+  const ultimoRif = b ? b.sedute[b.sedute.length - 1]?.bloccoRif ?? (b.numero % 2 === 1 ? 1 : 2) : 2;
+  const numero = (b?.numero ?? 0) + 1;
+  const nuovo = eIbrido(p.parametri) ? bloccoPerObiettivo(p, numero, true) : nuovoBlocco(p.parametri, p, numero, b ? bloccoSuccessivo(ultimoRif === 3 ? 2 : ultimoRif, 'massa') : 1);
   await aggiorna({ blocco: nuovo, blocchiPassati: passati }, ['blocco', 'blocchiPassati']);
 }
 

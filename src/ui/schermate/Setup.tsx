@@ -148,13 +148,13 @@ export function Setup() {
           <p class="muto">Per chi è questo profilo? Da qui dipendono il programma e i colori dell'app.</p>
         </div>
         {esiste ? <Avviso>Creare un nuovo profilo sostituisce quello attuale su questo dispositivo. Esporta prima un backup dalle Impostazioni.</Avviso> : null}
-        <button type="button" class="carta" style="text-align:left;cursor:pointer;color:inherit;gap:6px" onClick={() => sceglie('M')}>
-          <h2>Uomo</h2>
-          <span class="muto">4 sedute a settimana: il programma a blocchi con fondamentali, test e carichi calcolati.</span>
+        <button type="button" class="scelta-profilo" onClick={() => sceglie('M')}>
+          <span class="titolo">Uomo</span>
+          <span class="testo">4 sedute a settimana: il programma a blocchi con fondamentali, test e carichi calcolati.</span>
         </button>
-        <button type="button" class="carta" style="text-align:left;cursor:pointer;color:inherit;gap:6px" onClick={() => sceglie('F')}>
-          <h2>Donna</h2>
-          <span class="muto">3 sedute a settimana: parte classica e poi un circuito a giri, con focus su glutei e dorso.</span>
+        <button type="button" class="scelta-profilo" onClick={() => sceglie('F')}>
+          <span class="titolo">Donna</span>
+          <span class="testo">3 sedute a settimana: parte classica e poi un circuito a giri, con focus su glutei e dorso.</span>
         </button>
         {esiste ? <button class="bottone fantasma pieno" onClick={() => { applicaTema(esiste.impostazioni.tema ?? 'scuro', esiste.sesso); vai('/impostazioni'); }}>Annulla</button> : null}
       </div>

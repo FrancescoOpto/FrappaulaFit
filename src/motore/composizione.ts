@@ -49,15 +49,17 @@ export function sommaCicli(seg: { cicli: number }[]): number {
   return seg.reduce((a, s) => a + s.cicli, 0);
 }
 
-/** Blocco di riferimento successivo: Massa 1 → 2 → 3 → 1; Mantenimento solo 1 ↔ 2 (il Blocco 3 è il blocco di definizione). */
-export function bloccoSuccessivo(blocco: number, modulo: 'massa' | 'mantenimento'): number {
-  if (modulo === 'mantenimento') return blocco === 1 ? 2 : 1;
-  return (blocco % 3) + 1;
+/**
+ * Blocco di riferimento successivo: Massa e Mantenimento alternano 1 → 2 → 1 (SPEC_PIANIFICATORE §6b, rivisto il 31/10).
+ * Il Blocco 3 è il blocco di definizione: si usa solo nella Preservazione (§4.3).
+ */
+export function bloccoSuccessivo(blocco: number, _modulo: 'massa' | 'mantenimento' = 'massa'): number {
+  return blocco === 1 ? 2 : 1;
 }
 
 /**
  * Piano completo per D cicli (Test incluso quando `conTest`): segmenti con fase, cicli e blocco di riferimento.
- * Massa: dopo un blocco intero (16 + scarico di chiusura) nuovo Test e blocco successivo (1 → 2 → 3 → 1).
+ * Massa: dopo un blocco intero (16 + scarico di chiusura) nuovo Test e blocco successivo (1 → 2 → 1).
  * Mantenimento: dopo 11 cicli si passa al blocco successivo (1 ↔ 2) senza Test (il profilo carichi è recente).
  * La somma dei cicli è sempre D.
  */

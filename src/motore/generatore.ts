@@ -511,15 +511,20 @@ export function generaSedute(parametri: ParametriGeneratore, settimana: Risultat
   return sedute;
 }
 
-export function nuovoBlocco(parametri: ParametriGeneratore, profilo: ProfiloGen, numero = 1): Blocco {
-  const settimana = generaSettimana(parametri, profilo, numero);
+/**
+ * Blocco intero con settimana di test. `riferimento` sceglie i dati del blocco di riferimento (default = numero);
+ * il numero resta il contatore dei blocchi fatti.
+ */
+export function nuovoBlocco(parametri: ParametriGeneratore, profilo: ProfiloGen, numero = 1, riferimento = numero): Blocco {
+  const settimana = generaSettimana(parametri, profilo, riferimento);
   const id = `b${numero}-${Date.now().toString(36)}`;
+  const sedute = generaSedute(parametri, settimana, id, profilo.sostituzioni);
   return {
     id,
     numero,
     stato: 'test',
     contenitore_id: settimana.contenitore.id,
-    sedute: generaSedute(parametri, settimana, id, profilo.sostituzioni),
+    sedute: riferimento !== numero ? sedute.map((s) => ({ ...s, bloccoRif: riferimento })) : sedute,
     test: {},
     correzioni: {},
     parametri: { ...parametri, priorita: [...parametri.priorita], esclusi: [...parametri.esclusi] },
