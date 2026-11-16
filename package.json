@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "dev:lei": "vite -c vite.lei.config.ts",
+    "build": "tsc --noEmit && tsc --noEmit -p lei && vite build && vite build -c vite.lei.config.ts",
     "preview": "vite preview",
+    "preview:lei": "vite preview -c vite.lei.config.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

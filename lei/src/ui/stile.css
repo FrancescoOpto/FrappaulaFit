@@ -1,0 +1,1383 @@
+/* Frappaula Fit — stile "A · Pulita" (SPEC_PIANIFICATORE v2 §11c): righe sottili, tipografia grande,
+   nessun gradiente, nessuna emoji, icone a tratto. Tema scuro o chiaro e accento per profilo (§12c):
+   <html data-tema="scuro|chiaro" data-profilo="M|F">. Tutti i colori passano da queste variabili. */
+
+:root {
+  color-scheme: dark;
+  --sfondo: #0e0f11;
+  --carta: #17181b;
+  --carta2: #202226;
+  --bordo: #2a2c31;
+  --filo: #1f2125;
+  --testo: #f3f4f6;
+  --testo2: #a9adb5;
+  --testo3: #8a8e96;
+  --accento: #f0761e;
+  --accento2: #ffa054;
+  --accento-testo: #140a02;
+  --rosso: #d92b33;
+  --rosso2: #ff6b70;
+  --verde: #3ccf7a;
+  --verde-sfondo: #12281c;
+  --giallo: #f5b942;
+  /* Colori derivati (prima fissi nel foglio): barre, ombre, velo dei modali, avvisi, chip selezionati. */
+  --barra-sfondo: rgba(14, 15, 17, 0.96);
+  --nav-sfondo: rgba(14, 15, 17, 0.97);
+  --ombra: rgba(0, 0, 0, 0.45);
+  --timer-bottone: rgba(0, 0, 0, 0.22);
+  --velo: rgba(0, 0, 0, 0.6);
+  --su-scuro: #fff;
+  --accento-tenue: rgba(240, 118, 30, 0.12);
+  --avviso-sfondo: rgba(245, 185, 66, 0.1);
+  --avviso-bordo: rgba(245, 185, 66, 0.35);
+  --avviso-testo: #ffd98a;
+  --errore-sfondo: rgba(217, 43, 51, 0.12);
+  --errore-bordo: rgba(217, 43, 51, 0.5);
+  --raggio: 14px;
+  --raggio-grande: 18px;
+  --font: 'Barlow', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-titolo: 'Barlow Condensed', 'Barlow', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Profilo donna, tema scuro: rosa tenue (§12c). */
+:root[data-profilo='F'] {
+  --accento: #e07a9f;
+  --accento2: #f2a6c0;
+  --accento-testo: #1a0610;
+  --accento-tenue: rgba(224, 122, 159, 0.12);
+}
+
+/* Tema chiaro (§12c): palette chiara; uomo con arancione più scuro per il contrasto. */
+:root[data-tema='chiaro'] {
+  color-scheme: light;
+  --sfondo: #f4f4f2;
+  --carta: #fff;
+  --carta2: #eeeef0;
+  --bordo: #dadade;
+  --filo: #e7e7ea;
+  --testo: #16171a;
+  --testo2: #52555c;
+  --testo3: #6c6f77;
+  --verde: #1c9a58;
+  --verde-sfondo: #e2f4ea;
+  --giallo: #a86d10;
+  --rosso: #d92b33;
+  --rosso2: #c0262d;
+  --accento: #e0620d;
+  --accento2: #b34d08;
+  --accento-testo: #1b0d03;
+  --accento-tenue: rgba(224, 98, 13, 0.12);
+  --barra-sfondo: rgba(255, 255, 255, 0.96);
+  --nav-sfondo: rgba(255, 255, 255, 0.97);
+  --ombra: rgba(22, 23, 26, 0.18);
+  --timer-bottone: rgba(0, 0, 0, 0.12);
+  --velo: rgba(22, 23, 26, 0.4);
+  --avviso-sfondo: rgba(168, 109, 16, 0.08);
+  --avviso-bordo: rgba(168, 109, 16, 0.4);
+  --avviso-testo: #7a4e08;
+  --errore-sfondo: rgba(217, 43, 51, 0.07);
+  --errore-bordo: rgba(217, 43, 51, 0.45);
+}
+
+/* Profilo donna, tema chiaro: rosa più deciso; il testo sui pulsanti resta scuro (§12c). */
+:root[data-tema='chiaro'][data-profilo='F'] {
+  --accento: #d14f82;
+  --accento2: #a83568;
+  --accento-testo: #2a0a18;
+  --accento-tenue: rgba(209, 79, 130, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--sfondo);
+  color: var(--testo);
+  font-family: var(--font);
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.pagina {
+  flex: 1;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 12px 16px 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ---------- Testate e tipografia ---------- */
+
+.testata {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 44px;
+}
+
+.testata .indietro {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--testo2);
+  background: none;
+  border: 0;
+  padding: 8px 8px 8px 0;
+  font-size: 15px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.barra-alta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 44px;
+}
+
+.barra-alta .marchio {
+  font-family: var(--font-titolo);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--testo3);
+}
+
+.sopratitolo,
+.eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--testo2);
+  text-transform: uppercase;
+}
+
+.eyebrow.accento {
+  color: var(--accento);
+}
+
+h1 {
+  font-family: var(--font-titolo);
+  font-weight: 700;
+  font-size: 44px;
+  line-height: 0.95;
+  margin: 0;
+  letter-spacing: 0.005em;
+}
+
+h1.titolo-percorso {
+  font-size: 60px;
+}
+
+h2 {
+  font-family: var(--font-titolo);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.muto {
+  color: var(--testo2);
+  font-size: 14px;
+}
+
+.piccolo {
+  font-size: 13px;
+  color: var(--testo2);
+}
+
+.pastiglia {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: 1px solid var(--accento);
+  color: var(--accento);
+}
+
+.contatore-grande {
+  font-family: var(--font-titolo);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Contenitori ---------- */
+
+.carta {
+  background: var(--carta);
+  border: 1px solid var(--filo);
+  border-radius: var(--raggio);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.carta.compatta {
+  padding: 10px 14px;
+}
+
+.carta.piatta {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.riga {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.riga.spazio {
+  justify-content: space-between;
+}
+
+.colonna {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cresce {
+  flex: 1;
+  min-width: 0;
+}
+
+.separatore {
+  border-top: 1px solid var(--filo);
+}
+
+.sezione-titolo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--filo);
+}
+
+/* ---------- Pulsanti e controlli ---------- */
+
+.bottone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 13px;
+  border: 1px solid var(--bordo);
+  background: var(--carta2);
+  color: var(--testo);
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.bottone:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.bottone.primario {
+  background: var(--accento);
+  border-color: var(--accento);
+  color: var(--accento-testo);
+}
+
+.bottone.scuro {
+  background: var(--accento-testo);
+  border-color: var(--accento-testo);
+  color: var(--su-scuro);
+}
+
+.bottone.fantasma {
+  background: transparent;
+}
+
+.bottone.piccolo {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+
+.bottone.pieno {
+  width: 100%;
+}
+
+.bottone.pericolo {
+  border-color: var(--rosso);
+  color: var(--rosso2);
+}
+
+.icona-bottone {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 0;
+  background: var(--carta2);
+  color: var(--testo2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.icona-bottone svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Etichetta del tipo di esercizio: solo testo (SPEC §11c). */
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--testo3);
+}
+
+.badge.R1,
+.badge.L {
+  color: var(--accento);
+}
+
+.badge.verde {
+  color: var(--verde);
+}
+
+.badge.giallo {
+  color: var(--giallo);
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.campo label,
+.etichetta {
+  font-size: 13px;
+  color: var(--testo2);
+  font-weight: 600;
+}
+
+.input,
+input[type='number'],
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='date'],
+select,
+textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--bordo);
+  background: var(--carta2);
+  color: var(--testo);
+  outline: none;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accento2);
+}
+
+input[type='number'] {
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accento);
+}
+
+.scelte {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scelta {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--bordo);
+  background: var(--carta2);
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.scelta.attiva {
+  border-color: var(--accento);
+  color: var(--accento2);
+  background: var(--accento-tenue);
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--bordo);
+  border-radius: 12px;
+  background: var(--carta2);
+  padding: 2px;
+}
+
+.stepper-bottone {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--testo);
+  font-size: 22px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stepper-bottone:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.stepper-valore {
+  min-width: 72px;
+  text-align: center;
+  font-family: var(--font-titolo);
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Controllo − / valore / + compatto per peso e ripetizioni in seduta. */
+.controllo {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--bordo);
+  border-radius: 12px;
+  background: var(--carta2);
+  overflow: hidden;
+}
+
+.controllo button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--testo);
+  font-size: 22px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.controllo input[type='number'] {
+  width: 68px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  font-family: var(--font-titolo);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.controllo input[type='number']::-webkit-outer-spin-button,
+.controllo input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.controllo input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.controllo .unita {
+  font-size: 12px;
+  color: var(--testo3);
+  padding-right: 8px;
+}
+
+/* ---------- Progresso ---------- */
+
+.progresso {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--carta2);
+  overflow: hidden;
+}
+
+.progresso > div {
+  height: 100%;
+  background: var(--accento);
+}
+
+.progresso.sottile {
+  height: 3px;
+}
+
+/* Griglia dei cicli (Percorso): una riga per ciclo, una cella per seduta. */
+.griglia-cicli {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.griglia-cicli .riga-ciclo {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.griglia-cicli .etichetta-ciclo {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--testo3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.griglia-cicli .riga-ciclo.corrente .etichetta-ciclo {
+  color: var(--testo);
+  font-weight: 700;
+}
+
+.griglia-cicli .celle {
+  display: grid;
+  gap: 6px;
+}
+
+.cella-seduta {
+  height: 40px;
+  border-radius: 9px;
+  border: 1px solid var(--filo);
+  background: var(--carta);
+  color: var(--testo3);
+  font-family: var(--font-titolo);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.cella-seduta.fatta {
+  background: var(--accento);
+  border-color: var(--accento);
+  color: var(--accento-testo);
+}
+
+.cella-seduta.prossima {
+  border: 2px solid var(--accento);
+  color: var(--testo);
+}
+
+.cella-seduta.in-corso {
+  border: 2px solid var(--accento2);
+  color: var(--accento2);
+}
+
+.cella-seduta.scarico {
+  background: var(--verde-sfondo);
+  border-color: var(--verde-sfondo);
+  color: var(--verde);
+}
+
+.cella-seduta.scarico.fatta {
+  background: var(--verde);
+  color: var(--verde-sfondo);
+}
+
+/* Blocco "Prossima seduta" arancione. */
+.prossima-seduta {
+  background: var(--accento);
+  color: var(--accento-testo);
+  border-radius: var(--raggio-grande);
+  padding: 18px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prossima-seduta .eyebrow {
+  color: var(--accento-testo);
+  opacity: 0.7;
+}
+
+.prossima-seduta h2 {
+  font-size: 34px;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  line-height: 1;
+}
+
+.prossima-seduta .meta {
+  font-size: 14px;
+  color: var(--accento-testo);
+  opacity: 0.8;
+}
+
+.prossima-seduta .bottone.scuro {
+  margin-top: 6px;
+}
+
+/* Elenco sedute "Questo ciclo" ed esercizi: righe con filo sottile. */
+.lista-sedute {
+  display: flex;
+  flex-direction: column;
+}
+
+.seduta-riga {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 2px;
+  border-top: 1px solid var(--filo);
+  cursor: pointer;
+  min-height: 56px;
+}
+
+.seduta-riga:first-child {
+  border-top: 0;
+}
+
+.seduta-riga .nome-seduta {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.spunta {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--bordo);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 14px;
+  color: var(--testo2);
+}
+
+.spunta svg {
+  width: 16px;
+  height: 16px;
+}
+
+.spunta.fatta {
+  background: var(--accento);
+  border-color: var(--accento);
+  color: var(--accento-testo);
+}
+
+.spunta.prossima {
+  border-color: var(--accento);
+}
+
+.spunta.prossima::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accento);
+}
+
+.spunta.parziale {
+  border-color: var(--accento2);
+  color: var(--accento2);
+}
+
+/* ---------- Seduta: gruppi, esercizi, serie ---------- */
+
+.gruppo-blocco {
+  display: flex;
+  flex-direction: column;
+}
+
+.gruppo-blocco .gruppo-testata {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 0 8px;
+  border-bottom: 1px solid var(--filo);
+}
+
+.esercizio-riga {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--filo);
+  cursor: pointer;
+}
+
+.gruppo-blocco .esercizio-riga:first-of-type {
+  border-top: 0;
+}
+
+.esercizio-riga .nome {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.esercizio-riga .dettaglio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--testo2);
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+
+.icona-esercizio {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  color: var(--testo2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icona-esercizio.piccola {
+  width: 30px;
+  height: 30px;
+}
+
+.icona-esercizio svg {
+  width: 100%;
+  height: 100%;
+}
+
+.esercizio-riga.aperto .icona-esercizio,
+.esercizio-riga.aperto .nome {
+  color: var(--testo);
+}
+
+.esercizio-riga.aperto .icona-esercizio {
+  color: var(--accento);
+}
+
+/* Serie dentro l'esercizio espanso. */
+.serie-lista {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--filo);
+}
+
+.serie-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--filo);
+}
+
+.serie-inline:last-child {
+  border-bottom: 0;
+}
+
+.serie-inline .cerchio {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--bordo);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--testo3);
+}
+
+.serie-inline .cerchio svg {
+  width: 14px;
+  height: 14px;
+}
+
+.serie-inline.fatta .cerchio {
+  background: var(--accento);
+  border-color: var(--accento);
+  color: var(--accento-testo);
+}
+
+.serie-inline.corrente .cerchio {
+  border: 2px solid var(--accento);
+  color: var(--testo);
+}
+
+.serie-inline .valore {
+  font-family: var(--font-titolo);
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.serie-inline.fatta .valore {
+  color: var(--testo);
+}
+
+.serie-inline.futura .valore {
+  color: var(--testo3);
+  font-weight: 600;
+}
+
+.serie-inline.corrente {
+  padding: 8px 0;
+}
+
+.serie-inline .controlli {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Riga serie della scheda esercizio (griglia con campi). */
+.serie-riga {
+  display: grid;
+  grid-template-columns: 36px 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+  border-top: 1px solid var(--filo);
+}
+
+.serie-riga .n {
+  font-family: var(--font-titolo);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--testo2);
+  text-align: center;
+}
+
+.serie-riga.fatta input {
+  border-color: var(--verde);
+}
+
+.serie-riga .prev {
+  font-size: 11px;
+  color: var(--testo3);
+  text-align: center;
+  margin-top: 2px;
+}
+
+/* Barra fissa in basso della seduta: recupero + "Serie fatta". */
+.barra-seduta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 60px;
+  z-index: 20;
+  background: var(--barra-sfondo);
+  border-top: 1px solid var(--filo);
+  backdrop-filter: blur(8px);
+}
+
+.barra-seduta > div {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.barra-seduta .recupero {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.barra-seduta .recupero .tempo {
+  font-family: var(--font-titolo);
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.barra-seduta .recupero .tempo.finito {
+  color: var(--verde);
+}
+
+.barra-seduta .bottone {
+  min-height: 52px;
+  padding: 0 22px;
+  border-radius: 14px;
+}
+
+.barra-seduta .azioni-timer {
+  display: flex;
+  gap: 6px;
+}
+
+.barra-seduta .azioni-timer button {
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--bordo);
+  background: transparent;
+  color: var(--testo2);
+  cursor: pointer;
+}
+
+/* Timer flottante (fuori dalla seduta). */
+.timer-barra {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 60px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.timer-barra > div {
+  pointer-events: auto;
+  background: var(--accento);
+  color: var(--accento-testo);
+  border-radius: 999px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 24px var(--ombra);
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-barra .tempo {
+  font-family: var(--font-titolo);
+  font-size: 26px;
+  font-weight: 700;
+  min-width: 70px;
+  text-align: center;
+}
+
+.timer-barra button {
+  background: var(--timer-bottone);
+  border: 0;
+  color: var(--accento-testo);
+  border-radius: 999px;
+  min-width: 40px;
+  height: 36px;
+  padding: 0 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.timer-grande {
+  text-align: center;
+  padding: 10px 0;
+}
+
+.timer-grande .tempo {
+  font-family: var(--font-titolo);
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-grande .tempo.finito {
+  color: var(--verde);
+}
+
+/* ---------- Navigazione ---------- */
+
+.nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--nav-sfondo);
+  border-top: 1px solid var(--filo);
+  display: flex;
+  justify-content: space-around;
+  padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+  z-index: 10;
+  backdrop-filter: blur(8px);
+}
+
+.nav a {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--testo3);
+  padding: 4px 0;
+  min-height: 44px;
+}
+
+.nav a.attiva {
+  color: var(--accento);
+}
+
+.nav svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ---------- Avvisi, tabelle, varie ---------- */
+
+.avviso {
+  background: var(--avviso-sfondo);
+  border: 1px solid var(--avviso-bordo);
+  color: var(--avviso-testo);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.avviso.info {
+  background: transparent;
+  border-color: var(--bordo);
+  color: var(--testo2);
+}
+
+.avviso.errore {
+  background: var(--errore-sfondo);
+  border-color: var(--errore-bordo);
+  color: var(--rosso2);
+}
+
+.griglia2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.griglia3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.stat {
+  background: var(--carta2);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.stat .valore {
+  font-family: var(--font-titolo);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stat .nome {
+  font-size: 12px;
+  color: var(--testo2);
+  margin-top: 4px;
+}
+
+.tabella {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.tabella th,
+.tabella td {
+  padding: 6px 4px;
+  text-align: left;
+  border-bottom: 1px solid var(--filo);
+}
+
+.tabella th {
+  color: var(--testo2);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tabella td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabella.piano td {
+  vertical-align: top;
+}
+
+.tabella.piano tr.fatta td {
+  color: var(--testo2);
+}
+
+.tabella.piano tr.in-corso td {
+  color: var(--accento2);
+}
+
+.cambiato {
+  color: var(--accento);
+  font-weight: 700;
+}
+
+.grafico {
+  width: 100%;
+  height: auto;
+}
+
+.modale-sfondo {
+  position: fixed;
+  inset: 0;
+  background: var(--velo);
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.modale {
+  width: 100%;
+  max-width: 560px;
+  max-height: 85vh;
+  overflow: auto;
+  background: var(--carta);
+  border-radius: 20px 20px 0 0;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--carta2);
+  font-size: 13px;
+  color: var(--testo2);
+}
+
+.centrato {
+  text-align: center;
+}
+
+.spazio-sopra {
+  margin-top: 8px;
+}
+
+.inline-numero {
+  width: 90px;
+  min-height: 42px;
+}
+
+@media (min-width: 600px) {
+  h1.titolo-percorso {
+    font-size: 68px;
+  }
+}
+
+/* ---------- Circuito PHA (§12b) ---------- */
+
+.circuito {
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio-grande);
+  background: var(--carta);
+  padding: 14px 14px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.circuito.attivo {
+  border-color: var(--accento);
+}
+
+.circuito .giri {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.circuito .pallini {
+  display: flex;
+  gap: 6px;
+}
+
+.circuito .pallini span {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--testo3);
+}
+
+.circuito .pallini span.fatto {
+  background: var(--accento);
+  border-color: var(--accento);
+}
+
+.circuito .pallini span.corrente {
+  border-color: var(--accento);
+}
+
+.stazione {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--filo);
+}
+
+.stazione .numero {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1.5px solid var(--testo3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex: none;
+}
+
+.stazione.fatta .numero {
+  background: var(--verde);
+  border-color: var(--verde);
+  color: var(--carta);
+}
+
+.stazione.corrente .numero {
+  border-color: var(--accento);
+  color: var(--accento2);
+}
+
+.stazione .nome {
+  font-weight: 600;
+}
+
+.stazione.fatta .nome {
+  color: var(--testo2);
+}
+
+/* Scelta Uomo/Donna del primo passo del Setup: tutta l'area è il pulsante (i figli non intercettano il tocco). */
+.scelta-profilo {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--carta);
+  border: 1px solid var(--filo);
+  border-radius: var(--raggio);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.scelta-profilo > * {
+  pointer-events: none;
+}
+
+.scelta-profilo:active {
+  border-color: var(--accento);
+  background: var(--accento-tenue);
+}
+
+.scelta-profilo .titolo {
+  font-family: var(--font-titolo);
+  font-size: 22px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.scelta-profilo .testo {
+  font-size: 14px;
+  color: var(--testo2);
+  line-height: 1.35;
+}

@@ -46,6 +46,8 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
         navigateFallback: 'index.html',
+        // L'app di lei vive in /FrappaulaFit/lei/ con un suo service worker: questo non deve intercettarla.
+        navigateFallbackDenylist: [/\/lei\//],
         // Font Barlow da Google Fonts: in cache alla prima visita online, poi disponibili offline.
         runtimeCaching: [
           { urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i, handler: 'CacheFirst', options: { cacheName: 'google-fonts-css', expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 365 }, cacheableResponse: { statuses: [0, 200] } } },
@@ -56,6 +58,6 @@ export default defineConfig(({ mode }) => ({
   ],
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'lei/src/**/*.test.ts'],
   },
 }));

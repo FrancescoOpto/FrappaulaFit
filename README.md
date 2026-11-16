@@ -1,5 +1,7 @@
 # Frappaula Fit
 
+> **App di lei:** dal 17/11/2026 il programma femminile è un'app separata in `lei/` (https://francescoopto.github.io/FrappaulaFit/lei/), vedi `lei/README.md`. Questa app resta quella di Francesco.
+
 PWA personale di bodybuilding a blocchi: test dei massimali, carichi calcolati, sedute generate, registrazione serie per serie, timer di recupero, storico. Specifica completa in [SPEC.md](SPEC.md).
 
 ## Avvio
