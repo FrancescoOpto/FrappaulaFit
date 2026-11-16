@@ -10,6 +10,7 @@ Progetto personale di Francesco (titolare di Ottica Curci, Rieti): PWA di bodybu
 3. `docs/note_elaborate/MEMORIA_GENERALE.md` — regole metodologiche e decisioni.
 4. `docs/note_elaborate/struttura_programma_vathlete.md` — tabelle reali del Blocco 1 dell'app di riferimento (servono per i test automatici).
 4b. `docs/note_elaborate/BLOCCO2_programma.md` — **programma completo del Blocco 2 (giorni A–D, 5 tabelle di progressione, carichi, regole)**: fonte principale per il motore dei carichi.
+4c. `docs/note_elaborate/GLUTEI_cap2_programmazione.md` — **libro glutei, cap. II**: programma intermedio di 18 settimane (volume → ibrida → intensificazione) e full body su 3 sedute: base per il programma della moglie (§12b da rivedere).
 5. `docs/testo_integrale/` — testo del libro e degli ebook (libro e foto in OCR: possibili errori sui numeri; per i dubbi fa fede l'originale in `materiale_zip/`).
 
 ## Regole

@@ -85,3 +85,8 @@ Screen_Recording_20261028_054028 (Fase 1: W2, W14, W18), _054153 (Fase 2: W22, W
 
 ## 28/10 — Blocco 2, giorni C e D
 Giorno C: Screen_Recording_20261028_055458 (Fase 1), _055641 (Fase 2), _055700 (Scarico 3), _055753 (Fase 3) + screenshot W15 e W19. Giorno D: _060851 (Fase 1), _060942 (Fase 2), _060957 (Scarico 4), _061102 (Fase 3). Tutto consolidato in `note_elaborate/BLOCCO2_programma.md` (giorni A–D).
+
+## Libro "Glutei – Esercizi, programmi e alimentazione" (cap. II, parziale)
+| Pagine | Sorgente originale | Testo integrale | Note elaborate |
+|---|---|---|---|
+| 184–236 (con salti: vedi la nota) | 2 video del 16/11/2026, pagine sfogliate | — (lette dai fotogrammi) | `GLUTEI_cap2_programmazione.md`: frequenza, recuperi, cedimento, tecniche, tipi di progressione, **programma intermedio 18 settimane** e versione **full body su 3 sedute** |
