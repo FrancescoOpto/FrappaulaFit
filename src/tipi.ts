@@ -434,6 +434,8 @@ export interface SerieRegistrata {
   sforzo?: Sforzo;
   /** RIR dichiarato (ripetizioni in riserva) sui fondamentali, per il ricalcolo del massimale. */
   rir?: number;
+  /** Massimale prima del ricalcolo fatto da questa serie: serve a rifarlo se cambia il giudizio. */
+  rm1_prima?: number;
 }
 
 export interface RegistroEsercizio {

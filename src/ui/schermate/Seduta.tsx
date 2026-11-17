@@ -228,7 +228,7 @@ export interface CampiSerie {
 }
 
 /** Serie dell'esercizio in corso: fatte compatte, corrente con − / +, future compatte (§11c punto 3). */
-function SerieEspanse({ s, es, reg, campi, setCampi, soloLettura }: { s: TSeduta; es: EsercizioSeduta; reg: RegistroEsercizio; campi: CampiSerie | null; setCampi: (c: CampiSerie | null) => void; soloLettura: boolean }) {
+function SerieEspanse({ s, es, reg, campi, setCampi, soloLettura, onGiudizio }: { s: TSeduta; es: EsercizioSeduta; reg: RegistroEsercizio; campi: CampiSerie | null; setCampi: (c: CampiSerie | null) => void; soloLettura: boolean; onGiudizio?: () => void }) {
   const passo = impostazioni.value.arrotondamento;
   const corrente = reg.serie.find((x) => !x.fatta);
   const ultima = Math.max(...reg.serie.filter((y) => !y.stripping).map((y) => y.n));
@@ -251,9 +251,10 @@ function SerieEspanse({ s, es, reg, campi, setCampi, soloLettura }: { s: TSeduta
               <span class="valore">{testoFatta(x)}</span>
               {x.stripping ? <span class="piccolo">stripping −20 %</span> : null}
               {x.n === ultima && !x.stripping ? (
-                <div class="riga cresce" style="gap:4px;justify-content:flex-end;flex-wrap:wrap">
+                <div class="riga cresce" style="gap:4px;justify-content:flex-end;flex-wrap:wrap;align-items:center">
+                  {!x.sforzo && !soloLettura ? <span class="piccolo" style="color:var(--accento)">Com’è andata?</span> : null}
                   {(['facile', 'giusto', 'limite'] as const).map((v) => (
-                    <button class={`bottone piccolo ${x.sforzo === v ? 'primario' : 'fantasma'}`} style="min-height:32px;padding:0 9px;font-size:12px" disabled={soloLettura} onClick={() => void aggiornaSerie(s.id, es.slot, x.n, { sforzo: v })}>{v === 'facile' ? 'Facile' : v === 'giusto' ? 'Giusto' : 'Al limite'}</button>
+                    <button class={`bottone piccolo ${x.sforzo === v ? 'primario' : 'fantasma'}`} style="min-height:32px;padding:0 9px;font-size:12px" disabled={soloLettura} onClick={() => { void aggiornaSerie(s.id, es.slot, x.n, { sforzo: v }); onGiudizio?.(); }}>{v === 'facile' ? 'Facile' : v === 'giusto' ? 'Giusto' : 'Al limite'}</button>
                   ))}
                 </div>
               ) : null}
@@ -292,7 +293,7 @@ function SerieEspanse({ s, es, reg, campi, setCampi, soloLettura }: { s: TSeduta
   );
 }
 
-function RigaEsercizio({ s, es, aperto, onApri, onSostituisci, campi, setCampi }: { s: TSeduta; es: EsercizioSeduta; aperto: boolean; onApri: () => void; onSostituisci: () => void; campi: CampiSerie | null; setCampi: (c: CampiSerie | null) => void }) {
+function RigaEsercizio({ s, es, aperto, onApri, onSostituisci, onGiudizio, campi, setCampi }: { s: TSeduta; es: EsercizioSeduta; aperto: boolean; onApri: () => void; onSostituisci: () => void; onGiudizio: () => void; campi: CampiSerie | null; setCampi: (c: CampiSerie | null) => void }) {
   const p = profilo.value!;
   const def = trovaEsercizio(es.esercizio_id, p.esercizi_personalizzati);
   const pr = prescrizioneDi(es, s);
@@ -327,7 +328,7 @@ function RigaEsercizio({ s, es, aperto, onApri, onSostituisci, campi, setCampi }
       </div>
       {aperto && inCorso && reg ? (
         <>
-          <SerieEspanse s={s} es={es} reg={reg} campi={campi} setCampi={setCampi} soloLettura={false} />
+          <SerieEspanse s={s} es={es} reg={reg} campi={campi} setCampi={setCampi} soloLettura={false} onGiudizio={tutte ? onGiudizio : undefined} />
           <div class="riga spazio" style="padding:8px 0 10px">
             <button class="bottone piccolo fantasma" onClick={vaiDettaglio}>Scheda, note e ciclo scorso →</button>
             <button class="bottone piccolo fantasma" onClick={onSostituisci}>Sostituisci</button>
@@ -537,10 +538,14 @@ export function Seduta({ id }: { id: string }) {
     void aggiornaSerie(s.id, esAperto.slot, serieCorrente.n, { kg: Number.isFinite(kg) ? kg : undefined, rip: Number.isFinite(rip) ? rip : undefined, fatta: true });
     const def = trovaEsercizio(esAperto.esercizio_id, p.esercizi_personalizzati);
     avviaTimer(impostazioni.value.recuperi[esAperto.ruolo], def?.nome ?? '');
-    // Ultima serie dell'esercizio: si passa al prossimo incompleto.
+    // Ultima serie dell'esercizio: resta aperto per il giudizio "Facile / Giusto / Al limite" durante il recupero;
+    // si passa al prossimo col giudizio o con "Prossimo esercizio".
     const rimaste = regAperto!.serie.filter((x) => !x.fatta && !x.stripping && x.n !== serieCorrente.n).length;
-    if (rimaste === 0) setApertoScelto(stazioni.length && classiche.every((x) => x.slot === esAperto.slot || esercizioCompleto(x)) ? APERTO_CIRCUITO : null);
+    if (rimaste === 0 && !serieCorrente.stripping) setApertoScelto(esAperto.slot);
   };
+
+  /** Dopo l'esercizio finito: il prossimo incompleto o, finita la parte classica, il circuito. */
+  const avanti = () => setApertoScelto(stazioni.length && classiche.every(esercizioCompleto) ? APERTO_CIRCUITO : null);
 
   if (congratulazioni) {
     return (
@@ -603,7 +608,7 @@ export function Seduta({ id }: { id: string }) {
             s.fase === 'test' ? (
               <RigaTest key={e.slot + e.esercizio_id} s={s} es={e} />
             ) : (
-              <RigaEsercizio key={e.slot + e.esercizio_id} s={s} es={e} aperto={apertoSlot === e.slot} onApri={() => setApertoScelto(apertoSlot === e.slot ? -1 : e.slot)} onSostituisci={() => setSost(e)} campi={campi} setCampi={setCampi} />
+              <RigaEsercizio key={e.slot + e.esercizio_id} s={s} es={e} aperto={apertoSlot === e.slot} onApri={() => setApertoScelto(apertoSlot === e.slot ? -1 : e.slot)} onSostituisci={() => setSost(e)} onGiudizio={avanti} campi={campi} setCampi={setCampi} />
             ),
           )}
         </div>
@@ -652,7 +657,7 @@ export function Seduta({ id }: { id: string }) {
         ) : esAperto && serieCorrente ? (
           <BarraSeduta testo={serieCorrente.rest_pause ? 'Apri rest-pause' : 'Serie fatta'} onFatta={serieFatta} />
         ) : (
-          <BarraSeduta testo="Prossimo esercizio" secondario onFatta={() => setApertoScelto(null)} />
+          <BarraSeduta testo="Prossimo esercizio" secondario onFatta={avanti} />
         )
       ) : null}
 

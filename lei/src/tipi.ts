@@ -192,7 +192,10 @@ export interface SerieRegistrata {
   kg?: number;
   rip?: number;
   fatta: boolean;
+  /** Giudizio dell'ultima serie dei fondamentali: ripetizioni di riserva per il ricalcolo (Facile 2, Giusto 1, Al limite 0). */
   sforzo?: 'facile' | 'giusto' | 'limite';
+  /** Massimale prima del ricalcolo fatto da questa serie: serve a rifarlo se cambia il giudizio. */
+  rm1_prima?: number;
 }
 
 export interface RegistroVoce {

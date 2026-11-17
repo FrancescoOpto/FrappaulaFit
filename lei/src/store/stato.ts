@@ -260,16 +260,34 @@ export async function aggiornaSerie(sedutaId: string, voceId: string, n: number,
     const succ = serie.find((x) => x.n > n && !x.fatta);
     if (succ && succ.kg === undefined && succ.kg_prev > 0) succ.kg_prev = arrotonda(succ.kg_prev * 0.95, passo);
   }
-  if (mod.fatta && def?.fondamentale && corrente.kg !== undefined && corrente.rip !== undefined && corrente.kg > (corrente.kg_piano ?? corrente.kg_prev) && corrente.rip >= corrente.rip_prev) {
+  // Ricalcolo del massimale sui fondamentali. Il giudizio dell'ultima serie arriva dopo "Serie fatta":
+  // se cambia, il ricalcolo si rifà dal massimale di prima (Facile = 2 ripetizioni di riserva, Giusto 1, Al limite 0).
+  const giudizioCambiato = mod.sforzo !== undefined && mod.sforzo !== prima.sforzo && corrente.fatta;
+  if ((mod.fatta || giudizioCambiato) && def?.fondamentale) {
     const t = test[rv.esercizio_id];
+    const base = corrente.rm1_prima ?? t?.rm1;
+    const valida = corrente.kg !== undefined && corrente.rip !== undefined && corrente.kg > (corrente.kg_piano ?? corrente.kg_prev) && corrente.rip >= corrente.rip_prev;
     const rir = corrente.sforzo === 'facile' ? 2 : corrente.sforzo === 'giusto' ? 1 : 0;
-    const esito = valutaRicalcolo(t?.rm1, corrente.kg, corrente.rip, rir);
-    if (esito.aggiorna && t && esito.stima) {
-      test = { ...test, [rv.esercizio_id]: { ...t, rm1: esito.stima, rm1_test: t.rm1_test ?? t.rm1 } };
+    const esito = valida ? valutaRicalcolo(base, corrente.kg!, corrente.rip!, rir) : undefined;
+    if (esito?.aggiorna && t && esito.stima) {
+      if (esito.stima !== t.rm1) {
+        test = { ...test, [rv.esercizio_id]: { ...t, rm1: esito.stima, rm1_test: t.rm1_test ?? t.rm1 } };
+        corrente.rm1_prima = base;
+        const cc = { ...carichiCorrenti };
+        delete cc[rv.esercizio_id];
+        carichiCorrenti = cc;
+        note = [...note, { data: new Date().toISOString(), testo: `${def.nome}: nuovo massimale ${esito.stima} kg (era ${base ?? t.rm1}).` }];
+      }
+    } else if (giudizioCambiato && corrente.rm1_prima !== undefined && t) {
+      // Con il nuovo giudizio la serie non giustifica più l'aumento: torna il massimale di prima e il carico scelto.
+      const tornato = corrente.rm1_prima;
+      test = { ...test, [rv.esercizio_id]: { ...t, rm1: tornato } };
+      corrente.rm1_prima = undefined;
       const cc = { ...carichiCorrenti };
-      delete cc[rv.esercizio_id];
+      if (corrente.kg !== undefined && corrente.kg > 0 && corrente.kg !== corrente.kg_piano) cc[rv.esercizio_id] = { kg: corrente.kg, rif: corrente.kg_piano, aggiornato: new Date().toISOString(), origine: 'manuale', seduta_id: sedutaId };
+      else delete cc[rv.esercizio_id];
       carichiCorrenti = cc;
-      note = [...note, { data: new Date().toISOString(), testo: `${def.nome}: nuovo massimale ${esito.stima} kg (era ${t.rm1}).` }];
+      note = [...note, { data: new Date().toISOString(), testo: `${def.nome}: massimale riportato a ${tornato} kg (giudizio cambiato sull'ultima serie).` }];
     }
   }
   const nuovoReg: RegistroSeduta = { ...reg, voci: { ...reg.voci, [voceId]: { ...rv, serie } } };

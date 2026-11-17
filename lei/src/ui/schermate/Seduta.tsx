@@ -202,7 +202,7 @@ function Sostituzione({ s, v, onChiudi }: { s: TSeduta; v: VocePiano; onChiudi: 
 }
 
 /** Serie della voce aperta: fatte compatte, corrente con − / +, future compatte. */
-function SerieEspanse({ s, v, rv, campi, setCampi }: { s: TSeduta; v: VocePiano; rv: RegistroVoce; campi: Campi | null; setCampi: (c: Campi | null) => void }) {
+function SerieEspanse({ s, v, rv, campi, setCampi, onGiudizio }: { s: TSeduta; v: VocePiano; rv: RegistroVoce; campi: Campi | null; setCampi: (c: Campi | null) => void; onGiudizio?: () => void }) {
   const passo = impostazioni.value.arrotondamento;
   const corrente = rv.serie.find((x) => !x.fatta);
   const ultima = Math.max(...rv.serie.map((y) => y.n));
@@ -222,9 +222,10 @@ function SerieEspanse({ s, v, rv, campi, setCampi }: { s: TSeduta; v: VocePiano;
               <button type="button" class="cerchio" aria-label={`Serie ${x.n} fatta: tocca per riaprirla`} onClick={() => void aggiornaSerie(s.id, v.voce.id, x.n, { fatta: false })}><Icona nome="spunta" dimensione={14} /></button>
               <span class="valore">{conKg ? `${formatoKg(x.kg ?? x.kg_prev)} × ` : ''}{x.rip ?? x.rip_prev}{v.p.secondi ? '″' : ''}</span>
               {x.n === ultima && ESERCIZI_PER_ID[rv.esercizio_id]?.fondamentale ? (
-                <div class="riga cresce" style="gap:4px;justify-content:flex-end;flex-wrap:wrap">
+                <div class="riga cresce" style="gap:4px;justify-content:flex-end;flex-wrap:wrap;align-items:center">
+                  {!x.sforzo ? <span class="piccolo" style="color:var(--accento)">Com’è andata?</span> : null}
                   {(['facile', 'giusto', 'limite'] as const).map((f) => (
-                    <button class={`bottone piccolo ${x.sforzo === f ? 'primario' : 'fantasma'}`} style="min-height:32px;padding:0 9px;font-size:12px" onClick={() => void aggiornaSerie(s.id, v.voce.id, x.n, { sforzo: f })}>{f === 'facile' ? 'Facile' : f === 'giusto' ? 'Giusto' : 'Al limite'}</button>
+                    <button class={`bottone piccolo ${x.sforzo === f ? 'primario' : 'fantasma'}`} style="min-height:32px;padding:0 9px;font-size:12px" onClick={() => { void aggiornaSerie(s.id, v.voce.id, x.n, { sforzo: f }); onGiudizio?.(); }}>{f === 'facile' ? 'Facile' : f === 'giusto' ? 'Giusto' : 'Al limite'}</button>
                   ))}
                 </div>
               ) : null}
@@ -253,7 +254,7 @@ function SerieEspanse({ s, v, rv, campi, setCampi }: { s: TSeduta; v: VocePiano;
   );
 }
 
-function RigaVoce({ s, v, aperto, onApri, onSostituisci, campi, setCampi }: { s: TSeduta; v: VocePiano; aperto: boolean; onApri: () => void; onSostituisci: () => void; campi: Campi | null; setCampi: (c: Campi | null) => void }) {
+function RigaVoce({ s, v, aperto, onApri, onSostituisci, onGiudizio, campi, setCampi }: { s: TSeduta; v: VocePiano; aperto: boolean; onApri: () => void; onSostituisci: () => void; onGiudizio: () => void; campi: Campi | null; setCampi: (c: Campi | null) => void }) {
   const reg = registroDi(s.id);
   const rv = reg?.voci[v.voce.id];
   const id = rv?.esercizio_id ?? v.p.esercizio_id;
@@ -287,7 +288,7 @@ function RigaVoce({ s, v, aperto, onApri, onSostituisci, campi, setCampi }: { s:
       </div>
       {aperto && inCorso && rv ? (
         <>
-          <SerieEspanse s={s} v={v} rv={rv} campi={campi} setCampi={setCampi} />
+          <SerieEspanse s={s} v={v} rv={rv} campi={campi} setCampi={setCampi} onGiudizio={rv.serie.every((x) => x.fatta) ? onGiudizio : undefined} />
           <div class="riga spazio" style="padding:8px 0 10px">
             <button class="bottone piccolo fantasma" onClick={vaiScheda}>Scheda, note e volta scorsa →</button>
             <button class="bottone piccolo fantasma" onClick={onSostituisci}>Sostituisci</button>
@@ -498,8 +499,9 @@ export function Seduta({ id }: { id: string }) {
       setApertoScelto(tornaA.voce.id);
       return;
     }
+    // Ultima serie: i fondamentali restano aperti per il giudizio "Facile / Giusto / Al limite" durante il recupero.
     const rimaste = rvAperta.serie.filter((x) => !x.fatta && x.n !== serieCorrente.n).length;
-    if (rimaste === 0) setApertoScelto(null);
+    if (rimaste === 0) setApertoScelto(def?.fondamentale ? vAperta.voce.id : null);
   };
 
   const stazioneFatta = () => {
@@ -564,7 +566,7 @@ export function Seduta({ id }: { id: string }) {
             <span class="piccolo">{g.voci.length} {g.voci.length === 1 ? 'esercizio' : 'esercizi'}</span>
           </div>
           {g.voci.map((v) => (
-            <RigaVoce key={v.voce.id} s={s} v={v} aperto={apertoId === v.voce.id} onApri={() => setApertoScelto(apertoId === v.voce.id ? APERTO_CIRCUITO : v.voce.id)} onSostituisci={() => setSost(v)} campi={campi} setCampi={setCampi} />
+            <RigaVoce key={v.voce.id} s={s} v={v} aperto={apertoId === v.voce.id} onApri={() => setApertoScelto(apertoId === v.voce.id ? APERTO_CIRCUITO : v.voce.id)} onSostituisci={() => setSost(v)} onGiudizio={() => setApertoScelto(null)} campi={campi} setCampi={setCampi} />
           ))}
         </div>
       ))}

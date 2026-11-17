@@ -447,26 +447,52 @@ export async function aggiornaSerie(sedutaId: string, slot: number, n: number, m
     if (succ && succ.kg === undefined && succ.kg_prev > 0) succ.kg_prev = arrotonda(succ.kg_prev * (1 + AUTOCORREZIONE_SERIE), p.impostazioni.arrotondamento);
   }
   // Ricalcolo del massimale (SPEC_PIANIFICATORE §7.2): peso alzato e ripetizioni completate su un fondamentale.
-  if (mod.fatta && fondamentale && !corrente.stripping && corrente.kg !== undefined && corrente.rip !== undefined && corrente.kg > (corrente.kg_piano ?? corrente.kg_prev) && corrente.rip >= corrente.rip_prev) {
+  // Il giudizio dell'ultima serie arriva dopo "Serie fatta": se cambia, il ricalcolo si rifà dal massimale di prima.
+  const giudizioCambiato = mod.sforzo !== undefined && mod.sforzo !== prima.sforzo && corrente.fatta;
+  if ((mod.fatta || giudizioCambiato) && fondamentale && !corrente.stripping) {
     const t = b.test[es.esercizio_id];
+    const base = corrente.rm1_prima ?? t?.rm1;
+    const valida = corrente.kg !== undefined && corrente.rip !== undefined && corrente.kg > (corrente.kg_piano ?? corrente.kg_prev) && corrente.rip >= corrente.rip_prev;
     const rir = corrente.rir ?? (corrente.sforzo === 'facile' ? 2 : corrente.sforzo === 'giusto' ? 1 : 0);
-    const esito = valutaRicalcolo(t?.rm1, corrente.kg, corrente.rip, rir);
-    if (esito.aggiorna && t) {
-      test = { ...b.test, [es.esercizio_id]: { ...t, rm1: esito.stima, rm1_test: t.rm1_test ?? t.rm1 } };
+    const esito = valida ? valutaRicalcolo(base, corrente.kg!, corrente.rip!, rir) : undefined;
+    const nome = ESERCIZI_PER_ID[es.esercizio_id]?.nome ?? es.esercizio_id;
+    const chiave = chiaveCorrente(esSedutaRiga!);
+    if (esito?.aggiorna && t) {
+      if (esito.stima !== t.rm1) {
+        test = { ...b.test, [es.esercizio_id]: { ...t, rm1: esito.stima, rm1_test: t.rm1_test ?? t.rm1 } };
+        corrente.rm1_prima = base;
+        carichiCorrenti = { ...(carichiCorrenti ?? {}) };
+        delete carichiCorrenti[chiave];
+        profiloNuovo = aggiornaProfiloCarichi(profiloNuovo, { esercizio_id: es.esercizio_id, kg: corrente.kg!, rip: corrente.rip!, modo: 'stima', massimale: esito.stima, data: new Date().toISOString(), origine: 'ricalcolo' });
+        note = [...(b.note ?? []), { data: new Date().toISOString(), testo: `${nome}: nuovo massimale ${esito.stima} kg (era ${base ?? t.rm1}).`, perche: esito.perche }];
+      }
+    } else if (giudizioCambiato && corrente.rm1_prima !== undefined && t) {
+      // Con il nuovo giudizio la serie non giustifica più l'aumento: torna il massimale di prima e il carico scelto.
+      const tornato = corrente.rm1_prima;
+      test = { ...b.test, [es.esercizio_id]: { ...t, rm1: tornato } };
+      corrente.rm1_prima = undefined;
       carichiCorrenti = { ...(carichiCorrenti ?? {}) };
-      delete carichiCorrenti[chiaveCorrente(esSedutaRiga!)];
-      profiloNuovo = aggiornaProfiloCarichi(profiloNuovo, { esercizio_id: es.esercizio_id, kg: corrente.kg, rip: corrente.rip, modo: 'stima', massimale: esito.stima, data: new Date().toISOString(), origine: 'ricalcolo' });
-      note = [...(b.note ?? []), { data: new Date().toISOString(), testo: `${ESERCIZI_PER_ID[es.esercizio_id]?.nome ?? es.esercizio_id}: nuovo massimale ${esito.stima} kg (era ${t.rm1}).`, perche: esito.perche }];
+      const scelto = corrente.kg !== undefined ? nuovoCaricoCorrente(esSedutaRiga!.ruolo, corrente.kg, corrente.kg_piano, sedutaId) : undefined;
+      if (scelto) carichiCorrenti[chiave] = scelto;
+      else delete carichiCorrenti[chiave];
+      const pc = profiloNuovo.carichi?.[es.esercizio_id];
+      if (pc?.origine === 'ricalcolo') profiloNuovo = aggiornaProfiloCarichi(profiloNuovo, { ...pc, massimale: tornato });
+      note = [...(b.note ?? []), { data: new Date().toISOString(), testo: `${nome}: massimale riportato a ${tornato} kg (giudizio cambiato sull'ultima serie).` }];
     }
   }
   // "Facile" sull'ultima serie di Target e complementari: proposta di +1 passo alla seduta successiva.
-  if (mod.sforzo === 'facile' && !fondamentale && esSedutaRiga && !esSedutaRiga.seconda_riga && !corrente.stripping) {
+  // Se poi il giudizio diventa "Giusto" o "Al limite", la proposta si toglie e resta il carico usato oggi.
+  if (giudizioCambiato && !fondamentale && esSedutaRiga && !esSedutaRiga.seconda_riga && !corrente.stripping) {
     const ultima = Math.max(...serie.filter((x) => !x.stripping).map((x) => x.n));
-    if (n === ultima) {
-      const kgBase = corrente.kg ?? corrente.kg_prev;
-      if (kgBase > 0) {
-        carichiCorrenti = { ...(carichiCorrenti ?? {}), [chiaveCorrente(esSedutaRiga)]: { kg: arrotonda(kgBase + passoCarico(es.esercizio_id), p.impostazioni.arrotondamento), aggiornato: new Date().toISOString(), seduta_id: sedutaId, origine: 'proposta' } };
-      }
+    const chiave = chiaveCorrente(esSedutaRiga);
+    const kgBase = corrente.kg ?? corrente.kg_prev;
+    if (n === ultima && mod.sforzo === 'facile' && kgBase > 0) {
+      carichiCorrenti = { ...(carichiCorrenti ?? {}), [chiave]: { kg: arrotonda(kgBase + passoCarico(es.esercizio_id), p.impostazioni.arrotondamento), aggiornato: new Date().toISOString(), seduta_id: sedutaId, origine: 'proposta' } };
+    } else if (n === ultima && prima.sforzo === 'facile' && carichiCorrenti?.[chiave]?.origine === 'proposta' && carichiCorrenti[chiave].seduta_id === sedutaId) {
+      carichiCorrenti = { ...carichiCorrenti };
+      const scelto = corrente.kg !== undefined ? nuovoCaricoCorrente(esSedutaRiga.ruolo, corrente.kg, corrente.kg_piano, sedutaId) : undefined;
+      if (scelto) carichiCorrenti[chiave] = scelto;
+      else delete carichiCorrenti[chiave];
     }
   }
   const nuovoReg: RegistroSeduta = { ...reg, esercizi: { ...reg.esercizi, [slot]: { ...es, serie } } };
