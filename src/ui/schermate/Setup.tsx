@@ -6,7 +6,7 @@ import { minuti } from '../../motore/prescrizione';
 import { PASSI_DEFAULT, PASSI_MAX, PASSI_MIN, PASSO_STEPPER } from '../../motore/energia';
 import { ENERGIA_PER_OBIETTIVO, MESI_DURATA, cicliPerObiettivo, percheIbrido, proponiPiano, seduteDefault } from '../../motore/pianificatore';
 import { NOMI_FASI } from '../../data/tabelle';
-import { eIbrido, parametriPerObiettivo } from '../../motore/moduli';
+import { eIbrido, parametriPerObiettivo, serveRientro } from '../../motore/moduli';
 import { applicaTema } from '../tema';
 import { descriviComposizione } from '../../motore/composizione';
 import { creaProfilo, profilo, IMPOSTAZIONI_DEFAULT } from '../../store/stato';
@@ -49,6 +49,8 @@ export function Setup() {
   const [kgTarget, setKgTarget] = useState('');
   const [resistenza, setResistenza] = useState(false);
   const [preferisciMacchine, setPreferisciMacchine] = useState(false);
+  // Regola di avvio del Dimagrimento (§4.3): chi non si allena con regolarità da almeno 1 mese fa prima 3 cicli di Fase 1.
+  const [regolare, setRegolare] = useState(true);
   const [mostraCorpo, setMostraCorpo] = useState(false);
   const [eta, setEta] = useState('');
   const [altezza, setAltezza] = useState('');
@@ -92,15 +94,16 @@ export function Setup() {
     [N, T, priorita, esclusi, esperienza, preset, obiettivo, intensita, bloccoBase],
   );
   // Profilo ibrido: stesso piano su misura del Mantenimento qualunque sia l'obiettivo (§12b).
-  const piano = useMemo(() => (ibrido ? proponiPiano({ obiettivo: 'mantenimento', settimane, N, bloccoBase: 1 }) : proponiPiano({ obiettivo, settimane, N, bloccoBase })), [ibrido, obiettivo, settimane, N, bloccoBase]);
+  const rientro = obiettivo === 'definizione' && !ibrido && serveRientro({ regolare }, {}, true);
+  const piano = useMemo(() => (ibrido ? proponiPiano({ obiettivo: 'mantenimento', settimane, N, bloccoBase: 1 }) : proponiPiano({ obiettivo, settimane, N, bloccoBase, rientro })), [ibrido, obiettivo, settimane, N, bloccoBase, rientro]);
   const anteprima = useMemo(() => {
     try {
-      const numero = obiettivo === 'definizione' && preset === 'uomo_base' && N === 4 ? 3 : piano[0]?.composizione?.[0]?.bloccoRif ?? 1;
+      const numero = obiettivo === 'definizione' && preset === 'uomo_base' && N === 4 && !rientro ? 3 : piano[0]?.composizione?.[0]?.bloccoRif ?? 1;
       return generaSettimana(parametri, { sostituzioni: {}, esercizi_personalizzati: [], impostazioni: IMPOSTAZIONI_DEFAULT }, numero);
     } catch {
       return null;
     }
-  }, [parametri, obiettivo, piano]);
+  }, [parametri, obiettivo, piano, rientro]);
   const target = targetVolume(parametri);
 
   const togglePriorita = (g: Gruppo) => {
@@ -121,6 +124,7 @@ export function Setup() {
       kgTarget: parseFloat(kgTarget.replace(',', '.')) || undefined,
       resistenza: obiettivo === 'definizione' && !ibrido ? resistenza : undefined,
       preferisciMacchine: obiettivo === 'definizione' && !ibrido ? preferisciMacchine : undefined,
+      regolare: obiettivo === 'definizione' && !ibrido ? regolare : undefined,
     };
     const corpo: DatiCorporei | undefined = mostraCorpo
       ? { eta: parseInt(eta, 10) || undefined, altezzaCm: parseFloat(altezza) || undefined, pesoKg: parseFloat(peso.replace(',', '.')) || undefined, bfPct: parseFloat(bf.replace(',', '.')) || undefined, passiGiorno: passi, allenamentiSettimana: N, durataSedutaMin: T, tdeeEmpirico: parseInt(tdeeEmp, 10) || undefined }
@@ -211,6 +215,11 @@ export function Setup() {
         ) : null}
         {obiettivo === 'definizione' && !ibrido ? (
           <>
+            <div class="campo">
+              <label>Ti alleni con regolarità da almeno 1 mese?</label>
+              <Scelte valori={['si', 'no']} valore={regolare ? 'si' : 'no'} onCambia={(v) => setRegolare(v === 'si')} etichette={{ si: 'Sì', no: 'No' }} />
+              <p class="piccolo">{regolare ? 'Dopo la settimana di test si parte subito con il Dimagrimento.' : 'Dopo il test, 3 settimane di Fase 1 del Blocco 1 per riprendere tecnica e carichi; poi il Dimagrimento. Sempre dentro la durata scelta.'}</p>
+            </div>
             <div class="campo"><label>Kg da perdere (facoltativo)</label><input type="number" inputMode="decimal" step="0.5" min="0" value={kgTarget} onInput={(e) => setKgTarget((e.target as HTMLInputElement).value)} placeholder="—" /></div>
             <label class="riga spazio" style="padding:4px 0"><span class="cresce">Allenare anche la resistenza<br /><span class="piccolo">2 serie da 15–20 ripetizioni a carico leggero in coda a ogni seduta.</span></span><input type="checkbox" checked={resistenza} onChange={(e) => setResistenza((e.target as HTMLInputElement).checked)} /></label>
             <label class="riga spazio" style="padding:4px 0"><span class="cresce">Preferisci le macchine<br /><span class="piccolo">Sostituisce i multiarticolari liberi non fondamentali con la versione guidata.</span></span><input type="checkbox" checked={preferisciMacchine} onChange={(e) => setPreferisciMacchine((e.target as HTMLInputElement).checked)} /></label>

@@ -33,7 +33,7 @@ import { Energia } from './Energia';
 import { DESCRIZIONE_INTENSITA, DESCRIZIONE_OBIETTIVO_DONNA, NOMI_INTENSITA, NOMI_MODULO, NOMI_OBIETTIVO, NOMI_OBIETTIVO_DONNA, OBIETTIVI_DONNA, nomeObiettivo } from './Setup';
 import { ENERGIA_PER_OBIETTIVO, MESI_DURATA, cicliPerObiettivo, mesiDaCicli, percheIbrido, proponiPiano } from '../../motore/pianificatore';
 import { NOMI_FASI } from '../../data/tabelle';
-import { eIbrido } from '../../motore/moduli';
+import { eIbrido, serveRientro } from '../../motore/moduli';
 import { descriviComposizione } from '../../motore/composizione';
 import type { ObiettivoAttivo } from '../../tipi';
 import { avviaTimer, chiediPermessoNotifiche, sbloccaAudio } from '../timer';
@@ -121,13 +121,16 @@ function CambioObiettivo() {
   const [kgTarget, setKgTarget] = useState(attuale?.kgTarget ? String(attuale.kgTarget) : '');
   const [resistenza, setResistenza] = useState(attuale?.resistenza ?? false);
   const [macchine, setMacchine] = useState(attuale?.preferisciMacchine ?? false);
+  const [regolare, setRegolare] = useState(attuale?.regolare ?? true);
+  // Regola di avvio del Dimagrimento (§4.3): allenamento regolare da almeno 1 mese e massimali salvati, altrimenti rientro.
+  const rientro = tipo === 'definizione' && !ibrido && serveRientro({ regolare }, p.carichi);
   const [esito, setEsito] = useState<string | null>(null);
   const [confermaSubito, setConfermaSubito] = useState(false);
   const scegli = (o: Obiettivo) => setTipo(o);
   // L'energia discende dall'obiettivo (v2 §1): non si chiede.
   const energia = ENERGIA_PER_OBIETTIVO[tipo];
-  const piano = proponiPiano({ obiettivo: ibrido ? 'mantenimento' : tipo, settimane, N: p.parametri.N, carichiRecenti: Object.keys(p.carichi ?? {}).length > 0, bloccoBase: ibrido ? 1 : p.parametri.bloccoBase });
-  const nuovo = (): ObiettivoAttivo => ({ tipo, dal: new Date().toISOString(), settimane: Math.max(1, settimane), mesi, energia, kgTarget: parseFloat(kgTarget.replace(',', '.')) || undefined, resistenza: tipo === 'definizione' ? resistenza : undefined, preferisciMacchine: tipo === 'definizione' ? macchine : undefined, kcalTarget: attuale?.kcalTarget });
+  const piano = proponiPiano({ obiettivo: ibrido ? 'mantenimento' : tipo, settimane, N: p.parametri.N, carichiRecenti: Object.keys(p.carichi ?? {}).length > 0, bloccoBase: ibrido ? 1 : p.parametri.bloccoBase, rientro });
+  const nuovo = (): ObiettivoAttivo => ({ tipo, dal: new Date().toISOString(), settimane: Math.max(1, settimane), mesi, energia, kgTarget: parseFloat(kgTarget.replace(',', '.')) || undefined, resistenza: tipo === 'definizione' ? resistenza : undefined, preferisciMacchine: tipo === 'definizione' ? macchine : undefined, regolare: tipo === 'definizione' && !ibrido ? regolare : undefined, kcalTarget: attuale?.kcalTarget });
   const applica = async (quando: 'confine' | 'subito') => {
     const msg = await cambiaObiettivo(nuovo(), quando);
     setEsito(msg);
@@ -145,6 +148,11 @@ function CambioObiettivo() {
       <div class="campo"><label>Per quanto tempo?</label><Scelte valori={[...MESI_DURATA]} valore={mesi} onCambia={setMesi} etichette={{ 3: '3 mesi', 6: '6 mesi', 9: '9 mesi', 12: '12 mesi' }} /><p class="piccolo">{mesi} mesi ≈ {cicliPerObiettivo('massa', mesi)} settimane, {cicliPerObiettivo('massa', mesi) * p.parametri.N} sedute.</p></div>
       {tipo === 'definizione' && !ibrido ? (
         <>
+          <div class="campo">
+            <label>Ti alleni con regolarità da almeno 1 mese?</label>
+            <Scelte valori={['si', 'no']} valore={regolare ? 'si' : 'no'} onCambia={(v) => setRegolare(v === 'si')} etichette={{ si: 'Sì', no: 'No' }} />
+            {rientro ? <p class="piccolo">{regolare ? 'Mancano i massimali di panca, squat e stacco: ' : ''}prima 3 settimane di Fase 1 del Blocco 1, poi il Dimagrimento.</p> : null}
+          </div>
           <div class="campo"><label>Kg da perdere (facoltativo)</label><input type="number" inputMode="decimal" step="0.5" value={kgTarget} onInput={(e) => setKgTarget((e.target as HTMLInputElement).value)} placeholder="—" /></div>
           <label class="riga spazio" style="padding:4px 0"><span>Allenare anche la resistenza</span><input type="checkbox" checked={resistenza} onChange={(e) => setResistenza((e.target as HTMLInputElement).checked)} /></label>
           <label class="riga spazio" style="padding:4px 0"><span>Preferisci le macchine</span><input type="checkbox" checked={macchine} onChange={(e) => setMacchine((e.target as HTMLInputElement).checked)} /></label>

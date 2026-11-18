@@ -1,8 +1,8 @@
 import type { Blocco, CaricoProfilo, CicloPreservazione, Fase, Obiettivo, ObiettivoAttivo, ParametriGeneratore, Profilo, RisultatoTest, Seduta, Tappa } from '../tipi';
 import { contenitorePer } from '../data/contenitori';
 import { eserciziPerFase, generaSettimana, nuovoBlocco, nuovoBloccoComposto, primoCicloModificabile, type ProfiloGen } from './generatore';
-import { compongoPiano } from './composizione';
-import { faseDelCiclo, sequenzaPreservazione, trasformaPreservazione } from './preservazione';
+import { compongoPiano, righeTabella } from './composizione';
+import { faseDelCiclo, pianoDimagrimento, trasformaPreservazione } from './preservazione';
 import { ENERGIA_PER_OBIETTIVO } from './pianificatore';
 import { RECUPERI_DEFAULT } from '../data/tabelle';
 
@@ -35,22 +35,41 @@ export function serveTest(blocco: Blocco, carichi: Record<string, CaricoProfilo>
   return [...ids].some((id) => !carichi[id]);
 }
 
+/** I tre fondamentali dell'uomo hanno un massimale salvato nel profilo (regola di avvio del Dimagrimento, §4.3). */
+export const FONDAMENTALI_UOMO = ['panca_piana', 'squat', 'stacco_da_terra'] as const;
+export function massimaliSalvati(carichi: Record<string, CaricoProfilo> = {}): boolean {
+  return FONDAMENTALI_UOMO.every((id) => (carichi[id]?.massimale ?? 0) > 0);
+}
+
 /**
- * Blocco di Preservazione (dimagrimento): `cicli` cicli trasformati dalle sessioni del programma di riferimento
- * (Blocco 3 a 4 giorni, altrimenti il contenitore generico). Con `conTest` aggiunge la settimana di test.
+ * Regola di avvio del Dimagrimento (SPEC_PIANIFICATORE §4.3, soglie dell'utente del 18/11): si parte subito dalla
+ * Preservazione solo con allenamento regolare da almeno 1 mese **e** massimali salvati; altrimenti prima 3 cicli di
+ * Fase 1 del Blocco 1. Al primo avvio i massimali arrivano dal test della prima settimana, quindi conta solo la regolarità.
  */
-export function nuovoBloccoPreservazione(parametri: ParametriGeneratore, profilo: ProfiloModulo, cicli: number, conTest: boolean, numero = 1, ponte = false): Blocco {
-  const numeroSorgente = parametri.N === 4 && parametri.preset === 'uomo_base' ? 3 : numero;
+export function serveRientro(obiettivo: Pick<ObiettivoAttivo, 'regolare'> | undefined, carichi: Record<string, CaricoProfilo> = {}, primoAvvio = false): boolean {
+  if (obiettivo?.regolare === false) return true;
+  return primoAvvio ? false : !massimaliSalvati(carichi);
+}
+
+/**
+ * Blocco di Preservazione (dimagrimento) per `cicli` cicli totali (test e rientro inclusi, §4.3 e §4.4).
+ * Senza rientro: sessioni del Blocco 3 (a 4 giorni, altrimenti il contenitore generico) trasformate.
+ * Con `rientro`: tutto sul Blocco 1 (stessi esercizi per test, Fase 1 e Preservazione, quindi un solo test copre
+ * tutti i carichi): Test + 3 cicli di Fase 1 (righe di tabella 1, 3, 5) + Preservazione con il resto.
+ */
+export function nuovoBloccoPreservazione(parametri: ParametriGeneratore, profilo: ProfiloModulo, cicli: number, conTest: boolean, numero = 1, ponte = false, rientro = false): Blocco {
+  const piano = pianoDimagrimento(cicli, conTest, rientro);
+  const numeroSorgente = piano.rientro ? 1 : parametri.N === 4 && parametri.preset === 'uomo_base' ? 3 : numero;
   const settimana = generaSettimana(parametri, profilo, numeroSorgente);
   const id = `p${numero}-${Date.now().toString(36)}`;
-  const seq = sequenzaPreservazione(Math.max(1, cicli));
+  const seq = piano.seq;
   // v2 §4.3/§4.7: stesse serie del blocco; la scala per tempo interviene solo se la seduta stimata supera T.
   const opz = { preferisciMacchine: profilo.obiettivoAttivo?.preferisciMacchine, resistenza: profilo.obiettivoAttivo?.resistenza, T: parametri.T, recuperi: profilo.impostazioni?.recuperi ?? RECUPERI_DEFAULT };
   const sedute: Seduta[] = [];
   let numeroSeduta = 0;
   let ciclo = 0;
   const contaFase: Partial<Record<Fase, number>> = {};
-  const aggiungi = (fase: Fase, cicloFase: number, cicloTipo: CicloPreservazione | 'ponte' | undefined, trasforma: (es: Seduta['esercizi'], g: number) => Seduta['esercizi']) => {
+  const aggiungi = (fase: Fase, cicloFase: number, cicloTipo: CicloPreservazione | 'ponte' | undefined, trasforma: (es: Seduta['esercizi'], g: number) => Seduta['esercizi'], extra: Partial<Seduta> = {}) => {
     ciclo++;
     for (let g = 0; g < parametri.N; g++) {
       numeroSeduta++;
@@ -71,26 +90,31 @@ export function nuovoBloccoPreservazione(parametri: ParametriGeneratore, profilo
         esercizi: trasforma(base, g),
         modulo: fase === 'test' ? 'test' : fase === 'scarico' ? 'scarico' : 'preservazione',
         cicloTipo,
+        ...extra,
       });
     }
   };
-  if (conTest) aggiungi('test', 1, undefined, (es) => es);
+  if (piano.test) aggiungi('test', 1, undefined, (es) => es);
+  // Rientro: Fase 1 del Blocco 1 accorciata con la regola dei gradini (§6b), carichi del blocco (nessuna trasformazione).
+  const righe = righeTabella(piano.rientro);
+  for (let i = 0; i < piano.rientro; i++) aggiungi('fase1', i + 1, undefined, (es) => es, { modulo: 'rientro', rigaTabella: righe[i], bloccoRif: 1 });
   seq.forEach((c, i) => {
     const fase = faseDelCiclo(c);
     const cicloFase = seq.slice(0, i + 1).filter((x) => x === c).length;
-    aggiungi(fase, cicloFase, ponte && i === 0 ? 'ponte' : c, (es) => trasformaPreservazione(es, c, opz, parametri.esclusi));
+    aggiungi(fase, cicloFase, ponte && i === 0 && !piano.rientro ? 'ponte' : c, (es) => trasformaPreservazione(es, c, opz, parametri.esclusi));
   });
   const energia = profilo.obiettivoAttivo?.energia ?? ENERGIA_PER_OBIETTIVO.definizione;
   const tappe: Tappa[] = [];
-  if (conTest) tappe.push({ modulo: 'test', obiettivo: 'definizione', cicli: 1, energia });
+  if (piano.test) tappe.push({ modulo: 'test', obiettivo: 'definizione', cicli: 1, energia });
+  if (piano.rientro) tappe.push({ modulo: 'rientro', obiettivo: 'definizione', cicli: piano.rientro, energia, fase: 'fase1', bloccoRif: 1 });
   tappe.push({ modulo: 'preservazione', obiettivo: 'definizione', cicli: seq.length, energia, cicliPreservazione: seq });
   return {
     id,
     numero,
-    stato: conTest ? 'test' : 'in_corso',
+    stato: piano.test ? 'test' : 'in_corso',
     contenitore_id: settimana.contenitore.id,
     sedute,
-    test: conTest ? {} : testDalProfilo(profilo.carichi),
+    test: piano.test ? {} : testDalProfilo(profilo.carichi),
     correzioni: {},
     parametri: { ...parametri, priorita: [...parametri.priorita], esclusi: [...parametri.esclusi] },
     creato: new Date().toISOString(),
@@ -184,7 +208,10 @@ export function cambiaObiettivo(blocco: Blocco, profilo: ProfiloModulo, obiettiv
     const tentativo = nuovoBloccoIbrido(parametri, profiloConObiettivo, obiettivo.tipo, false, numero, true, obiettivo.settimane);
     nuovo = serveTest(tentativo, carichi) && !carichiRecenti(carichi) ? nuovoBloccoIbrido(parametri, profiloConObiettivo, obiettivo.tipo, true, numero, false, obiettivo.settimane) : tentativo;
   } else if (obiettivo.tipo === 'definizione') {
-    nuovo = nuovoBloccoPreservazione(parametri, profiloConObiettivo, obiettivo.settimane, !Object.keys(carichi).length, numero, true);
+    // Regola di avvio (§4.3): senza allenamento regolare o senza massimali salvati, prima 3 cicli di Fase 1.
+    const rientro = serveRientro(obiettivo, carichi);
+    const tentativo = nuovoBloccoPreservazione(parametri, profiloConObiettivo, obiettivo.settimane, false, numero, true, rientro);
+    nuovo = !Object.keys(carichi).length || (rientro && serveTest(tentativo, carichi)) ? nuovoBloccoPreservazione(parametri, profiloConObiettivo, obiettivo.settimane, true, numero, false, rientro) : tentativo;
   } else {
     const bloccoNuovo = nuovoBloccoIpertrofia(parametri, profiloConObiettivo, obiettivo.tipo, false, numero, true, obiettivo.settimane);
     nuovo = serveTest(bloccoNuovo, carichi) && !carichiRecenti(carichi) ? nuovoBloccoIpertrofia(parametri, profiloConObiettivo, obiettivo.tipo, true, numero, false, obiettivo.settimane) : bloccoNuovo;

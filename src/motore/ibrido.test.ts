@@ -206,7 +206,7 @@ describe('durata in mesi e sedute per profilo (§12c), stripping −20 %', () =>
   });
 
   it('Dimagrimento uomo: la Preservazione non conta il test, quindi un ciclo in meno per restare nei mesi; Massa, Mantenimento e profilo ibrido lo contano', () => {
-    expect(cicliPerObiettivo('definizione', 3)).toBe(12);
+    expect(cicliPerObiettivo('definizione', 3)).toBe(13); // test dentro la durata (18/11)
     expect(cicliPerObiettivo('massa', 3)).toBe(13);
     expect(cicliPerObiettivo('mantenimento', 6)).toBe(26);
     expect(cicliPerObiettivo('definizione', 3, true)).toBe(13);

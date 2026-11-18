@@ -25,6 +25,29 @@ export function sequenzaPreservazione(N: number): CicloPreservazione[] {
   return out;
 }
 
+/** Cicli di Fase 1 (Blocco 1) prima della Preservazione per chi rientra (§4.3, regola di avvio, 18/11). */
+export const CICLI_RIENTRO = 3;
+
+export interface PianoDimagrimento {
+  test: boolean;
+  /** Cicli di Fase 1 del Blocco 1 prima della Preservazione: 0 oppure CICLI_RIENTRO. */
+  rientro: number;
+  seq: CicloPreservazione[];
+}
+
+/**
+ * Piano del Dimagrimento per D cicli **totali** (test e rientro inclusi, come Massa e Mantenimento):
+ * [Test] + [3 cicli di Fase 1 del Blocco 1] + Preservazione con il resto. Esempio 13 cicli con rientro:
+ * T + F1×3 + [77,82,82,82,S,77,82,82,S]. Il rientro salta se alla Preservazione resterebbero meno di 3 cicli.
+ */
+export function pianoDimagrimento(D: number, conTest: boolean, rientro: boolean): PianoDimagrimento {
+  const tot = Math.max(1, Math.round(D));
+  const test = conTest && tot > 1;
+  const disponibili = tot - (test ? 1 : 0);
+  const r = rientro && disponibili - CICLI_RIENTRO >= 3 ? CICLI_RIENTRO : 0;
+  return { test, rientro: r, seq: sequenzaPreservazione(Math.max(1, disponibili - r)) };
+}
+
 /** Fondamentali nei cicli di lavoro: 3×5 @77 % e 3×4 @82 %, mai a cedimento, mai sotto 3 serie. */
 export const PERCENTUALI_PRESERVAZIONE: Record<77 | 82, { serie: number; rip: number; pct: number }> = {
   77: { serie: 3, rip: 5, pct: 0.77 },

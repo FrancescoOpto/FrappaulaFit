@@ -1,5 +1,5 @@
 import type { Fase, Obiettivo, OpzionePiano, SegmentoPiano, StatoEnergetico, Tappa } from '../tipi';
-import { sequenzaPreservazione } from './preservazione';
+import { pianoDimagrimento } from './preservazione';
 import { compongoPiano } from './composizione';
 import { FASI_BLOCCO } from '../data/tabelle';
 
@@ -92,6 +92,8 @@ export interface RichiestaPiano {
   energia?: StatoEnergetico;
   /** Mantenimento: blocco di riferimento di partenza (1 default, 2 alternativa). */
   bloccoBase?: 1 | 2;
+  /** Dimagrimento: prima 3 cicli di Fase 1 del Blocco 1 (regola di avvio, §4.3). */
+  rientro?: boolean;
 }
 
 /** Tappe di un piano composto (§6b): una per segmento, con fase e blocco di riferimento. */
@@ -128,18 +130,26 @@ export function proponiPiano(r: RichiestaPiano): OpzionePiano[] {
   const energia = r.energia ?? ENERGIA_PER_OBIETTIVO[r.obiettivo];
   const conTest = !r.carichiRecenti;
   if (r.obiettivo === 'definizione') {
-    const cicli = Math.max(1, Math.round(r.settimane));
-    const seq = sequenzaPreservazione(cicli);
+    // Durata totale con test e rientro dentro, come Massa e Mantenimento (§4.3, 18/11).
+    const D = Math.max(1, Math.round(r.settimane));
+    const pd = pianoDimagrimento(D, conTest, !!r.rientro);
+    const seq = pd.seq;
+    const cicli = seq.length;
+    const scarichi = seq.filter((c) => c === 'S').length;
     const tappe: Tappa[] = [];
-    if (conTest) tappe.push({ modulo: 'test', obiettivo: r.obiettivo, cicli: 1, energia });
-    tappe.push({ modulo: 'preservazione', obiettivo: r.obiettivo, cicli, energia, cicliPreservazione: seq, perche: 'In deficit l\u2019allenamento mantiene il muscolo: fondamentali al 77–82 % mai a cedimento, stesse serie del blocco, niente tecniche.' });
+    if (pd.test) tappe.push({ modulo: 'test', obiettivo: r.obiettivo, cicli: 1, energia });
+    if (pd.rientro) tappe.push({ modulo: 'rientro', obiettivo: r.obiettivo, cicli: pd.rientro, energia, fase: 'fase1', bloccoRif: 1, perche: 'Fase 1 del Blocco 1: serie da 8–10 a carichi moderati per riprendere tecnica e carichi.' });
+    tappe.push({ modulo: 'preservazione', obiettivo: r.obiettivo, cicli, energia, cicliPreservazione: seq, perche: 'In deficit l’allenamento mantiene il muscolo: fondamentali al 77–82 % mai a cedimento, stesse serie del blocco, niente tecniche.' });
+    const avvio = pd.rientro
+      ? `Prima ${pd.test ? 'il test e ' : ''}${pd.rientro} settimane di Fase 1 del Blocco 1, perché ${r.carichiRecenti ? 'non ti alleni con regolarità da almeno un mese o mancano i massimali' : 'non ti alleni con regolarità da almeno un mese'}: così i carichi al 77–82 % partono da un massimale vero. Poi il Dimagrimento sugli stessi esercizi.`
+      : pd.test ? 'Prima una settimana di test, perché mancano i carichi; ti alleni con regolarità, quindi poi subito il Dimagrimento.' : 'Ti alleni con regolarità e hai i massimali salvati: si parte subito, con i carichi del profilo.';
     return [{
       id: 'preservazione',
-      titolo: `Preservazione · ${cicli} ${cicli === 1 ? 'ciclo' : 'cicli'}${conTest ? ' + test' : ''}`,
-      settimane: cicli + (conTest ? 1 : 0),
+      titolo: `Preservazione · ${cicli} ${cicli === 1 ? 'ciclo' : 'cicli'}${pd.rientro ? ' + rientro' : ''}${pd.test ? ' + test' : ''}`,
+      settimane: D,
       blocchi: [],
       nostraScelta: true,
-      perche: cicli < 3 ? 'Meno di 3 cicli non valgono la pena: allunga a 4 settimane o più.' : `${seq.filter((c) => c === 'S').length} ${seq.filter((c) => c === 'S').length === 1 ? 'ciclo di scarico' : 'cicli di scarico'}: uno ogni 4 di lavoro e sempre in chiusura. ${conTest ? 'Prima una settimana di test, perché mancano i carichi.' : 'Nessun nuovo test: si usano i carichi del profilo.'}`,
+      perche: cicli < 3 ? 'Meno di 3 cicli non valgono la pena: allunga a 4 settimane o più.' : `${avvio} ${scarichi} ${scarichi === 1 ? 'ciclo di scarico' : 'cicli di scarico'}: uno ogni 4 di lavoro e sempre in chiusura.`,
       tappe,
     }];
   }
@@ -206,12 +216,11 @@ export function cicliDaMesi(mesi: number): number {
 }
 
 /**
- * Durata da salvare nell'obiettivo: i piani di Massa e Mantenimento (e il profilo ibrido) contano il Test nei cicli;
- * la Preservazione no, quindi in Dimagrimento si toglie il ciclo di test per restare nei mesi scelti.
+ * Durata da salvare nell'obiettivo: tutti i piani contano test (e, nel Dimagrimento, il rientro) dentro i cicli,
+ * quindi 3 mesi = 13 cicli qualunque sia l'obiettivo (§4.3, 18/11; prima il Dimagrimento toglieva il ciclo di test).
  */
-export function cicliPerObiettivo(tipo: Obiettivo, mesi: number, ibrido = false): number {
-  const D = cicliDaMesi(mesi);
-  return tipo === 'definizione' && !ibrido ? Math.max(1, D - 1) : D;
+export function cicliPerObiettivo(_tipo: Obiettivo, mesi: number, _ibrido = false): number {
+  return cicliDaMesi(mesi);
 }
 
 /** Mesi più vicini a una durata in cicli (per i profili creati prima di §12c). */

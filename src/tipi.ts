@@ -91,6 +91,8 @@ export interface ObiettivoAttivo {
   kgTarget?: number;
   resistenza?: boolean;
   preferisciMacchine?: boolean;
+  /** Dimagrimento: si allena con regolarità da almeno 1 mese (regola di avvio, §4.3). Assente = sì. */
+  regolare?: boolean;
   /** Calorie e macro sovrascritte dall'utente (altrimenti si calcolano). */
   kcalTarget?: number;
   macro?: { p: number; g: number; c: number };

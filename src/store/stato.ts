@@ -29,7 +29,7 @@ import { progressioneCircuito, ridistribuisciGiri } from '../motore/circuito';
 import { arrotonda, stimaMassimale } from '../motore/carichi';
 import { nuovoCaricoCorrente } from '../motore/correnti';
 import { valutaRicalcolo } from '../motore/ricalcolo';
-import { cambiaObiettivo as cambiaObiettivoPuro, carichiRecenti, eIbrido, nuovoBloccoIbrido, nuovoBloccoIpertrofia, nuovoBloccoPreservazione, parametriPerObiettivo, serveTest } from '../motore/moduli';
+import { cambiaObiettivo as cambiaObiettivoPuro, carichiRecenti, eIbrido, nuovoBloccoIbrido, nuovoBloccoIpertrofia, nuovoBloccoPreservazione, parametriPerObiettivo, serveRientro, serveTest } from '../motore/moduli';
 import { ENERGIA_PER_OBIETTIVO } from '../motore/pianificatore';
 import { ESERCIZI_PER_ID } from '../data/esercizi';
 
@@ -110,11 +110,12 @@ export async function azzeraTutto(): Promise<void> {
 // ---------- Profilo e blocco ----------
 
 /** Blocco iniziale per l'obiettivo attivo (SPEC_PIANIFICATORE §4): massa/mantenimento con test, dimagrimento = test + Preservazione. */
-function bloccoPerObiettivo(p: Profilo, numero: number, conTest: boolean, ponte = false): Blocco {
+function bloccoPerObiettivo(p: Profilo, numero: number, conTest: boolean, ponte = false, primoAvvio = false): Blocco {
   const ob = p.obiettivoAttivo;
   // Profilo donna a sedute ibride (§12b): Dimagrimento oppure Mantenimento e costruzione, stessa struttura.
   if (eIbrido(p.parametri)) return nuovoBloccoIbrido(p.parametri, p, ob?.tipo ?? 'mantenimento', conTest, numero, ponte, ob?.settimane);
-  if (ob?.tipo === 'definizione') return nuovoBloccoPreservazione(p.parametri, p, ob.settimane, conTest, numero, ponte);
+  // Regola di avvio (§4.3): senza allenamento regolare (o senza massimali salvati) prima 3 cicli di Fase 1 del Blocco 1.
+  if (ob?.tipo === 'definizione') return nuovoBloccoPreservazione(p.parametri, p, ob.settimane, conTest, numero, ponte, serveRientro(ob, p.carichi, primoAvvio));
   // Massa e Mantenimento: piano su misura per la durata richiesta (SPEC_PIANIFICATORE v2 §6b).
   if (ob?.tipo === 'mantenimento') return nuovoBloccoIpertrofia(p.parametri, p, 'mantenimento', conTest, numero, ponte, ob.settimane);
   return nuovoBloccoIpertrofia(p.parametri, p, 'massa', conTest, numero, ponte, ob?.settimane);
@@ -144,7 +145,7 @@ export async function creaProfilo(nome: string, sesso: 'M' | 'F', parametri: Par
     datiCorporei,
     carichi: {},
   };
-  const b = bloccoPerObiettivo(p, 1, true);
+  const b = bloccoPerObiettivo(p, 1, true, false, true);
   await aggiorna({ profilo: p, blocco: b }, ['profilo', 'blocco']);
 }
 

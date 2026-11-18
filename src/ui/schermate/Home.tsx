@@ -35,7 +35,9 @@ function gruppiSeduta(s: Seduta): string {
 /** Griglia dei cicli: una riga per ciclo, una cella per seduta (§11c punto 4). */
 function GrigliaCicli({ sedute, prossimaId, cicloCorrente, soloCorrente }: { sedute: Seduta[]; prossimaId?: string; cicloCorrente?: number; soloCorrente: boolean }) {
   const cicli = [...new Set(sedute.map((s) => s.ciclo))].sort((a, b) => a - b);
-  const lavoro = cicli.filter((c) => sedute.find((s) => s.ciclo === c)?.fase !== 'test');
+  // Rientro del Dimagrimento (§4.3): i 3 cicli di Fase 1 si contano a parte ("R1–R3"), la Preservazione riparte da C1.
+  const rientro = cicli.filter((c) => sedute.find((s) => s.ciclo === c)?.modulo === 'rientro');
+  const lavoro = cicli.filter((c) => sedute.find((s) => s.ciclo === c)?.fase !== 'test' && !rientro.includes(c));
   const righe = soloCorrente ? cicli.filter((c) => c === cicloCorrente) : cicli;
   return (
     <div class="griglia-cicli">
@@ -43,7 +45,7 @@ function GrigliaCicli({ sedute, prossimaId, cicloCorrente, soloCorrente }: { sed
         const del = sedute.filter((s) => s.ciclo === c);
         const test = del[0].fase === 'test';
         const scarico = del[0].fase === 'scarico';
-        const etichetta = test ? 'Test' : scarico ? 'Scar.' : `C${lavoro.indexOf(c) + 1}`;
+        const etichetta = test ? 'Test' : scarico ? 'Scar.' : rientro.includes(c) ? `R${rientro.indexOf(c) + 1}` : `C${lavoro.indexOf(c) + 1}`;
         return (
           <div class={`riga-ciclo ${c === cicloCorrente ? 'corrente' : ''}`}>
             <span class="etichetta-ciclo">{etichetta}</span>

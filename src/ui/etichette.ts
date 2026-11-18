@@ -22,7 +22,7 @@ export function cicliLavoro(b: Pick<Blocco, 'sedute'>): number[] {
   return [...new Set(b.sedute.filter((s) => s.fase !== 'test').map((s) => s.ciclo))].sort((x, y) => x - y);
 }
 
-export function infoCiclo(b: Pick<Blocco, 'sedute' | 'numero' | 'modulo'> & Partial<Pick<Blocco, 'parametri'>>, s: Pick<Seduta, 'fase' | 'ciclo' | 'cicloFase' | 'cicloTipo' | 'bloccoRif'>): InfoCiclo {
+export function infoCiclo(b: Pick<Blocco, 'sedute' | 'numero' | 'modulo'> & Partial<Pick<Blocco, 'parametri'>>, s: Pick<Seduta, 'fase' | 'ciclo' | 'cicloFase' | 'cicloTipo' | 'bloccoRif'> & Partial<Pick<Seduta, 'modulo'>>): InfoCiclo {
   const lavoro = cicliLavoro(b);
   const cicloN = lavoro.length;
   const cicloK = Math.max(1, lavoro.indexOf(s.ciclo) + 1);
@@ -37,6 +37,22 @@ export function infoCiclo(b: Pick<Blocco, 'sedute' | 'numero' | 'modulo'> & Part
     return { eyebrow, titolo, testata: `${nome} · ${titolo}`, cicloK, cicloN };
   }
   if (b.modulo === 'preservazione') {
+    // Rientro (§4.3): 3 cicli di Fase 1 del Blocco 1 prima della Preservazione, contati a parte.
+    const rientro = b.sedute.filter((x) => x.modulo === 'rientro');
+    if (s.modulo === 'rientro') {
+      const nR = new Set(rientro.map((x) => x.ciclo)).size;
+      const titolo = `Fase 1 · Ciclo ${s.cicloFase} di ${nR}`;
+      return { eyebrow: 'RIENTRO · BLOCCO 1', titolo, testata: `Rientro · ${titolo}`, cicloK: s.cicloFase, cicloN: nR };
+    }
+    if (rientro.length) {
+      const cicliR = new Set(rientro.map((x) => x.ciclo));
+      const lavoroP = lavoro.filter((c) => !cicliR.has(c));
+      const k = Math.max(1, lavoroP.indexOf(s.ciclo) + 1);
+      const eyebrowP = NOMI_MODULO.preservazione.toUpperCase();
+      if (s.fase === 'test') return { eyebrow: eyebrowP, titolo: 'Test', testata: `${NOMI_MODULO.preservazione} · Test`, cicloK: 0, cicloN: lavoroP.length };
+      const titoloP = s.fase === 'scarico' ? `Scarico · Ciclo ${k} di ${lavoroP.length}` : `Ciclo ${k} di ${lavoroP.length}${ponte}`;
+      return { eyebrow: eyebrowP, titolo: titoloP, testata: `${NOMI_MODULO.preservazione} · ${titoloP}`, cicloK: k, cicloN: lavoroP.length };
+    }
     const eyebrow = NOMI_MODULO.preservazione.toUpperCase();
     if (s.fase === 'test') return { eyebrow, titolo: 'Test', testata: `${NOMI_MODULO.preservazione} · Test`, cicloK: 0, cicloN };
     const titolo = s.fase === 'scarico' ? `Scarico · Ciclo ${cicloK} di ${cicloN}` : `Ciclo ${cicloK} di ${cicloN}${ponte}`;
